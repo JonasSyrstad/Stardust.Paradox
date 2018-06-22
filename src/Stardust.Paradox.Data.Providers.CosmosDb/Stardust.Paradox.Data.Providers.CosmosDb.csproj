@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>1.0.0.0-pre003</Version>
+    <Authors>Stardust</Authors>
+    <Company>Stardust</Company>
+    <Product>Stardust.Paradox.Data</Product>
+    <Copyright>Copyright Stardust ©  2018</Copyright>
+    <PackageLicenseUrl>http://stardustframework.com/license</PackageLicenseUrl>
+    <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
+    <RepositoryType>GIT</RepositoryType>
+    <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
+    <Description>Connector for CosmosDb</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Azure.DocumentDB" Version="1.20.1" />
+    <PackageReference Include="Microsoft.Azure.Graphs" Version="0.3.1-preview" />
+    <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
+  </ItemGroup>
+
+</Project>
