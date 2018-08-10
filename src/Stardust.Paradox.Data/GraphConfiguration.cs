@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Reflection;
-using Stardust.Nucleus;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Internals;
 
@@ -43,7 +42,8 @@ namespace Stardust.Paradox.Data
         private void GenerateObservable(Type type, string label)
         {
             var implementation = CodeGenerator.MakeDataEntity(type, label);
-            Resolver.GetConfigurator().Bind(type).To(implementation).SetTransientScope();
+            DependencyResolverAdapter.AddEntity(type, implementation);
+            //Resolver.GetConfigurator().Bind(type).To(implementation).SetTransientScope();
             GraphJsonConverter.AddPair(type, implementation);
         }
     }

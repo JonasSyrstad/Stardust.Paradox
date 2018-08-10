@@ -5,8 +5,8 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
-using Stardust.Nucleus;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Paradox.Data.Traversals;
@@ -19,15 +19,14 @@ namespace Stardust.Paradox.Data
     {
 
         private readonly IGremlinLanguageConnector _connector;
-        private readonly IDependencyResolver _resolver;
+        private readonly IServiceProvider _resolver;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static bool _initialized;
-        private static IConfigurator _configurator;
         private static readonly object lockObject = new object();
         private ConcurrentDictionary<string, GraphDataEntity> _trackedEntities = new ConcurrentDictionary<string, GraphDataEntity>();
 
 
-        protected GraphContextBase(IGremlinLanguageConnector connector, IDependencyResolver resolver)
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider resolver)
         {
             _connector = connector;
             _resolver = resolver;
@@ -64,9 +63,18 @@ namespace Stardust.Paradox.Data
         /// <returns>true if overridden</returns>
         protected abstract bool InitializeModel(IGraphConfiguration configuration);
 
+        private T Create<T>()
+        {
+            var t = ActivatorUtilities.CreateInstance(_resolver, GraphJsonConverter.GetImplementationType(typeof(T)));
+            if (t != null) return (T)t;
+            return default(T);
+        }
+
         public T CreateEntity<T>(string id) where T : IVertex
         {
-            var item = _resolver.GetService<T>();
+
+
+            var item =Create<T>();
             var i = item as GraphDataEntity;
             i._entityKey = id;
             i.Reset(true);
@@ -135,7 +143,7 @@ namespace Stardust.Paradox.Data
 
         private async Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IVertex
         {
-            var item = _resolver.GetService<T>();
+            var item = Create<T>();
             var i = item as GraphDataEntity;
             i._entityKey = d.id;
 
@@ -153,7 +161,7 @@ namespace Stardust.Paradox.Data
 
         public T MakeInstance<T>(dynamic d) where T : IVertex
         {
-            var item = _resolver.GetService<T>();
+            var item = Create<T>();
             var i = item as GraphDataEntity;
             i._entityKey = d.id;
 
@@ -177,6 +185,16 @@ namespace Stardust.Paradox.Data
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
                     await _connector.ExecuteAsync(graphDataEntity.Value.GetUpdateStatement());
+                    foreach (var edges in graphDataEntity.Value.GetEdges())
+                    {
+                        await edges.SaveChangesAsync();
+                    }
+                    if (graphDataEntity.Value.IsDeleted)
+                        deleted.Add(graphDataEntity.Value);
+
+                }
+                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
+                {
                     foreach (var edges in graphDataEntity.Value.GetEdges())
                     {
                         await edges.SaveChangesAsync();

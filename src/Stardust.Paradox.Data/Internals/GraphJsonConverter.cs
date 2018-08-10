@@ -25,6 +25,10 @@ namespace Stardust.Paradox.Data.Internals
             throw new NotSupportedException(string.Format("Type {0} unexpected.", objectType));
         }
 
+        internal static Type GetImplementationType(Type entityType)
+        {
+            return _interfaceClassPairs.TryGetValue(entityType, out var t) ? t : null;
+        }
         public override void WriteJson(JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer)
         {
             serializer.Serialize(writer, value);

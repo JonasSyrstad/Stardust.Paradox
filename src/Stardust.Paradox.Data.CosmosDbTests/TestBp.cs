@@ -10,7 +10,12 @@ namespace Stardust.Paradox.CosmosDbTest
     {
         public void Bind(IConfigurator configuration)
         {
-            configuration.Bind<IGremlinLanguageConnector>().To<Class1>().SetTransientScope();
+            configuration.AddEntityBinding((type, type1) =>
+                {
+                    configuration.Bind(type).To(type1).SetTransientScope();
+                    
+                })
+                .Bind<IGremlinLanguageConnector>().To<Class1>().SetTransientScope();
         }
 
         public Type LoggingType => typeof(LoggingDefaultImplementation);

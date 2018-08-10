@@ -18,6 +18,10 @@ namespace Stardust.Paradox.Data
 
         Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue, int page, int pageSize = 20);
 
+
+        Task<IEnumerable<T>> AllAsync();
+
+        Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20);
         /// <summary>
         /// Creates a new item with a Guid as id
         /// </summary>

@@ -24,13 +24,23 @@ namespace Stardust.Paradox.Data.Internals
         public async Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue)
         {
             var propertyName = QueryFuncExt.GetInfo(byProperty).ToCamelCase();
-            return await _context.VAsync<T>(g =>g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue));
         }
 
         public async Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue, int page, int pageSize = 20)
         {
             var propertyName = QueryFuncExt.GetInfo(byProperty).ToCamelCase();
             return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue).Range(page * pageSize, (page * pageSize) + pageSize));
+        }
+
+        public async Task<IEnumerable<T>> AllAsync()
+        {
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]));
+        }
+
+        public async Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20)
+        {
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize));
         }
 
         public T Create()
@@ -77,7 +87,7 @@ namespace Stardust.Paradox.Data.Internals
         public async Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20)
         {
             if (pageSize <= 0) pageSize = 20;
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) +pageSize));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize));
         }
     }
 }
