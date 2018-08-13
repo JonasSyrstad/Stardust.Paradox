@@ -351,7 +351,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
         protected override bool InitializeModel(IGraphConfiguration configuration)
         {
-            configuration.AddCollection<IProfile>()
+            configuration.AddCollection<IProfile>().AddEdge(t => t.Parents, "parent").Reverse<IProfile>(t => t.Children)
             .AddCollection<ICompany>();
             return true;
         }
