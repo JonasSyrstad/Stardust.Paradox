@@ -21,7 +21,18 @@ namespace Stardust.Paradox.Data
         private readonly IGremlinLanguageConnector _connector;
         private readonly IServiceProvider _resolver;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
-        private static bool _initialized;
+        private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
+
+        private bool Initialized
+        {
+            get
+            {
+                InitializationState.TryGetValue(GetType().FullName, out var r);
+                return r;
+            }
+            set => InitializationState.AddOrUpdate(GetType().FullName, value);
+        }
+
         private static readonly object lockObject = new object();
         private ConcurrentDictionary<string, GraphDataEntity> _trackedEntities = new ConcurrentDictionary<string, GraphDataEntity>();
 
@@ -30,18 +41,28 @@ namespace Stardust.Paradox.Data
         {
             _connector = connector;
             _resolver = resolver;
-            if (_initialized) return;
+            if (Initialized) return;
             lock (lockObject)
             {
-                if (_initialized) return;
+                if (Initialized) return;
                 BuildModel();
-                _initialized = true;
+                Initialized = true;
             }
         }
 
         private void BuildModel()
         {
             InitializeModel(new GraphConfiguration(this));
+            SeedAsync().Wait();
+        }
+
+        /// <summary>
+        /// Note that this may cause deadlock in .net framework, but is safe in .net core
+        /// </summary>
+        /// <returns></returns>
+        protected virtual Task SeedAsync()
+        {
+            return Task.CompletedTask;
         }
 
         public void Delete<T>(T toBeDeleted) where T : IVertex
@@ -74,7 +95,7 @@ namespace Stardust.Paradox.Data
         {
 
 
-            var item =Create<T>();
+            var item = Create<T>();
             var i = item as GraphDataEntity;
             i._entityKey = id;
             i.Reset(true);

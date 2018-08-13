@@ -50,10 +50,10 @@ namespace Stardust.Paradox.CosmosDbTest
 
         DateTime LastUpdated { get; set; }
 
-        [EdgeLabel("parent")]
+        //[EdgeLabel("parent")]
         ICollection<IProfile> Parents { get; }
 
-        [ReverseEdgeLabel("parent")]
+        //[ReverseEdgeLabel("parent")]
         IEdgeCollection<IProfile> Children { get; }
 
         [ToWayEdgeLabel("spouce")]

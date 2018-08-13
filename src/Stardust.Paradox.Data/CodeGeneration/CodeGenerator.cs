@@ -12,8 +12,34 @@ namespace Stardust.Paradox.Data.CodeGeneration
 {
     internal class CodeGenerator
     {
+        internal static Dictionary<Type,Dictionary<MemberInfo,FluentConfig>> _FluentConfig=new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
+
         private static AssemblyBuilder _builder;
         private static ModuleBuilder _moduleBuilder;
+
+        private static string EdgeLabel(Type entityType, MemberInfo member)
+        {
+            var def = GetMemberBinding(entityType,member);
+            return def?.EdgeLabel;
+        }
+
+        private static string EdgeReverseLabel(Type entityType, MemberInfo member)
+        {
+            var def = GetMemberBinding(entityType,member);
+            return def?.ReverseEdgeLabel;
+        }
+
+        private static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
+        {
+            Dictionary<MemberInfo, FluentConfig> t;
+            FluentConfig def = null;
+            if (_FluentConfig.TryGetValue(entityType, out t))
+            {
+                t.TryGetValue(member, out def);
+            }
+
+            return def;
+        }
 
         public static Type MakeDataEntity(Type entity, string label)
         {
@@ -45,7 +71,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     }
                     else
                     {
-                        AddEdge(prop, typeBuilder);
+                        AddEdge(entity,prop, typeBuilder);
                         if (eager != null)
                             eagerProperties.Add(prop.Name);
                     }
@@ -79,10 +105,10 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 new object[] { DefaultValueHandling.Include }));
         }
 
-        private static void AddEdge(PropertyInfo prop, TypeBuilder typeBuilder)
+        private static void AddEdge(Type entity, PropertyInfo prop, TypeBuilder typeBuilder)
         {
-            var edgeLabel = prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var edgeLabel = EdgeLabel(entity,prop)?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var gremlinQuery = prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             if (towayEdgeLabel != null)
