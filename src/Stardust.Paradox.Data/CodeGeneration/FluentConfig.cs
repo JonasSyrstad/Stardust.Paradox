@@ -9,5 +9,6 @@
         public string Query { get; set; }
 
         public bool Inline { get; set; }
+        public SerializationType Serialization { get; set; }
     }
 }
