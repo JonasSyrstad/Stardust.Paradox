@@ -7,7 +7,7 @@ namespace Stardust.Paradox.Data
     public interface IGraphConfiguration<T> : IGraphConfiguration where T : IVertex
     {
         IEdgeConfiguration<T> AddEdge<TEdgeProperty>(Expression<Func<T, TEdgeProperty>> inPropertyLambda, string label);
-        IGraphConfiguration<T> AddInline<TEdgeProperty>(Expression<Func<T, TEdgeProperty>> inPropertyLambda);
+        IGraphConfiguration<T> AddInline<TEdgeProperty>(Expression<Func<T, TEdgeProperty>> inPropertyLambda,string query, SerializationType serialization);
     }
 
     public interface IEdgeConfiguration<T> where T:IVertex

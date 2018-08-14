@@ -29,6 +29,18 @@ namespace Stardust.Paradox.Data.CodeGeneration
             return def?.ReverseEdgeLabel;
         }
 
+        private static string InlineQuery(Type entityType, MemberInfo member)
+        {
+            var def = GetMemberBinding(entityType, member);
+            return def?.Query;
+        }
+
+        private static InlineSerializationAttribute Serialization(Type entityType, MemberInfo member)
+        {
+            var def = GetMemberBinding(entityType, member);
+            return new InlineSerializationAttribute(def.Serialization);
+        }
+
         private static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
         {
             Dictionary<MemberInfo, FluentConfig> t;
@@ -60,12 +72,12 @@ namespace Stardust.Paradox.Data.CodeGeneration
             foreach (var prop in dataContract.GetProperties())
             {
                 var eager = prop.GetCustomAttribute<EagerAttribute>();
-                var serialization = prop.GetCustomAttribute<InlineSerializationAttribute>();
+                var serialization = Serialization(entity,prop)??prop.GetCustomAttribute<InlineSerializationAttribute>();
                 if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
                 {
                     if (serialization != null)
                     {
-                        AddInline(prop, typeBuilder, serialization);
+                        AddInline(prop, typeBuilder, serialization,entity);
                         InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}", serialization?.Type ?? SerializationType.ClearText);
 
                     }
@@ -78,7 +90,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 }
                 else if (typeof(IEdgeReference).IsAssignableFrom(prop.PropertyType))
                 {
-                    AddEdgeRef(prop, typeBuilder);
+                    AddEdgeRef(prop, typeBuilder,entity);
                     if (eager != null)
                         eagerProperties.Add(prop.Name);
                 }
@@ -128,11 +140,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     new object[] { edgeLabel }));
         }
 
-        private static void AddInline(PropertyInfo prop, TypeBuilder typeBuilder, InlineSerializationAttribute serialization)
+        private static void AddInline(PropertyInfo prop, TypeBuilder typeBuilder, InlineSerializationAttribute serialization, Type entity)
         {
-            var edgeLabel = prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
-            var gremlinQuery = prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
+            var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
@@ -149,10 +161,10 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 new object[] { serialization.Type }));
         }
 
-        private static void AddEdgeRef(PropertyInfo prop, TypeBuilder typeBuilder)
+        private static void AddEdgeRef(PropertyInfo prop, TypeBuilder typeBuilder, Type entity)
         {
-            var edgeLabel = prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             var gremlinQuery = prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             if (towayEdgeLabel != null)

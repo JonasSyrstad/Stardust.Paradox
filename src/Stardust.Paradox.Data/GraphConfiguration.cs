@@ -26,13 +26,13 @@ namespace Stardust.Paradox.Data
             Dictionary<MemberInfo, FluentConfig> t;
             if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out t))
             {
-                t=new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T),t);
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(T), t);
             }
 
             FluentConfig def;
-            if(t.TryGetValue(prop.Member,out def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name,"binding is already added");
-            t.Add(prop.Member,new FluentConfig
+            if (t.TryGetValue(prop.Member, out def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
             {
                 EdgeLabel = label
 
@@ -40,14 +40,31 @@ namespace Stardust.Paradox.Data
             return new GraphConfiguration<T>(_context, label);
         }
 
-        public IGraphConfiguration<T> AddInline<TEdgeProperty>(Expression<Func<T, TEdgeProperty>> inPropertyLambda)
+        public IGraphConfiguration<T> AddInline<TEdgeProperty>(Expression<Func<T, TEdgeProperty>> inPropertyLambda,
+            string query, SerializationType serialization)
         {
-            throw new NotImplementedException();
+            var prop = inPropertyLambda.Body as MemberExpression;
+            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            {
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(T), t);
+            }
+
+            FluentConfig def;
+            if (t.TryGetValue(prop.Member, out def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
+            {
+                Query = query,
+                Inline = true,
+                Serialization = serialization
+
+            });
+            return this;
         }
 
         public IGraphConfiguration<T> Reverse<TReverse>(Expression<Func<TReverse, object>> inPropertyLambda)
         {
-            if(_label.IsNullOrWhiteSpace()) throw new NullReferenceException("No edge label is defined");
+            if (_label.IsNullOrWhiteSpace()) throw new NullReferenceException("No edge label is defined");
             var prop = inPropertyLambda.Body as MemberExpression;
             Dictionary<MemberInfo, FluentConfig> t;
             if (!CodeGenerator._FluentConfig.TryGetValue(typeof(TReverse), out t))
@@ -67,7 +84,7 @@ namespace Stardust.Paradox.Data
         }
 
 
-        
+
     }
     internal class GraphConfiguration : IGraphConfiguration
     {
