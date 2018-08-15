@@ -14,8 +14,8 @@ namespace Stardust.Paradox.Data
     /// </summary>
     public interface IGremlinLanguageConnector
     {
-        IEnumerable<T> Execute<T>(string query);
-        Task<IEnumerable<T>> ExecuteAsync<T>(string query);
-        Task<IEnumerable<dynamic>> ExecuteAsync(string compileQuery);
+        //IEnumerable<T> Execute<T>(string query);
+        //Task<IEnumerable<T>> ExecuteAsync<T>(string query);
+        Task<IEnumerable<dynamic>> ExecuteAsync(string query);
     }
 }

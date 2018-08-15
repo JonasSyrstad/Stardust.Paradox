@@ -22,6 +22,8 @@ namespace Stardust.Paradox.Data.Internals
         private readonly ConcurrentDictionary<string, IInlineCollection> _inlineCollections = new ConcurrentDictionary<string, IInlineCollection>();
         private readonly ConcurrentDictionary<string, IEdgeCollection> _edges = new ConcurrentDictionary<string, IEdgeCollection>();
         internal static ConcurrentDictionary<string, List<string>> _eagerLodedProperties = new ConcurrentDictionary<string, List<string>>();
+        internal bool _eagerLoding;
+
         protected IEdgeCollection<TOut> GetEdgeCollection<TOut>(string edgeLabel, string reverseLabel, string gremlinQuery) where TOut : IVertex
         {
             if (reverseLabel == "") reverseLabel = null;
@@ -66,6 +68,7 @@ namespace Stardust.Paradox.Data.Internals
 
         protected internal void Reset(bool isNew)
         {
+
             IsNew = isNew;
             IsDeleted = false;
             gremlinUpdateStatement = "";
@@ -140,6 +143,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task Eager(bool doEagerLoad)
         {
+            if (!doEagerLoad) return;
             var eagerTasks = new List<Task>();
             if (_eagerLodedProperties.TryGetValue(GetType().FullName, out var propsToLoad))
             {

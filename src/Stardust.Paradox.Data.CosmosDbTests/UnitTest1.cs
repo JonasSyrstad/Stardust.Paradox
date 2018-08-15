@@ -7,6 +7,7 @@ using Newtonsoft.Json;
 using Stardust.Nucleus;
 using Stardust.Nucleus.TypeResolver;
 using Stardust.Paradox.Data;
+using Stardust.Paradox.Data.Providers.Gremlin;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Paradox.Data.Traversals.Helpers;
 using Stardust.Particles;
@@ -55,7 +56,7 @@ namespace Stardust.Paradox.CosmosDbTest
             var dnvgl = CreateCompany(tc, "DNVGL", "dnvgl.com", "kema.com");
             var gss = CreateCompany(tc, "GSS");
             var gssIt = CreateCompany(tc, "GSSIT");
-            await tc.SaveChangesAsync();
+            //await tc.SaveChangesAsync();
             dnvgl.Divisions.Add(gss);
             gss.Divisions.Add(gssIt);
             await tor.Spouce.SetVertexAsync(rita);
@@ -63,7 +64,7 @@ namespace Stardust.Paradox.CosmosDbTest
             jonas.Parents.Add(tor);
             jonas.Parents.Add(rita);
             jonas.Employers.Add(gssIt);
-            await jonas.Spouce.SetVertexAsync(kine);
+            //await jonas.Spouce.SetVertexAsync(kine);
             sanne.Parents.Add(jonas);
             sanne.Parents.Add(kine);
             herman.Parents.Add(jonas);
@@ -90,7 +91,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
                 }.RegisterGraphSerializer();
             };
-            var tc = new TestContext(new Class1());
+            //var tc = new TestContext(new Class1());
+            var tc = new TestContext(new GremlinNetLanguageConnector("jonas-graphtest.gremlin.cosmosdb.azure.com", "graphTest", "services", "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A=="));
             tc.SavingChanges += (sender, args) => { _output.WriteLine($"saving changes with {args.TrackedItems.Count()} tracked items"); };
             tc.ChangesSaved += (sender, args) => { _output.WriteLine($"saved changes with {args.TrackedItems.Count()} tracked items"); };
             tc.SaveChangesError += (sender, args) => { _output.WriteLine($"saving changes failed with message: {args.Error.Message}"); };
@@ -157,17 +159,24 @@ namespace Stardust.Paradox.CosmosDbTest
 
             _output.WriteLine("First child's parents");
             _output.WriteLine(JsonConvert.SerializeObject(await children.First().Parents.ToVerticesAsync()));
-
-            _output.WriteLine("First child's siblings");
-            _output.WriteLine(JsonConvert.SerializeObject(await children.First().Siblings.ToVerticesAsync()));
+            _output.WriteLine("Childs siblings (fluent)");
+            var firstChild = children.First(c=>c.Name=="Sanne");
+            var siblings2 = await firstChild.AllSiblings.ToVerticesAsync();
+            _output.WriteLine(JsonConvert.SerializeObject(siblings2));
+            Assert.Equal(4, siblings2.Count());
+            _output.WriteLine("Child's siblings (attribute)");
+            var siblings = await firstChild.Siblings.ToVerticesAsync();
+            Assert.Equal(3, siblings.Count());
+            _output.WriteLine(JsonConvert.SerializeObject(siblings));
 
             _output.WriteLine("Spouce");
             _output.WriteLine(JsonConvert.SerializeObject(jonas.Spouce));
             var serializedJ = JsonConvert.SerializeObject(jonas);
-            var deserializedJ = JsonConvert.DeserializeObject<IProfile>(serializedJ);
-            Assert.NotNull(deserializedJ);
-            _output.WriteLine("Serialization");
-            _output.WriteLine(JsonConvert.SerializeObject(deserializedJ));
+            _output.WriteLine(serializedJ);
+            //var deserializedJ = JsonConvert.DeserializeObject<IProfile>(serializedJ);
+            //Assert.NotNull(deserializedJ);
+            //_output.WriteLine("Serialization");
+            //_output.WriteLine(JsonConvert.SerializeObject(deserializedJ));
 
             var gssit = (await jonas.Employers.ToVerticesAsync()).First();
             var dnvgl = await gssit.Group.ToVertexAsync();
@@ -262,12 +271,11 @@ namespace Stardust.Paradox.CosmosDbTest
             _output.WriteLine(JsonConvert.SerializeObject(result));
         }
 
-        private GremlinQuery SiblingQuery(GremlinContext g)
+        public static GremlinQuery SiblingQuery(GremlinContext g)
         {
             var q = g.V().Has("name", "Sanne").As("s") //find start
                 .In("parent").Out("parent") //navigate to siblings
                 .Where(p => p.Without("s")).Dedup();
-            _output.WriteLine(q.CompileQuery());
             return q;
         }
 
@@ -349,10 +357,19 @@ namespace Stardust.Paradox.CosmosDbTest
         {
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            ServiceProvider.TryDispose();
+        }
+
         protected override bool InitializeModel(IGraphConfiguration configuration)
         {
-            configuration.AddCollection<IProfile>().AddEdge(t => t.Parents, "parent").Reverse<IProfile>(t => t.Children)
-            .AddCollection<ICompany>();
+            configuration.ConfigureCollection<IProfile>()
+                .AddEdge(t => t.Parents, "parent").Reverse<IProfile>(t => t.Children)
+                .AddQuery(t => t.AllSiblings, g => g.V("{id}").As("s").In("parent").Out("parent").Dedup())
+            .ConfigureCollection<ICompany>();
+
             return true;
         }
 

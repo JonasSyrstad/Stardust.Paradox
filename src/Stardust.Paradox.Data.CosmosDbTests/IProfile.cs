@@ -18,7 +18,7 @@ namespace Stardust.Paradox.CosmosDbTest
         [EdgeLabel("division")]
         IEdgeCollection<ICompany> Divisions { get; }
 
-        [ReverseEdgeLabel( "employer")]
+        [ReverseEdgeLabel("employer")]
         IEdgeCollection<IProfile> Employees { get; }
 
         [GremlinQuery("g.V('{id}').out('division').tail(1)")]
@@ -51,7 +51,7 @@ namespace Stardust.Paradox.CosmosDbTest
         DateTime LastUpdated { get; set; }
 
         //[EdgeLabel("parent")]
-        ICollection<IProfile> Parents { get; }
+        IEdgeCollection<IProfile> Parents { get; }
 
         //[ReverseEdgeLabel("parent")]
         IEdgeCollection<IProfile> Children { get; }
@@ -65,11 +65,13 @@ namespace Stardust.Paradox.CosmosDbTest
 
 
         [GremlinQuery("g.V('{id}').as('s').in('parent').out('parent').where(without('s')).dedup()")]
-        ICollection<IProfile> Siblings { get; }
+        IEdgeCollection<IProfile> Siblings { get; }
 
         [InlineSerialization(SerializationType.ClearText)]
         ICollection<string> ProgramingLanguages { get; }
+
+        IEdgeCollection<IProfile> AllSiblings { get; set; }
     }
 
-    
+
 }

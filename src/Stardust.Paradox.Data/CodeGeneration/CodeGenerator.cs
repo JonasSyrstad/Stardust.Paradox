@@ -6,26 +6,34 @@ using System.Reflection;
 using System.Reflection.Emit;
 using Newtonsoft.Json;
 using Stardust.Paradox.Data.Internals;
+using Stardust.Particles;
 using Stardust.Particles.Collection;
 
 namespace Stardust.Paradox.Data.CodeGeneration
 {
     internal class CodeGenerator
     {
-        internal static Dictionary<Type,Dictionary<MemberInfo,FluentConfig>> _FluentConfig=new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
+        internal static Dictionary<Type, Dictionary<MemberInfo, FluentConfig>> _FluentConfig = new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
 
         private static AssemblyBuilder _builder;
         private static ModuleBuilder _moduleBuilder;
 
         private static string EdgeLabel(Type entityType, MemberInfo member)
         {
-            var def = GetMemberBinding(entityType,member);
+            var def = GetMemberBinding(entityType, member);
             return def?.EdgeLabel;
+        }
+
+        private static EagerAttribute EagerLoading(Type entityType, MemberInfo member)
+        {
+            var def = GetMemberBinding(entityType, member);
+            if (def?.EagerLoading == null) return null;
+            return new EagerAttribute();
         }
 
         private static string EdgeReverseLabel(Type entityType, MemberInfo member)
         {
-            var def = GetMemberBinding(entityType,member);
+            var def = GetMemberBinding(entityType, member);
             return def?.ReverseEdgeLabel;
         }
 
@@ -38,7 +46,8 @@ namespace Stardust.Paradox.Data.CodeGeneration
         private static InlineSerializationAttribute Serialization(Type entityType, MemberInfo member)
         {
             var def = GetMemberBinding(entityType, member);
-            return new InlineSerializationAttribute(def.Serialization);
+            if (def?.Serialization == null) return null;
+            return new InlineSerializationAttribute(def.Serialization.Value);
         }
 
         private static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
@@ -71,26 +80,26 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var eagerProperties = new List<string>();
             foreach (var prop in dataContract.GetProperties())
             {
-                var eager = prop.GetCustomAttribute<EagerAttribute>();
-                var serialization = Serialization(entity,prop)??prop.GetCustomAttribute<InlineSerializationAttribute>();
+                var eager = EagerLoading(entity, prop) ?? prop.GetCustomAttribute<EagerAttribute>();
+                var serialization = Serialization(entity, prop) ?? prop.GetCustomAttribute<InlineSerializationAttribute>();
                 if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
                 {
                     if (serialization != null)
                     {
-                        AddInline(prop, typeBuilder, serialization,entity);
+                        AddInline(prop, typeBuilder, serialization, entity);
                         InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}", serialization?.Type ?? SerializationType.ClearText);
 
                     }
                     else
                     {
-                        AddEdge(entity,prop, typeBuilder);
+                        AddEdge(entity, prop, typeBuilder);
                         if (eager != null)
                             eagerProperties.Add(prop.Name);
                     }
                 }
                 else if (typeof(IEdgeReference).IsAssignableFrom(prop.PropertyType))
                 {
-                    AddEdgeRef(prop, typeBuilder,entity);
+                    AddEdgeRef(prop, typeBuilder, entity);
                     if (eager != null)
                         eagerProperties.Add(prop.Name);
                 }
@@ -119,9 +128,10 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         private static void AddEdge(Type entity, PropertyInfo prop, TypeBuilder typeBuilder)
         {
-            var edgeLabel = EdgeLabel(entity,prop)?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
+            var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
             var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
-            var gremlinQuery = prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
+            var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
+            if (gremlinQuery.ContainsCharacters()) edgeLabel = prop.Name;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
@@ -166,7 +176,8 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
             var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
-            var gremlinQuery = prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
+            var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
+            if (gremlinQuery.ContainsCharacters()) edgeLabel = prop.Name;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
             var edgePropGet = BuildMethodget_Ref(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "", gremlinQuery ?? "");

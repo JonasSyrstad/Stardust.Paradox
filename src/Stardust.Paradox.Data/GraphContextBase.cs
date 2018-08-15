@@ -15,11 +15,11 @@ using Stardust.Particles;
 
 namespace Stardust.Paradox.Data
 {
-    public abstract class GraphContextBase : IGraphContext
+    public abstract class GraphContextBase : IGraphContext, IDisposable
     {
 
         private readonly IGremlinLanguageConnector _connector;
-        private readonly IServiceProvider _resolver;
+        protected readonly IServiceProvider ServiceProvider;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
 
@@ -37,10 +37,10 @@ namespace Stardust.Paradox.Data
         private ConcurrentDictionary<string, GraphDataEntity> _trackedEntities = new ConcurrentDictionary<string, GraphDataEntity>();
 
 
-        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider resolver)
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider)
         {
             _connector = connector;
-            _resolver = resolver;
+            ServiceProvider = serviceProvider;
             if (Initialized) return;
             lock (lockObject)
             {
@@ -52,7 +52,9 @@ namespace Stardust.Paradox.Data
 
         private void BuildModel()
         {
-            InitializeModel(new GraphConfiguration(this));
+            var configuration = new GraphConfiguration(this);
+            InitializeModel(configuration);
+            configuration.BuildModel();
             SeedAsync().Wait();
         }
 
@@ -86,7 +88,8 @@ namespace Stardust.Paradox.Data
 
         private T Create<T>()
         {
-            var t = ActivatorUtilities.CreateInstance(_resolver, GraphJsonConverter.GetImplementationType(typeof(T)));
+            var type = GraphJsonConverter.GetImplementationType(typeof(T));
+            var t = ActivatorUtilities.CreateInstance(ServiceProvider, type);
             if (t != null) return (T)t;
             return default(T);
         }
@@ -167,7 +170,7 @@ namespace Stardust.Paradox.Data
             var item = Create<T>();
             var i = item as GraphDataEntity;
             i._entityKey = d.id;
-
+            i._eagerLoding = doEagerLoad;
             foreach (var p in d.properties as JObject)
             {
                 var y = p.Value.ToObject<Property[]>();
@@ -206,14 +209,16 @@ namespace Stardust.Paradox.Data
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
                     await _connector.ExecuteAsync(graphDataEntity.Value.GetUpdateStatement());
-                    foreach (var edges in graphDataEntity.Value.GetEdges())
-                    {
-                        await edges.SaveChangesAsync();
-                    }
+
                     if (graphDataEntity.Value.IsDeleted)
                         deleted.Add(graphDataEntity.Value);
 
                 }
+                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
+                    foreach (var edges in graphDataEntity.Value.GetEdges())
+                    {
+                        await edges.SaveChangesAsync();
+                    }
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
                     foreach (var edges in graphDataEntity.Value.GetEdges())
@@ -378,6 +383,21 @@ namespace Stardust.Paradox.Data
         protected IGraphSet<T> GraphSet<T>() where T : IVertex
         {
             return new GraphSet<T>(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _trackedEntities.Clear();
+                _connector.TryDispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

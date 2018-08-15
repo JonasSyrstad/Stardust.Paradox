@@ -80,7 +80,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public IEnumerator<IEdge<TTout>> GetEnumerator()
         {
-            if (!_isLoaded)
+            if (!_isLoaded&&_parent._eagerLoding)
             {
                 LoadEdges().Wait();
             }
@@ -139,6 +139,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public void Add(IEdge<TTout> item)
         {
+            var edge = item as Edge<TTout>;
             if (_gremlinQuery.ContainsCharacters()) throw new InvalidOperationException("Unable to insert edge on query navigation property");
             _addedCollection.Add(item as Edge<TTout>);
             _collection.Add(item);
