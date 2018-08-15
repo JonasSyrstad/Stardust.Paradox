@@ -160,7 +160,7 @@ namespace Stardust.Paradox.CosmosDbTest
             _output.WriteLine("First child's parents");
             _output.WriteLine(JsonConvert.SerializeObject(await children.First().Parents.ToVerticesAsync()));
             _output.WriteLine("Childs siblings (fluent)");
-            var firstChild = children.First(c=>c.Name=="Sanne");
+            var firstChild = children.First(c => c.Name == "Sanne");
             var siblings2 = await firstChild.AllSiblings.ToVerticesAsync();
             _output.WriteLine(JsonConvert.SerializeObject(siblings2));
             Assert.Equal(4, siblings2.Count());
@@ -277,6 +277,31 @@ namespace Stardust.Paradox.CosmosDbTest
                 .In("parent").Out("parent") //navigate to siblings
                 .Where(p => p.Without("s")).Dedup();
             return q;
+        }
+
+        [Fact]
+        public async Task CreateGetDeleteItemWithoutEdges()
+        {
+            using (var c = TestContext())
+            {
+                var i = c.Profiles.Create("string");
+                i.Name = "string";
+                i.Email = "string";
+                i.FirstName = "string";
+                i.LastName = "string";
+                await c.SaveChangesAsync();
+            }
+
+            using (var c = TestContext())
+            {
+                var i = await c.Profiles.GetAsync("string");
+                Assert.NotNull(i);
+            }
+            using (var c = TestContext())
+            {
+                await c.Profiles.DeleteAsync("string");
+                await c.SaveChangesAsync();
+            }
         }
 
         [Fact]

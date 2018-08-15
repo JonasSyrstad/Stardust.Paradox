@@ -80,7 +80,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public IEnumerator<IEdge<TTout>> GetEnumerator()
         {
-            if (!_isLoaded&&_parent._eagerLoding)
+            if (!_isLoaded && _parent._eagerLoding)
             {
                 LoadEdges().Wait();
             }
@@ -94,27 +94,44 @@ namespace Stardust.Paradox.Data.Internals
 
         private async Task LoadEdges()
         {
-            IsDirty = false;
-            _addedCollection.Clear();
-            _deletedCollection.Clear();
-            var v = await GetEdgeContent();
-            _collection.Clear();
-            foreach (var tout in v)
+            try
             {
-                _collection.Add(new Edge<TTout>((tout as GraphDataEntity)._entityKey, tout, _parent, _context) { EdgeType = _referenceType });
+                IsDirty = false;
+                _addedCollection.Clear();
+                _deletedCollection.Clear();
+                var v = await GetEdgeContent();
+                _collection.Clear();
+                if (v != null)
+                    foreach (var tout in from i in v where i!=null select i)
+                    {
+                        _collection.Add(new Edge<TTout>((tout as GraphDataEntity)._entityKey, tout, _parent, _context) { EdgeType = _referenceType });
+                    }
+                _isLoaded = true;
             }
-            _isLoaded = true;
+            catch (Exception ex)
+            {
+                ex.Log();
+                throw;
+            }
         }
 
 
         private async Task<IEnumerable<TTout>> GetEdgeContent()
         {
-            if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
-            if (_reverseLabel != null && _reverseLabel != _edgeLabel)
-                return await _context.VAsync<TTout>(ReverseLabelQuery());
-            if (_reverseLabel != null && _reverseLabel == _edgeLabel)
-                return await _context.VAsync<TTout>(EdgeLabelQuery());
-            return await _context.VAsync<TTout>(SimpleEdgeLabelQuery());
+            try
+            {
+                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_reverseLabel != null && _reverseLabel != _edgeLabel)
+                    return await _context.VAsync<TTout>(ReverseLabelQuery());
+                if (_reverseLabel != null && _reverseLabel == _edgeLabel)
+                    return await _context.VAsync<TTout>(EdgeLabelQuery());
+                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery());
+            }
+            catch (Exception ex)
+            {
+                ex.Log("");
+                throw;
+            }
         }
 
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQuery()
