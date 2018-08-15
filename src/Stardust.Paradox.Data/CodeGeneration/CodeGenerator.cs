@@ -27,7 +27,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
         private static EagerAttribute EagerLoading(Type entityType, MemberInfo member)
         {
             var def = GetMemberBinding(entityType, member);
-            if (def?.EagerLoading == null) return null;
+            if (def != null && !def.EagerLoading) return null;
             return new EagerAttribute();
         }
 

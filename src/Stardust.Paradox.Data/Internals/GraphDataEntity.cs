@@ -143,17 +143,32 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task Eager(bool doEagerLoad)
         {
-            if (!doEagerLoad) return;
-            var eagerTasks = new List<Task>();
-            if (_eagerLodedProperties.TryGetValue(GetType().FullName, out var propsToLoad))
+            try
             {
-                foreach (var prop in propsToLoad)
+                if (!doEagerLoad) return;
+                var fullName = GetType().FullName;
+                if (fullName != null && _eagerLodedProperties.TryGetValue(fullName, out var propsToLoad))
                 {
-                    var loader = GraphContextBase.TransferData(this, prop);
-                    eagerTasks.Add(loader.LoadAsync());
+                    var eagerTasks = new List<Task>();
+                    if (propsToLoad == null) return;
+                    foreach (var prop in propsToLoad)
+                    {
+                        var loader = GraphContextBase.TransferData(this, prop);
+                        if (loader != null) eagerTasks.Add(loader.LoadAsync());
+                        else
+                        {
+                            Logging.DebugMessage($"unable to load property {prop}");
+                        }
+                    }
+                    await Task.WhenAll(eagerTasks);
                 }
             }
-            await Task.WhenAll(eagerTasks);
+            catch (Exception ex)
+            {
+                throw new Exception($"Unable to load {GetType()}:{_entityKey}", ex);
+            }
+
+
         }
     }
 }
