@@ -1,7 +1,7 @@
 # Stardust.Paradox
 Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb
 
-#Usage (asp.net core)
+# Usage (asp.net core)
 
 ## Startup.cs
 ### ConfigureServices
@@ -45,9 +45,8 @@ public interface ICity : IVertex
 
     string Name { get; set; }
 
-    string CountryCode { get; set; }
-
-    string PhoneNoPrefix { get; set; }
+    string ZipCode { get; set; }
+    
 
    [ReverseEdgeLabel("city")] //pointing to the HomCity property in IPerson
     IEdgeCollection<Iperson> Residents { get; } //use IEdgeCollection to enable task-async operations on the collection
@@ -72,7 +71,9 @@ public interface ICountry : IVertex
 
     string Name { get; set; }
 
-    string ZipCode { get; set; }
+    string CountryCode { get; set; }
+
+    string PhoneNoPrefix { get; set; }
 
     IEdgeCollection<ICity> Cities { get; }
 }
@@ -82,7 +83,7 @@ public interface ICountry : IVertex
 ## Defining the entity context and generating the entity implementations
 
 ```cs
-public class Repository : Stardust.Paradox.Data.GraphContextBase
+public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
 {
     public IGraphSet<IPerson> Persons => GraphSet<IPerson>();
 
@@ -92,7 +93,7 @@ public class Repository : Stardust.Paradox.Data.GraphContextBase
 
     public IGraphSet<ICompany> Companies => GraphSet<ICompany>();
 
-    public Repository(IGremlinLanguageConnector connector, IServiceProvider resolver) : base(connector, resolver)
+    public MyEntityContext(IGremlinLanguageConnector connector, IServiceProvider resolver) : base(connector, resolver)
     {
     }
 
@@ -103,9 +104,9 @@ public class Repository : Stardust.Paradox.Data.GraphContextBase
                 .AddEdge(t => t.Children, "children").Reverse<IPerson>(t => t.Parents)
             .ConfigureCollection<ICity>()
             .ConfigureCollection<ICountry>()
-                .AddEdge(t=>t.Cities,"cities").Reverse<ICountry>(t=>t.Country)
+                .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers).;
+                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers);
         return true;
     }
 }
