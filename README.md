@@ -99,13 +99,13 @@ public class Repository : Stardust.Paradox.Data.GraphContextBase
     protected override bool InitializeModel(IGraphConfiguration configuration)
     {
         //Added some fluent configuration of the edges
-        configuration.AddCollection<IPerson>()
-            .AddEdge(t => t.Children, "children").Reverse<IPerson>(t => t.Parents);
-        configuration.AddCollection<ICity>();            
-        configuration.AddCollection<ICountry>()
-        .AddEdge(t=>t.Cities,"cities").Reverse<ICountry>(t=>t.Country);;
-        configuration.AddCollection<ICompany>()
-            .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers);
+        configuration.ConfigureCollection<IPerson>()
+                .AddEdge(t => t.Children, "children").Reverse<IPerson>(t => t.Parents)
+            .ConfigureCollection<ICity>()
+            .ConfigureCollection<ICountry>()
+                .AddEdge(t=>t.Cities,"cities").Reverse<ICountry>(t=>t.Country)
+            .ConfigureCollection<ICompany>()
+                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers).;
         return true;
     }
 }

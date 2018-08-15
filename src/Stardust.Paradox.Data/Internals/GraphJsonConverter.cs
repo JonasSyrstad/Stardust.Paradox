@@ -19,7 +19,8 @@ namespace Stardust.Paradox.Data.Internals
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, Newtonsoft.Json.JsonSerializer serializer)
-        {
+        {   
+            serializer.NullValueHandling = NullValueHandling.Ignore;
             if (_interfaceClassPairs.TryGetValue(objectType, out var t)) return serializer.Deserialize(reader, t);
 
             throw new NotSupportedException(string.Format("Type {0} unexpected.", objectType));
@@ -29,7 +30,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             return _interfaceClassPairs.TryGetValue(entityType, out var t) ? t : null;
         }
-        public override void WriteJson(JsonWriter writer, object value, Newtonsoft.Json.JsonSerializer serializer)
+        public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
         {
             serializer.Serialize(writer, value);
         }

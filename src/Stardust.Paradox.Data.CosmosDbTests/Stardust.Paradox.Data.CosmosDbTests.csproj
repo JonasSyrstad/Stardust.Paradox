@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Stardust.Paradox.Data.Providers.Gremlin\Stardust.Paradox.Data.Providers.Gremlin.csproj" />
     <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
   </ItemGroup>
 

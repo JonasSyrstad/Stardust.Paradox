@@ -27,7 +27,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             IEnumerable<dynamic> v;
             if (AddReverse)
-                v=await _context.ExecuteAsync<T>(g => g.V(ToId).As("t").V(FromId).AddE(ReverseLabel ?? label).To("t"));
+                v=await _context.ExecuteAsync<T>(g => g.V(ToId).As("t").V(FromId).AddE(label).To("t"));
             else v = await _context.ExecuteAsync<T>(g => CreateAddEdgeExpression(label, g));
             _id = v.First().id;
         }

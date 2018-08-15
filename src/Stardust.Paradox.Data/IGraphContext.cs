@@ -16,14 +16,14 @@ namespace Stardust.Paradox.Data
         GremlinQuery V<T>(string id) where T : IVertex;
         Task<T> VAsync<T>(string id) where T : IVertex;
 
-        Task<T> GetOrCreate<T>(string id) where T:IVertex;
+        Task<T> GetOrCreate<T>(string id) where T : IVertex;
 
         Task<IEnumerable<T>> VAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IVertex;
         Task<IEnumerable<T>> VAsync<T>(GremlinQuery g) where T : IVertex;
         Task SaveChangesAsync();
         Task<IEnumerable<dynamic>> ExecuteAsync<T>(Func<GremlinContext, GremlinQuery> func);
 
-        Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, string edgeLabel, bool incommingEdge = false) where T:IVertex;
+        Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, string edgeLabel, bool incommingEdge = false) where T : IVertex;
 
         Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex;
         void Attatch<T>(T item);
