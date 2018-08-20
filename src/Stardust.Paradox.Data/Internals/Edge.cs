@@ -18,25 +18,67 @@ namespace Stardust.Paradox.Data.Internals
             _id = id;
             _parent = parent;
             _context = context;
+            Properties = new Dictionary<string, object>();
+        }
+
+        public Edge(string id, GraphDataEntity parent, IGraphContext context)
+        {
+            _id = id;
+            _parent = parent;
+            _context = context;
+            Properties = new Dictionary<string, object>();
         }
 
         public T Vertex { get; set; }
         public string EdgeType { get; internal set; }
+        public IDictionary<string, object> Properties { get; }
 
         public async Task AddToVertexAsync(string label)
         {
             IEnumerable<dynamic> v;
             if (AddReverse)
-                v=await _context.ExecuteAsync<T>(g => g.V(ToId).As("t").V(FromId).AddE(label).To("t"));
-            else v = await _context.ExecuteAsync<T>(g => CreateAddEdgeExpression(label, g));
-            _id = v.First().id;
+                v = await _context.ExecuteAsync<T>(g => CreateReverseExpression(label, g, Properties));
+            else v = await _context.ExecuteAsync<T>(g => CreateAddEdgeExpression(label, g, Properties));
+            _id = v.FirstOrDefault()?.id;
         }
 
-        private GremlinQuery CreateAddEdgeExpression(string label, GremlinContext g)
+        private GremlinQuery CreateReverseExpression(string label, GremlinContext g, IDictionary<string, object> properties)
         {
-            var expression = g.V(FromId).As("t").V(ToId).AddE(label).To("t");
-            //if (AddReverse) return expression.V().V(ToId).As("y").V(FromId).AddE(ReverseLabel??label).To("y");
-            return expression;
+            try
+            {
+                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).To("s").From("t");
+                foreach (var property in properties)
+                {
+                    expression = expression.Property(property.Key, property.Value);
+                }
+
+                return expression;
+            }
+            catch (System.Exception ex)
+            {
+
+                throw;
+            }
+        }
+
+        private GremlinQuery CreateAddEdgeExpression(string label, GremlinContext g, IDictionary<string, object> properties)
+        {
+            try
+            {
+                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).From("s").To("t");
+                foreach (var property in properties)
+                {
+                    expression = expression.Property(property.Key, property.Value);
+                }
+                //expression.To("t");
+                //if (AddReverse) return expression.V().V(ToId).As("y").V(FromId).AddE(ReverseLabel??label).To("y");
+                return expression;
+            }
+            catch (System.Exception ex)
+            {
+
+                throw;
+            }
         }
 
         private string FromId => _parent._entityKey;
@@ -51,5 +93,5 @@ namespace Stardust.Paradox.Data.Internals
         }
     }
 
-    
+
 }

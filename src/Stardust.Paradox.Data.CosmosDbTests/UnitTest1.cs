@@ -41,40 +41,48 @@ namespace Stardust.Paradox.CosmosDbTest
         [Fact]
         public async Task InsertItem()
         {
-
             await G.V().Drop().ExecuteAsync();
-            var tc = TestContext();
-            var jonas = CreateItem(tc, "Jonas", "Techincal Solution Architect");
-            jonas.ProgramingLanguages.AddRange(new[] { "C#", "C++", "JavaScript", "Gremlin" });
-            var tor = CreateItem(tc, "Tor", "Farmer");
-            var rita = CreateItem(tc, "Rita", "Farmer");
-            var kine = CreateItem(tc, "Kine");
-            var sanne = CreateItem(tc, "Sanne");
-            var marena = CreateItem(tc, "Marena");
-            var mathilde = CreateItem(tc, "Mathilde");
-            var herman = CreateItem(tc, "Herman");
-            var dnvgl = CreateCompany(tc, "DNVGL", "dnvgl.com", "kema.com");
-            var gss = CreateCompany(tc, "GSS");
-            var gssIt = CreateCompany(tc, "GSSIT");
-            //await tc.SaveChangesAsync();
-            dnvgl.Divisions.Add(gss);
-            gss.Divisions.Add(gssIt);
-            await tor.Spouce.SetVertexAsync(rita);
+            using (var tc = TestContext())
+            {
+                var jonas = CreateItem(tc, "Jonas", "Techincal Solution Architect");
+                jonas.ProgramingLanguages.AddRange(new[] { "C#", "C++", "JavaScript", "Gremlin" });
+                var tor = CreateItem(tc, "Tor", "Farmer");
+                var rita = CreateItem(tc, "Rita", "Farmer");
+                var kine = CreateItem(tc, "Kine");
+                var sanne = CreateItem(tc, "Sanne");
+                var marena = CreateItem(tc, "Marena");
+                var mathilde = CreateItem(tc, "Mathilde");
+                var herman = CreateItem(tc, "Herman");
+                var dnvgl = CreateCompany(tc, "DNVGL", "dnvgl.com", "kema.com");
+                var gss = CreateCompany(tc, "GSS");
+                var gssIt = CreateCompany(tc, "GSSIT");
+                dnvgl.Divisions.Add(gss);
+                gss.Divisions.Add(gssIt);
+                await tor.Spouce.SetVertexAsync(rita);
 
-            jonas.Parents.Add(tor);
-            jonas.Parents.Add(rita);
-            jonas.Employers.Add(gssIt);
-            //await jonas.Spouce.SetVertexAsync(kine);
-            sanne.Parents.Add(jonas);
-            sanne.Parents.Add(kine);
-            herman.Parents.Add(jonas);
-            herman.Parents.Add(kine);
-            marena.Parents.Add(jonas);
-            //mathilde.Parents.Add(kine);
+                jonas.Parents.Add(tor);
+                jonas.Parents.Add(rita);
+                jonas.Employers.Add(gssIt);
+                sanne.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
+                sanne.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
+                herman.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
+                herman.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
+                marena.Parents.Add(jonas);
+                kine.Children.Add(mathilde);
+                await tc.SaveChangesAsync();
+            }
 
-            kine.Children.Add(mathilde);
-            await tc.SaveChangesAsync();
+        }
 
+        [Fact]
+        public async Task GetEdges()
+        {
+            using (var tc = TestContext())
+            {
+                var s = await tc.Profiles.GetAsync("Sanne");
+                var parents =await s.Parents.ToEdgesAsync();
+                Assert.NotNull(parents.FirstOrDefault()?.Properties.FirstOrDefault());
+            }
         }
 
         private TestContext TestContext()
@@ -120,155 +128,194 @@ namespace Stardust.Paradox.CosmosDbTest
         [Fact]
         public void DataContextCreateTest()
         {
-            var tc = TestContext();
-            var t = tc.CreateEntity<IProfile>("jonas.syrstad");
-            Assert.NotNull(t);
-            t.Email = "jonas.syrstad@dnvgl.com";
-            t.FirstName = "Jonas";
-            t.LastName = "Syrstad";
-            t.VerifiedEmail = true;
-            _output.WriteLine(JsonConvert.SerializeObject(t));
+            IProfile t;
+            using (var tc = TestContext())
+            {
+                t = tc.CreateEntity<IProfile>("jonas.syrstad");
+                Assert.NotNull(t);
+                t.Email = "jonas.syrstad@dnvgl.com";
+                t.FirstName = "Jonas";
+                t.LastName = "Syrstad";
+                t.VerifiedEmail = true;
+                _output.WriteLine(JsonConvert.SerializeObject(t));
+            }
+
+
         }
 
         [Fact]
         public async Task GetOrCreateTests()
         {
-            var tc = new TestContext(new Class1());
-            var jonas = await tc.GetOrCreate<IProfile>("Jonas");
-            Assert.Equal("Jonas", jonas.Name);
-            var newItem = await tc.GetOrCreate<IProfile>("getOrCreateTest");
-            Assert.Null(newItem.Name);
+            IProfile newItem;
+            using (var tc = new TestContext(new Class1()))
+            {
+                var jonas = await tc.GetOrCreate<IProfile>("Jonas");
+                Assert.Equal("Jonas", jonas.Name);
+                newItem = await tc.GetOrCreate<IProfile>("getOrCreateTest");
+                Assert.Null(newItem.Name);
+            }
+
+
         }
 
         [Fact]
         public async Task DataContextReadTestAsync()
         {
-            var tc = TestContext();
-            var jonas = await tc.VAsync<IProfile>("Jonas");
-            _output.WriteLine("Me");
-            _output.WriteLine(JsonConvert.SerializeObject(jonas));
-            Assert.NotNull(jonas);
+            IProfile jonas;
+            using (var tc = TestContext())
+            {
+                jonas = await tc.VAsync<IProfile>("Jonas");
 
-            var parents = jonas.Parents;
-            _output.WriteLine("Parents");
-            _output.WriteLine(JsonConvert.SerializeObject(parents));
 
-            var children = await jonas.Children.ToVerticesAsync();
-            _output.WriteLine("Children");
-            //_output.WriteLine(JsonConvert.SerializeObject(jonas.Children));
+                _output.WriteLine("Me");
+                _output.WriteLine(JsonConvert.SerializeObject(jonas));
+                Assert.NotNull(jonas);
 
-            _output.WriteLine("First child's parents");
-            _output.WriteLine(JsonConvert.SerializeObject(await children.First().Parents.ToVerticesAsync()));
-            _output.WriteLine("Childs siblings (fluent)");
-            var firstChild = children.First(c => c.Name == "Sanne");
-            var siblings2 = await firstChild.AllSiblings.ToVerticesAsync();
-            _output.WriteLine(JsonConvert.SerializeObject(siblings2));
-            Assert.Equal(4, siblings2.Count());
-            _output.WriteLine("Child's siblings (attribute)");
-            var siblings = await firstChild.Siblings.ToVerticesAsync();
-            Assert.Equal(3, siblings.Count());
-            _output.WriteLine(JsonConvert.SerializeObject(siblings));
+                var parents = jonas.Parents;
+                _output.WriteLine("Parents");
+                _output.WriteLine(JsonConvert.SerializeObject(parents));
 
-            _output.WriteLine("Spouce");
-            _output.WriteLine(JsonConvert.SerializeObject(jonas.Spouce));
-            var serializedJ = JsonConvert.SerializeObject(jonas);
-            _output.WriteLine(serializedJ);
-            //var deserializedJ = JsonConvert.DeserializeObject<IProfile>(serializedJ);
-            //Assert.NotNull(deserializedJ);
-            //_output.WriteLine("Serialization");
-            //_output.WriteLine(JsonConvert.SerializeObject(deserializedJ));
+                var children = await jonas.Children.ToVerticesAsync();
+                _output.WriteLine("Children");
+                //_output.WriteLine(JsonConvert.SerializeObject(jonas.Children));
 
-            var gssit = (await jonas.Employers.ToVerticesAsync()).First();
-            var dnvgl = await gssit.Group.ToVertexAsync();
-            _output.WriteLine("Group from dnvgl");
-            _output.WriteLine(JsonConvert.SerializeObject(dnvgl));
+                _output.WriteLine("First child's parents");
+                _output.WriteLine(JsonConvert.SerializeObject(await children.First().Parents.ToVerticesAsync()));
+                _output.WriteLine("Childs siblings (fluent)");
+                var firstChild = children.First(c => c.Name == "Sanne");
+                var siblings2 = await firstChild.AllSiblings.ToVerticesAsync();
+                _output.WriteLine(JsonConvert.SerializeObject(siblings2));
+                Assert.Equal(4, siblings2.Count());
+                _output.WriteLine("Child's siblings (attribute)");
+                var siblings = await firstChild.Siblings.ToVerticesAsync();
+                Assert.Equal(3, siblings.Count());
+                _output.WriteLine(JsonConvert.SerializeObject(siblings));
 
-            var gss = await gssit.Parent.ToVertexAsync();
-            _output.WriteLine(JsonConvert.SerializeObject(await gss.Group.ToVertexAsync()));
+                _output.WriteLine("Spouce");
+                _output.WriteLine(JsonConvert.SerializeObject(jonas.Spouce));
+                var serializedJ = JsonConvert.SerializeObject(jonas);
+                _output.WriteLine(serializedJ);
+                //var deserializedJ = JsonConvert.DeserializeObject<IProfile>(serializedJ);
+                //Assert.NotNull(deserializedJ);
+                //_output.WriteLine("Serialization");
+                //_output.WriteLine(JsonConvert.SerializeObject(deserializedJ));
 
-            _output.WriteLine(JsonConvert.SerializeObject(await (await gss.Group.ToVertexAsync()).AllEmployees.ToVerticesAsync()));
+                var gssit = (await jonas.Employers.ToVerticesAsync()).First();
+                var dnvgl = await gssit.Group.ToVertexAsync();
+                _output.WriteLine("Group from dnvgl");
+                _output.WriteLine(JsonConvert.SerializeObject(dnvgl));
+
+                var gss = await gssit.Parent.ToVertexAsync();
+                _output.WriteLine(JsonConvert.SerializeObject(await gss.Group.ToVertexAsync()));
+
+                _output.WriteLine(
+                    JsonConvert.SerializeObject(await (await gss.Group.ToVertexAsync()).AllEmployees.ToVerticesAsync()));
+            }
         }
 
         [Fact]
         public async Task GetTreeTest()
         {
-            var tc = TestContext();
-            var tree = await tc.GetTreeAsync<IProfile>("Tor", "parent");
-            var f = tree.First().First().Key;
-            _output.WriteLine("F:");
-            _output.WriteLine(JsonConvert.SerializeObject(f));
-            _output.WriteLine("Tree:");
-            _output.WriteLine(JsonConvert.SerializeObject(tree));
-            _output.WriteLine("Jonas:");
-            var jonas = await tc.GetTreeAsync<IProfile>("Jonas", p => p.Parents, true);
-            _output.WriteLine(JsonConvert.SerializeObject(jonas));
+            IVertexTreeRoot<IProfile> jonas;
+            using (var tc = TestContext())
+            {
+                var tree = await tc.GetTreeAsync<IProfile>("Tor", "parent");
+                var f = tree.First().First().Key;
+                _output.WriteLine("F:");
+                _output.WriteLine(JsonConvert.SerializeObject(f));
+                _output.WriteLine("Tree:");
+                _output.WriteLine(JsonConvert.SerializeObject(tree));
+                _output.WriteLine("Jonas:");
+                jonas = await tc.GetTreeAsync<IProfile>("Jonas", p => p.Parents, true);
+                _output.WriteLine(JsonConvert.SerializeObject(jonas));
+            }
+
+
         }
 
         [Fact]
         public async Task DataContextReadWriteTestAsync()
         {
-            var tc = TestContext();
-            var jonas = await tc.VAsync<IProfile>("Jonas");
-            Assert.NotNull(jonas);
-            jonas.LastUpdated = DateTime.Now;
-            jonas.FirstName = "Jonas";
-            jonas.LastName = "Syrstad";
-            jonas.Email = "jonas.syrstad@dnvgl.com";
-            await tc.SaveChangesAsync();
+            using (var tc = TestContext())
+            {
+                var jonas = await tc.VAsync<IProfile>("Jonas");
+                Assert.NotNull(jonas);
+                jonas.LastUpdated = DateTime.Now;
+                jonas.FirstName = "Jonas";
+                jonas.LastName = "Syrstad";
+                jonas.Email = "jonas.syrstad@dnvgl.com";
+                await tc.SaveChangesAsync();
+            }
         }
 
         [Fact]
         public async Task GraphSetTests()
         {
-            var tc = TestContext();
-            var jonas = await tc.Profiles.GetAsync("Jonas");
-            Assert.NotNull(jonas);
-            var page1 = await tc.Profiles.GetAsync(0, 3);
-            var page2 = await tc.Profiles.GetAsync(1, 3);
-            var page3 = await tc.Profiles.GetAsync(2, 3);
-            Assert.Equal(2, page3.Count());
-            Assert.Equal(3, page2.Count());
-            Assert.Equal(3, page1.Count());
+            IEnumerable<IProfile> jonas2;
+            using (var tc = TestContext())
+            {
+                var jonas = await tc.Profiles.GetAsync("Jonas");
+                Assert.NotNull(jonas);
+                var page1 = await tc.Profiles.GetAsync(0, 3);
+                var page2 = await tc.Profiles.GetAsync(1, 3);
+                var page3 = await tc.Profiles.GetAsync(2, 3);
+                Assert.Equal(2, page3.Count());
+                Assert.Equal(3, page2.Count());
+                Assert.Equal(3, page1.Count());
 
-            var page4 = await tc.Profiles.GetAsync(g => g.V().HasLabel("person"), 0, 6);
-            Assert.Equal(6, page4.Count());
+                var page4 = await tc.Profiles.GetAsync(g => g.V().HasLabel("person"), 0, 6);
+                Assert.Equal(6, page4.Count());
 
-            var jonas2 = await tc.Profiles.FilterAsync(p => p.Name, "Jonas");
-            Assert.Single(jonas2);
-            _output.WriteLine(JsonConvert.SerializeObject(await jonas2.SingleOrDefault().GetTreeAsync<IProfile>(p => p.Parents)));
+                jonas2 = await tc.Profiles.FilterAsync(p => p.Name, "Jonas");
+                Assert.Single(jonas2);
+                _output.WriteLine(JsonConvert.SerializeObject(await jonas2.SingleOrDefault().GetTreeAsync<IProfile>(p => p.Parents)));
+            }
         }
 
         [Fact]
         public async Task DataContextCreateReadDeleteTestAsync()
         {
-            var tc = TestContext();
-            var test = tc.CreateEntity<IProfile>("test.item");
-            test.Email = "test.@dnvgl.com";
-            test.FirstName = "test";
-            test.LastName = "test";
-            test.LastUpdated = DateTime.Now;
-            test.Name = "test";
-            await tc.SaveChangesAsync();
-            tc = TestContext();
-            var test2 = await tc.VAsync<IProfile>("test.item");
-            var j = await tc.VAsync<IProfile>("Jonas");
-            test2.Parents.Add(j);
-            await tc.SaveChangesAsync();
-            Assert.NotNull(test2);
-            tc.Delete(test2);
-            await tc.SaveChangesAsync();
-            var test3 = await tc.VAsync<IProfile>("test.item");
-            Assert.Null(test3);
+            IProfile test3;
+            using (var tc = TestContext())
+            {
+                var test = tc.CreateEntity<IProfile>("test.item");
+                test.Email = "test.@dnvgl.com";
+                test.FirstName = "test";
+                test.LastName = "test";
+                test.LastUpdated = DateTime.Now;
+                test.Name = "test";
+                await tc.SaveChangesAsync();
+            }
+
+            using (var tc = TestContext())
+            {
+                var test2 = await tc.VAsync<IProfile>("test.item");
+                var j = await tc.VAsync<IProfile>("Jonas");
+                test2.Parents.Add(j);
+                await tc.SaveChangesAsync();
+                Assert.NotNull(test2);
+                tc.Delete(test2);
+                await tc.SaveChangesAsync();
+
+            }
+
+            using (var tc = TestContext())
+            {
+                test3 = await tc.VAsync<IProfile>("test.item");
+                Assert.Null(test3);
+            }
         }
 
         [Fact]
         public async Task ExecuteAdvancedQueryTest()
         {
-            IGraphContext tc = TestContext();
-            var result = await tc.VAsync<IProfile>(SiblingQuery);
-
-            Assert.Equal(3, result.Count());
-            _output.WriteLine(JsonConvert.SerializeObject(result));
+            IEnumerable<IProfile> result;
+            using (var tc = TestContext())
+            {
+                result = await tc.VAsync<IProfile>(SiblingQuery);
+                Assert.Equal(3, result.Count());
+                _output.WriteLine(JsonConvert.SerializeObject(result));
+            }
         }
 
         public static GremlinQuery SiblingQuery(GremlinContext g)
@@ -342,7 +389,7 @@ namespace Stardust.Paradox.CosmosDbTest
                 .In("parent").Out("parent")//navigate to siblings
                 .Where(p => p.Without("s")).Dedup()//filter self and deduplicated result set
                 .Values("name");//project the names
-            //g.V().has('name','sanne').as('s').out('parent').in('parent').where(without('s')).dedup().values('name')
+                                //g.V().has('name','sanne').as('s').out('parent').in('parent').where(without('s')).dedup().values('name')
             Assert.Equal("g.V().has('name','Sanne').as('s').in('parent').out('parent').where(without('s')).dedup().values('name')", siblings.ToString());
             await PrintResult(siblings);
             await PrintResult(siblings.Count());

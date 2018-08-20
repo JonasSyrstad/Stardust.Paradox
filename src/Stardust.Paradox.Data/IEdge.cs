@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Stardust.Paradox.Data
 {
     public interface IEdge
@@ -9,5 +11,7 @@ namespace Stardust.Paradox.Data
         T Vertex { get; set; }
 
         string EdgeType { get; }
+
+        IDictionary<string ,object> Properties { get; }
     }
 }
