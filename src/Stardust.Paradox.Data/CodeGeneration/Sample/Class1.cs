@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.CodeGeneration.Sample
@@ -27,7 +28,7 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
             get { return _name; }
             set
             {
-                if (_name != value)
+                if (OnPropertyChanging(value, _name, "name"))
                 {
                     _name = value;
                     OnPropertyChanged(value, "name");
@@ -46,7 +47,7 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
             get { return _age; }
             set
             {
-                if (_age != value)
+                if (OnPropertyChanging(value, _age, "name"))
                 {
                     _age = value;
                     OnPropertyChanged(value, "age");

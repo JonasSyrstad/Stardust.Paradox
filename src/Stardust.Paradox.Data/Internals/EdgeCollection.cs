@@ -1,14 +1,16 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Traversals;
+using Stardust.Particles;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Traversals;
-using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
+    internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
     {
         private readonly string _edgeLabel;
         private readonly string _gremlinQuery;
@@ -36,7 +38,7 @@ namespace Stardust.Paradox.Data.Internals
             _addedCollection.Clear();
             foreach (var edge in _deletedCollection)
             {
-                await edge.DropEdgeAsync();
+                await edge.DropEdgeAsync(_edgeLabel ?? _reverseLabel);
             }
             _deletedCollection.Clear();
             IsDirty = false;
@@ -58,6 +60,7 @@ namespace Stardust.Paradox.Data.Internals
         }
 
         private readonly ICollection<IEdge<TTout>> _collection = new List<IEdge<TTout>>();
+        private readonly ICollection<IEdge<TTout>> _edgeCollection = new List<IEdge<TTout>>();
         private readonly ICollection<Edge<TTout>> _addedCollection = new List<Edge<TTout>>();
         private readonly ICollection<Edge<TTout>> _deletedCollection = new List<Edge<TTout>>();
         protected bool _isLoaded;
@@ -69,6 +72,14 @@ namespace Stardust.Paradox.Data.Internals
             await LoadAsync();
             return _collection.Select(e => e.Vertex);
         }
+
+        public async Task<IEnumerable<IEdge<TTout>>> ToEdgesAsync()
+        {
+            await LoadEdges();
+            return _edgeCollection;
+        }
+
+
 
         IEnumerator<TTout> IEnumerable<TTout>.GetEnumerator()
         {
@@ -82,17 +93,12 @@ namespace Stardust.Paradox.Data.Internals
         {
             if (!_isLoaded && _parent._eagerLoding)
             {
-                LoadEdges().Wait();
+                LoadAsync().Wait();
             }
             return _collection.GetEnumerator();
         }
 
-        public Task LoadAsync()
-        {
-            return LoadEdges();
-        }
-
-        private async Task LoadEdges()
+        public async Task LoadAsync()
         {
             try
             {
@@ -102,7 +108,7 @@ namespace Stardust.Paradox.Data.Internals
                 var v = await GetEdgeContent();
                 _collection.Clear();
                 if (v != null)
-                    foreach (var tout in from i in v where i!=null select i)
+                    foreach (var tout in from i in v where i != null select i)
                     {
                         _collection.Add(new Edge<TTout>((tout as GraphDataEntity)._entityKey, tout, _parent, _context) { EdgeType = _referenceType });
                     }
@@ -115,8 +121,75 @@ namespace Stardust.Paradox.Data.Internals
             }
         }
 
+        private async Task LoadEdges()
+        {
+            try
+            {
+                IsDirty = false;
+                _addedCollection.Clear();
+                _deletedCollection.Clear();
+                var v = await GetEdgeonly();
+                _edgeCollection.Clear();
+                if (v != null)
+                    foreach (var edge in from i in v where i != null select i)
+                    {
+                        JObject tout = (JObject)edge;
+                        var e = new Edge<TTout>(tout["id"].Value<string>(), _parent, _context) { EdgeType = _referenceType };
+                        //e.Properties.AddRange(tout["properties"].Values());
+                        foreach (dynamic va in tout["properties"])
+                        {
+                            e.Properties.Add(va.Name, va.Value);
+                            // va.
+                        }
+                        _edgeCollection.Add(e);
+
+                    }
+                _isLoaded = true;
+            }
+            catch (Exception ex)
+            {
+                ex.Log();
+                throw;
+            }
+        }
+
 
         private async Task<IEnumerable<TTout>> GetEdgeContent()
+        {
+            try
+            {
+                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_reverseLabel != null && _reverseLabel != _edgeLabel)
+                    return await _context.VAsync<TTout>(ReverseLabelQuery());
+                if (_reverseLabel != null && _reverseLabel == _edgeLabel)
+                    return await _context.VAsync<TTout>(EdgeLabelQuery());
+                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery());
+            }
+            catch (Exception ex)
+            {
+                ex.Log("");
+                throw;
+            }
+        }
+        private async Task<IEnumerable<dynamic>> GetEdgeonly()
+        {
+            try
+            {
+                if (_gremlinQuery.ContainsCharacters()) return await _context.ExecuteAsync<dynamic>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_reverseLabel != null && _reverseLabel != _edgeLabel)
+                    return await _context.ExecuteAsync<dynamic>(ReverseLabelQueryEdgeOnly());
+                if (_reverseLabel != null && _reverseLabel == _edgeLabel)
+                    return await _context.ExecuteAsync<dynamic>(EdgeLabelQueryEdgeOnly());
+                return await _context.ExecuteAsync<dynamic>(SimpleEdgeLabelQueryEdgeOnly());
+            }
+            catch (Exception ex)
+            {
+                ex.Log("");
+                throw;
+            }
+        }
+
+        private async Task<IEnumerable<TTout>> GetEdge()
         {
             try
             {
@@ -152,6 +225,24 @@ namespace Stardust.Paradox.Data.Internals
             return g => g.V(_parent._entityKey).OutE(_reverseLabel).InV();
         }
 
+        private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQueryEdgeOnly()
+        {
+            _referenceType = "out";
+            return g => g.V(_parent._entityKey).InE(_edgeLabel);
+        }
+
+        private Func<GremlinContext, GremlinQuery> EdgeLabelQueryEdgeOnly()
+        {
+            _referenceType = "both";
+            return g => g.V(_parent._entityKey).As("i").BothE(_edgeLabel).As("e").BothV().Where(p => p.P.Not(q => q.Eq("i")));
+        }
+
+        private Func<GremlinContext, GremlinQuery> ReverseLabelQueryEdgeOnly()
+        {
+            _referenceType = "in";
+            return g => g.V(_parent._entityKey).OutE(_reverseLabel);
+        }
+
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
         public void Add(IEdge<TTout> item)
@@ -166,6 +257,13 @@ namespace Stardust.Paradox.Data.Internals
         public void Add(TTout vertex)
         {
             Add(new Edge<TTout>("", vertex, _parent, _context) { AddReverse = _reverseLabel.ContainsCharacters() });
+        }
+
+        public void Add(TTout vertex, IDictionary<string, object> edgeProperties)
+        {
+            var edge = new Edge<TTout>("", vertex, _parent, _context) { AddReverse = _reverseLabel.ContainsCharacters() };
+            edge.Properties.AddRange(edgeProperties);
+            Add(edge);
         }
 
         public void AddDual(TTout vertex)
@@ -195,6 +293,8 @@ namespace Stardust.Paradox.Data.Internals
             foreach (var edge in _collection.Where(Predicate(e)).Select(i => i).ToArray())
             {
                 _collection.Remove(edge);
+                _deletedCollection.Add(edge as Edge<TTout>);
+                IsDirty = true;
             }
             return true;
         }

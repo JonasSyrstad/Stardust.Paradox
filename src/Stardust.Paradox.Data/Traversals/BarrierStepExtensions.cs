@@ -43,5 +43,9 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s=>s.ToString(CultureInfo.InvariantCulture)))})");
         }
+        internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params bool[] values)
+        {
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => s.ToString(CultureInfo.InvariantCulture)))})");
+        }
     }
 }

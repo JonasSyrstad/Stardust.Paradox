@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations
 {
     [AttributeUsage(AttributeTargets.Interface)]
     public class VertexLabelAttribute : Attribute

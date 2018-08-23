@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Stardust.Paradox.Data.Tree
+namespace Stardust.Paradox.Data.Annotations.DataTypes
 {
     public interface IVertexTree
     {

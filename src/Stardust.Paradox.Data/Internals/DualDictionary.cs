@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data.Internals
 {

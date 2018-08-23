@@ -7,6 +7,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Paradox.Data.Traversals;

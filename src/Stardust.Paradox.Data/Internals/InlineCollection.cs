@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals

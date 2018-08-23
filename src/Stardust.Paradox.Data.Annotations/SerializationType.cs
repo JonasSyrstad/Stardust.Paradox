@@ -1,4 +1,4 @@
-﻿namespace Stardust.Paradox.Data
+﻿namespace Stardust.Paradox.Data.Annotations
 {
     public enum SerializationType
     {

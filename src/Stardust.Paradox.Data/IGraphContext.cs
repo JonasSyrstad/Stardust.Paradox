@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Paradox.Data.Tree;
 
