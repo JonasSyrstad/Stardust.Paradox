@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Particles;
 
@@ -13,6 +14,7 @@ namespace Stardust.Paradox.Data.Internals
     public abstract class GraphDataEntity : IVertex
     {
         public event PropertyChangedHandler PropertyChanged;
+        public event PropertyChangingHandler PropertyChanging;
         private string gremlinUpdateStatement = "";
         private string vertexSelector = "";
         protected internal string _entityKey;
@@ -23,6 +25,7 @@ namespace Stardust.Paradox.Data.Internals
         private readonly ConcurrentDictionary<string, IEdgeCollection> _edges = new ConcurrentDictionary<string, IEdgeCollection>();
         internal static ConcurrentDictionary<string, List<string>> _eagerLodedProperties = new ConcurrentDictionary<string, List<string>>();
         internal bool _eagerLoding;
+        private bool _isLoading = true;
 
         protected IEdgeCollection<TOut> GetEdgeCollection<TOut>(string edgeLabel, string reverseLabel, string gremlinQuery) where TOut : IVertex
         {
@@ -57,18 +60,34 @@ namespace Stardust.Paradox.Data.Internals
 
         protected internal virtual void OnPropertyChanged(object value, string propertyName = null)
         {
+            if (_isLoading) return;
             if (IsDeleted)
                 throw new EntityDeletedException(
                     $"Entitiy {GetType().GetInterfaces().First().Name}.{_entityKey} is marked as deleted.");
             if (vertexSelector.IsNullOrWhiteSpace()) return;
-            PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
-            gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
-            IsDirty = true;
+
+            if (value != null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
+                gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
+                IsDirty = true;
+            }
+        }
+
+        protected internal bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
+        {
+            if (_isLoading) return true;
+            if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
+            {
+                PropertyChanging?.Invoke(this, new PropertyChangingHandlerArgs(newValue, oldValue, propertyName));
+                return true;
+            }
+            return false;
         }
 
         protected internal void Reset(bool isNew)
         {
-
+            _isLoading = false;
             IsNew = isNew;
             IsDeleted = false;
             gremlinUpdateStatement = "";
@@ -89,6 +108,7 @@ namespace Stardust.Paradox.Data.Internals
 
         private string GetValue(object value)
         {
+            if (value == null) return null;
             switch (value)
             {
                 case string _:

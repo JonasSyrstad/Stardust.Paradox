@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Traversals;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Traversals;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -87,9 +88,9 @@ namespace Stardust.Paradox.Data.Internals
         internal bool AddReverse { get; set; }
         internal string ReverseLabel { get; set; }
 
-        public async Task DropEdgeAsync()
+        public async Task DropEdgeAsync(string label)
         {
-            await _context.ExecuteAsync<T>(g => g.V(_parent._entityKey).OutE().HasId(_id).Drop());
+            await _context.ExecuteAsync<T>(g => g.V(FromId).BothE().HasLabel(label).Where(p => p.OtherV().HasId(ToId)).Drop());
         }
     }
 

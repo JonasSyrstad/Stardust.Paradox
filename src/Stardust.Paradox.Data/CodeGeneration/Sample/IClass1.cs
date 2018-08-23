@@ -1,8 +1,9 @@
-﻿namespace Stardust.Paradox.Data.CodeGeneration.Sample
+﻿using Stardust.Paradox.Data.Annotations;
+
+namespace Stardust.Paradox.Data.CodeGeneration.Sample
 {
     public interface IClass1:IVertex
     {
-        string Id { get; }
 
         string Name { get; set; }
 

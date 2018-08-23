@@ -1,8 +1,7 @@
-﻿using System;
-using System.Data.SqlTypes;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations
 {
     public interface IEdgeReference<T>:INullable<T>, IEdgeReference  where T : IVertex
     {

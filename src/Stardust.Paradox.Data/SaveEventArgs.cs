@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data
 {

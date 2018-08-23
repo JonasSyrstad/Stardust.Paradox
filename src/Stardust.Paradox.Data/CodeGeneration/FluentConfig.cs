@@ -1,4 +1,6 @@
-﻿namespace Stardust.Paradox.Data.CodeGeneration
+﻿using Stardust.Paradox.Data.Annotations;
+
+namespace Stardust.Paradox.Data.CodeGeneration
 {
     internal class FluentConfig
     {

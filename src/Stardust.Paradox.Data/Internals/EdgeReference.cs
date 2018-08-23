@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals

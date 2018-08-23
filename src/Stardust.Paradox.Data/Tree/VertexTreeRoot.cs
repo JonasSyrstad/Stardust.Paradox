@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data.Tree
 {
@@ -15,14 +16,14 @@ namespace Stardust.Paradox.Data.Tree
             _children = items.ToList();
         }
 
-        internal VertexTreeRoot(IEnumerable<dynamic> items,IGraphContext context)
+        internal VertexTreeRoot(IEnumerable<dynamic> items, IGraphContext context)
         {
             _context = context;
             foreach (var item in items)
             {
                 foreach (JProperty i in item)
                 {
-                    _children.Add(new VertexTree<T>(i.Value,_context)); 
+                    _children.Add(new VertexTree<T>(i.Value, _context));
                 }
             }
         }
@@ -36,14 +37,14 @@ namespace Stardust.Paradox.Data.Tree
         {
             _context = context;
         }
-        
-        public VertexTree<T> this[int index] => _children[index];
-        public IEnumerator<VertexTree<T>> GetEnumerator()
+
+        public IVertexTree<T> this[int index] => _children[index];
+        public IEnumerator<IVertexTree<T>> GetEnumerator()
         {
             return _children.GetEnumerator();
         }
 
-        [JsonProperty("values",DefaultValueHandling = DefaultValueHandling.Include)]
+        [JsonProperty("values", DefaultValueHandling = DefaultValueHandling.Include)]
         internal IEnumerable<VertexTree<T>> Values => _children;
 
         IEnumerator IEnumerable.GetEnumerator()

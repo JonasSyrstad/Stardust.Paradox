@@ -2,6 +2,8 @@
 using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Tree
 {

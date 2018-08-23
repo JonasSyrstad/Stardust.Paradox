@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq.Expressions;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
 
 namespace Stardust.Paradox.Data

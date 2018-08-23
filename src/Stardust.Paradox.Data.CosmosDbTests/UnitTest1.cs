@@ -1,17 +1,17 @@
+using Newtonsoft.Json;
+using Stardust.Nucleus;
+using Stardust.Nucleus.TypeResolver;
+using Stardust.Paradox.Data;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Providers.Gremlin;
+using Stardust.Paradox.Data.Traversals;
+using Stardust.Particles;
+using Stardust.Particles.Collection.Arrays;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Stardust.Nucleus;
-using Stardust.Nucleus.TypeResolver;
-using Stardust.Paradox.Data;
-using Stardust.Paradox.Data.Providers.Gremlin;
-using Stardust.Paradox.Data.Traversals;
-using Stardust.Paradox.Data.Traversals.Helpers;
-using Stardust.Particles;
-using Stardust.Particles.Collection.Arrays;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -22,7 +22,7 @@ namespace Stardust.Paradox.CosmosDbTest
     public class GremlinTests : IDisposable
     {
         private readonly ITestOutputHelper _output;
-        private IKernelContext _scope;
+        private readonly IKernelContext _scope;
 
         public GremlinTests(ITestOutputHelper output)
         {
@@ -44,11 +44,11 @@ namespace Stardust.Paradox.CosmosDbTest
             await G.V().Drop().ExecuteAsync();
             using (var tc = TestContext())
             {
-                var jonas = CreateItem(tc, "Jonas", "Techincal Solution Architect");
+                var jonas = CreateItem(tc, "Jonas", "Techincal Solution Architect", true);
                 jonas.ProgramingLanguages.AddRange(new[] { "C#", "C++", "JavaScript", "Gremlin" });
-                var tor = CreateItem(tc, "Tor", "Farmer");
-                var rita = CreateItem(tc, "Rita", "Farmer");
-                var kine = CreateItem(tc, "Kine");
+                var tor = CreateItem(tc, "Tor", "Farmer", true);
+                var rita = CreateItem(tc, "Rita", "Farmer", true);
+                var kine = CreateItem(tc, "Kine", isAdult: true);
                 var sanne = CreateItem(tc, "Sanne");
                 var marena = CreateItem(tc, "Marena");
                 var mathilde = CreateItem(tc, "Mathilde");
@@ -63,10 +63,10 @@ namespace Stardust.Paradox.CosmosDbTest
                 jonas.Parents.Add(tor);
                 jonas.Parents.Add(rita);
                 jonas.Employers.Add(gssIt);
-                sanne.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
-                sanne.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
-                herman.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
-                herman.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" } });
+                sanne.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
+                sanne.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
+                herman.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
+                herman.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
                 marena.Parents.Add(jonas);
                 kine.Children.Add(mathilde);
                 await tc.SaveChangesAsync();
@@ -80,7 +80,7 @@ namespace Stardust.Paradox.CosmosDbTest
             using (var tc = TestContext())
             {
                 var s = await tc.Profiles.GetAsync("Sanne");
-                var parents =await s.Parents.ToEdgesAsync();
+                var parents = await s.Parents.ToEdgesAsync();
                 Assert.NotNull(parents.FirstOrDefault()?.Properties.FirstOrDefault());
             }
         }
@@ -107,12 +107,13 @@ namespace Stardust.Paradox.CosmosDbTest
             return tc;
         }
 
-        private static IProfile CreateItem(TestContext tc, string id, string ocupation = null)
+        private static IProfile CreateItem(TestContext tc, string id, string ocupation = null, bool isAdult = false)
         {
             var item = tc.CreateEntity<IProfile>(id);
             item.Name = id;
             item.FirstName = id;
             item.Ocupation = ocupation;
+            item.Adult = isAdult;
             return item;
         }
 
@@ -156,6 +157,35 @@ namespace Stardust.Paradox.CosmosDbTest
             }
 
 
+        }
+
+        [Fact]
+        public async Task GetPerfTest()
+        {
+            using (var tc = TestContext())
+            {
+                var j = await tc.Profiles.GetAsync("Jonas");
+            }
+            using (var tc = TestContext())
+            {
+                var t = Stopwatch.StartNew();
+                var j = await tc.Profiles.GetAsync("Jonas");
+                t.Stop();
+                _output.WriteLine($"Gremlin.Net: {t.ElapsedMilliseconds}ms");
+            }
+            using (var tc = new TestContext(new Class1()))
+            {
+
+                var j = await tc.Profiles.GetAsync("Jonas");
+
+            }
+            using (var tc = new TestContext(new Class1()))
+            {
+                var t = Stopwatch.StartNew();
+                var j = await tc.Profiles.GetAsync("Jonas");
+                t.Stop();
+                _output.WriteLine($"Document client: {t.ElapsedMilliseconds}ms");
+            }
         }
 
         [Fact]
@@ -347,6 +377,59 @@ namespace Stardust.Paradox.CosmosDbTest
             using (var c = TestContext())
             {
                 await c.Profiles.DeleteAsync("string");
+                await c.SaveChangesAsync();
+            }
+        }
+
+        [Fact]
+        public async Task CreateGetDeleteItemWithEdges()
+        {
+            using (var c = TestContext())
+            {
+                var i = c.Profiles.Create("string");
+                i.Name = "string";
+                i.Email = "string";
+                i.FirstName = "string";
+                i.LastName = "string";
+                var i2 = c.Profiles.Create("string2");
+                i2.Name = "string";
+                i2.Email = "string";
+                i2.FirstName = "string";
+                i2.LastName = "string";
+                await c.SaveChangesAsync();
+            }
+
+            using (var c = TestContext())
+            {
+                var i = await c.Profiles.GetAsync("string");
+                var t = await c.Profiles.GetAsync("string2");
+                i.Parents.Add(t);
+                await c.SaveChangesAsync();
+                Assert.NotNull(i);
+            }
+
+            using (var c = TestContext())
+            {
+                var i = await c.Profiles.GetAsync("string");
+                var t = await c.Profiles.GetAsync("string2");
+                await i.Parents.LoadAsync();
+                i.Parents.Remove(t);
+                await c.SaveChangesAsync();
+                Assert.NotNull(i);
+            }
+
+            using (var c = TestContext())
+            {
+                var i = await c.Profiles.GetAsync("string");
+                var t = await c.Profiles.GetAsync("string2");
+                Assert.Empty(i.Parents);
+                Assert.Empty(t.Children);
+                Assert.NotNull(i);
+            }
+            using (var c = TestContext())
+            {
+                await c.Profiles.DeleteAsync("string");
+                await c.Profiles.DeleteAsync("string2");
                 await c.SaveChangesAsync();
             }
         }

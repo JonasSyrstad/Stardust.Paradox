@@ -1,6 +1,6 @@
 ﻿using System.Threading.Tasks;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations.DataTypes
 {
     public interface INullable<T> where T : IVertex
     {

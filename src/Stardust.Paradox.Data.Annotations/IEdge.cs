@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations
 {
     public interface IEdge
     {

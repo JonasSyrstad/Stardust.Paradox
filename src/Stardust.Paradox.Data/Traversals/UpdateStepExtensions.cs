@@ -71,7 +71,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, DateTime p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}','{p2.ToString(CultureInfo.InvariantCulture)}')");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, double p2)

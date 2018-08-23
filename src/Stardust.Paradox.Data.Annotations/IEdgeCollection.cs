@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Internals;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations
 {
     public interface IEdgeCollection
     {

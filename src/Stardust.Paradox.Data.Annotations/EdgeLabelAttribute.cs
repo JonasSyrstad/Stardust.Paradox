@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Stardust.Paradox.Data
+namespace Stardust.Paradox.Data.Annotations
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class EdgeLabelAttribute : Attribute

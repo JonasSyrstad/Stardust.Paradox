@@ -1,16 +1,16 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Traversals;
+using Stardust.Particles;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Newtonsoft.Json.Linq;
-using Stardust.Paradox.Data.Traversals;
-using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
+    internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
     {
         private readonly string _edgeLabel;
         private readonly string _gremlinQuery;
@@ -38,7 +38,7 @@ namespace Stardust.Paradox.Data.Internals
             _addedCollection.Clear();
             foreach (var edge in _deletedCollection)
             {
-                await edge.DropEdgeAsync();
+                await edge.DropEdgeAsync(_edgeLabel ?? _reverseLabel);
             }
             _deletedCollection.Clear();
             IsDirty = false;
@@ -133,13 +133,13 @@ namespace Stardust.Paradox.Data.Internals
                 if (v != null)
                     foreach (var edge in from i in v where i != null select i)
                     {
-                        JObject tout = (JObject) edge;
-                        var e = new Edge<TTout>(tout["id"].Value<string>(), _parent, _context) {EdgeType = _referenceType};
+                        JObject tout = (JObject)edge;
+                        var e = new Edge<TTout>(tout["id"].Value<string>(), _parent, _context) { EdgeType = _referenceType };
                         //e.Properties.AddRange(tout["properties"].Values());
                         foreach (dynamic va in tout["properties"])
                         {
-                            e.Properties.Add(va.Name,va.Value);
-                           // va.
+                            e.Properties.Add(va.Name, va.Value);
+                            // va.
                         }
                         _edgeCollection.Add(e);
 
@@ -293,6 +293,8 @@ namespace Stardust.Paradox.Data.Internals
             foreach (var edge in _collection.Where(Predicate(e)).Select(i => i).ToArray())
             {
                 _collection.Remove(edge);
+                _deletedCollection.Add(edge as Edge<TTout>);
+                IsDirty = true;
             }
             return true;
         }

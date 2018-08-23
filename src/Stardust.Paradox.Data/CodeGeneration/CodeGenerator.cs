@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using Stardust.Particles.Collection;
@@ -211,9 +212,9 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         private static MethodBuilder BuildMethodset_Id(TypeBuilder typeBuilder)
         {
-            System.Reflection.MethodAttributes methodAttributes =
-                System.Reflection.MethodAttributes.Public
-                | System.Reflection.MethodAttributes.HideBySig;
+            MethodAttributes methodAttributes =
+                MethodAttributes.Public
+                | MethodAttributes.HideBySig;
             MethodBuilder method = typeBuilder.DefineMethod("set_Id", methodAttributes);
             // Preparing Reflection instances
             FieldInfo field1 = typeof(GraphDataEntity).GetField("_entityKey", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
@@ -437,18 +438,28 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         public static MethodBuilder BuildMethodset(TypeBuilder type, PropertyInfo i, FieldBuilder field1)
         {
-            // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                   MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod("set_" + i.Name, methodAttributes);
+            MethodBuilder method = type.DefineMethod($"set_{i.Name}", methodAttributes);
             // Preparing Reflection instances
-            //FieldInfo field1 = typeof(Class1).GetField("_age", BindingFlags.Public | BindingFlags.NonPublic);
+
             MethodInfo method2 = typeof(GraphDataEntity).GetMethod(
+                "OnPropertyChanging",
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                null,
+                new Type[]{
+            typeof(Object),
+            typeof(Object),
+            typeof(String)
+                    },
+                null
+                );
+            MethodInfo method3 = typeof(GraphDataEntity).GetMethod(
                 "OnPropertyChanged",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
@@ -470,33 +481,100 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Preparing locals
             LocalBuilder flag = gen.DeclareLocal(typeof(Boolean));
             // Preparing labels
-            Label label44 = gen.DefineLabel();
+            Label label45 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
-            gen.Emit(OpCodes.Ldfld, field1);
             gen.Emit(OpCodes.Ldarg_1);
-            gen.Emit(OpCodes.Ceq);
-            gen.Emit(OpCodes.Ldc_I4_0);
-            gen.Emit(OpCodes.Ceq);
+            if (!i.PropertyType.IsClass)
+                gen.Emit(OpCodes.Box, i.PropertyType);
+            gen.Emit(OpCodes.Ldarg_0);
+            gen.Emit(OpCodes.Ldfld, field1);
+            if (!i.PropertyType.IsClass)
+                gen.Emit(OpCodes.Box, i.PropertyType);
+            gen.Emit(OpCodes.Ldstr, i.Name);
+            gen.Emit(OpCodes.Call, method2);
             gen.Emit(OpCodes.Stloc_0);
             gen.Emit(OpCodes.Ldloc_0);
-            gen.Emit(OpCodes.Brfalse_S, label44);
+            gen.Emit(OpCodes.Brfalse_S, label45);
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
             gen.Emit(OpCodes.Ldarg_1);
             gen.Emit(OpCodes.Stfld, field1);
             gen.Emit(OpCodes.Ldarg_0);
             gen.Emit(OpCodes.Ldarg_1);
-            gen.Emit(OpCodes.Box, i.PropertyType);
+            if (!i.PropertyType.IsClass)
+                gen.Emit(OpCodes.Box, i.PropertyType);
             gen.Emit(OpCodes.Ldstr, i.Name);
-            gen.Emit(OpCodes.Callvirt, method2);
+            gen.Emit(OpCodes.Callvirt, method3);
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Nop);
-            gen.MarkLabel(label44);
+            gen.MarkLabel(label45);
             gen.Emit(OpCodes.Ret);
             // finished
             return method;
+
+
+            //// Declaring method builder
+            //// Method attributes
+            //MethodAttributes methodAttributes =
+            //      MethodAttributes.Public
+            //    | MethodAttributes.Virtual
+            //    | MethodAttributes.Final
+            //    | MethodAttributes.HideBySig
+            //    | MethodAttributes.NewSlot;
+            //MethodBuilder method = type.DefineMethod("set_" + i.Name, methodAttributes);
+            //// Preparing Reflection instances
+            ////FieldInfo field1 = typeof(Class1).GetField("_age", BindingFlags.Public | BindingFlags.NonPublic);
+            //MethodInfo method2 = typeof(GraphDataEntity).GetMethod(
+            //    "OnPropertyChanged",
+            //    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+            //    null,
+            //    new Type[]{
+            //typeof(Object),
+            //typeof(String)
+            //        },
+            //    null
+            //    );
+            //// Setting return type
+            //method.SetReturnType(typeof(void));
+            //// Adding parameters
+            //method.SetParameters(
+            //    i.PropertyType
+            //    );
+            //// Parameter value
+            //ParameterBuilder value = method.DefineParameter(1, ParameterAttributes.None, "value");
+            //ILGenerator gen = method.GetILGenerator();
+            //// Preparing locals
+            //LocalBuilder flag = gen.DeclareLocal(typeof(Boolean));
+            //// Preparing labels
+            //Label label44 = gen.DefineLabel();
+            //// Writing body
+            //gen.Emit(OpCodes.Nop);
+            //gen.Emit(OpCodes.Ldarg_0);
+            //gen.Emit(OpCodes.Ldfld, field1);
+            //gen.Emit(OpCodes.Ldarg_1);
+            //gen.Emit(OpCodes.Ceq);
+            //gen.Emit(OpCodes.Ldc_I4_0);
+            //gen.Emit(OpCodes.Ceq);
+            //gen.Emit(OpCodes.Stloc_0);
+            //gen.Emit(OpCodes.Ldloc_0);
+            //gen.Emit(OpCodes.Brfalse_S, label44);
+            //gen.Emit(OpCodes.Nop);
+            //gen.Emit(OpCodes.Ldarg_0);
+            //gen.Emit(OpCodes.Ldarg_1);
+            //gen.Emit(OpCodes.Stfld, field1);
+            //gen.Emit(OpCodes.Ldarg_0);
+            //gen.Emit(OpCodes.Ldarg_1);
+            //gen.Emit(OpCodes.Box, i.PropertyType);
+            //gen.Emit(OpCodes.Ldstr, i.Name);
+            //gen.Emit(OpCodes.Callvirt, method2);
+            //gen.Emit(OpCodes.Nop);
+            //gen.Emit(OpCodes.Nop);
+            //gen.MarkLabel(label44);
+            //gen.Emit(OpCodes.Ret);
+            //// finished
+            //return method;
 
         }
 

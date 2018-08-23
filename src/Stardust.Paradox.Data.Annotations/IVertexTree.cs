@@ -1,6 +1,8 @@
-using Stardust.Paradox.Data.Tree;
 
-namespace Stardust.Paradox.Data
+
+using Stardust.Paradox.Data.Annotations.DataTypes;
+
+namespace Stardust.Paradox.Data.Annotations
 {
     public interface IVertexTree<T> : IVertexTreeRoot<T>, IVertexTree where T : IVertex
     {
