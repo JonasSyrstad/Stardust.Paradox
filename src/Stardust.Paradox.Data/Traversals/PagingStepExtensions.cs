@@ -2,14 +2,14 @@
 {
     public static class PagingStepExtensions
     {
-       public static GremlinQuery Skip(this GremlinQuery queryBase, int itemsToSkip)
+        public static GremlinQuery Skip(this GremlinQuery queryBase, int itemsToSkip)
         {
-            return new ComposedGremlinQuery(queryBase, $".skip({itemsToSkip})");
+            return queryBase.Range(itemsToSkip, -1);
         }
 
         public static GremlinQuery Skip(this GremlinQuery queryBase, GraphScope scope, int itemsToSkip)
         {
-            return new ComposedGremlinQuery(queryBase, $".skip({scope.ToString().ToLower()},{itemsToSkip})");
+            return queryBase.Range(scope, itemsToSkip, -1);
         }
 
         public static GremlinQuery Range(this GremlinQuery queryBase, int itemsToSkip, int itemsToInclude)

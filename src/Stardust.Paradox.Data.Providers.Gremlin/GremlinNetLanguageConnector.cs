@@ -21,7 +21,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
         public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey)
         {
             var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
-
+            
             _client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
         }
 
