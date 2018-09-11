@@ -12,7 +12,7 @@
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
-    <Description>Connector for CosmosDb</Description>
+    <Description>Connector for CosmosDb using the document client</Description>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
   </PropertyGroup>
