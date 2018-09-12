@@ -8,7 +8,7 @@
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
     <Copyright>Copyright Stardust ©  2018</Copyright>
-    <PackageLicenseUrl>http://stardustframework.com/license</PackageLicenseUrl>
+    <PackageLicenseUrl>https://github.com/JonasSyrstad/Stardust.Paradox/blob/Main/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
