@@ -103,7 +103,11 @@ namespace Stardust.Paradox.CosmosDbTest
             var tc = new TestContext(new GremlinNetLanguageConnector("jonas-graphtest.gremlin.cosmosdb.azure.com", "graphTest", "services", "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A=="));
             tc.SavingChanges += (sender, args) => { _output.WriteLine($"saving changes with {args.TrackedItems.Count()} tracked items"); };
             tc.ChangesSaved += (sender, args) => { _output.WriteLine($"saved changes with {args.TrackedItems.Count()} tracked items"); };
-            tc.SaveChangesError += (sender, args) => { _output.WriteLine($"saving changes failed with message: {args.Error.Message}"); };
+            tc.SaveChangesError += (sender, args) =>
+            {
+                _output.WriteLine($"failed statement: {args.FailedUpdateStatement}");
+                _output.WriteLine($"saving changes failed with message: {args.Error.Message}");
+            };
             return tc;
         }
 
@@ -139,6 +143,28 @@ namespace Stardust.Paradox.CosmosDbTest
                 t.LastName = "Syrstad";
                 t.VerifiedEmail = true;
                 _output.WriteLine(JsonConvert.SerializeObject(t));
+            }
+
+
+        }
+
+        [Fact]
+        public async Task EscapeCharacterTest()
+        {
+            IProfile t;
+            using (var tc = TestContext())
+            {
+                t = tc.CreateEntity<IProfile>("jonas.syrstad");
+                Assert.NotNull(t);
+                t.Email = "jonas.syrstad@dnvgl.com";
+                t.FirstName = "Jonas";
+                t.LastName = "Syrstad";
+                t.Description = "jonas's little test";
+                t.VerifiedEmail = true;
+                await tc.SaveChangesAsync();
+                _output.WriteLine(JsonConvert.SerializeObject(t));
+                tc.Delete(t);
+                await tc.SaveChangesAsync();
             }
 
 
