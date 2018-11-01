@@ -75,6 +75,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
         bool Adult { get; set; }
         string Description { get; set; }
+        int Number { get; set; }
     }
 
 
