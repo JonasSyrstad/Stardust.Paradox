@@ -1,13 +1,13 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.CodeGeneration;
+using Stardust.Particles;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Stardust.Paradox.Data.Annotations;
-using Stardust.Paradox.Data.CodeGeneration;
-using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -40,8 +40,7 @@ namespace Stardust.Paradox.Data.Internals
 
         protected IInlineCollection<T> GetInlineCollection<T>(string name)
         {
-            IInlineCollection i;
-            if (_inlineCollections.TryGetValue(name, out i)) return (IInlineCollection<T>)i;
+            if (_inlineCollections.TryGetValue(name, out IInlineCollection i)) return (IInlineCollection<T>)i;
             i = new InlineCollection<T>(this, name);
             _inlineCollections.TryAdd(name, i);
             return (IInlineCollection<T>)i;
@@ -111,8 +110,10 @@ namespace Stardust.Paradox.Data.Internals
             if (value == null) return null;
             switch (value)
             {
-                case string _:
-                    return $"'{value}'";
+                case string s:
+                    var r = $"'{EscapeString(s)}'";
+                    if (r == "'''") return "''";
+                    return r;
                 case DateTime time:
                     return $"{time.Ticks}";
                 case int no:
@@ -131,6 +132,15 @@ namespace Stardust.Paradox.Data.Internals
                     return $"'{i.ToTransferData()}'";
             }
             throw new ArgumentException("Unknown type", nameof(value));
+        }
+
+        private static object EscapeString(string value)
+        {
+            if (value.IsNullOrWhiteSpace()) return value;
+            return value.Replace("\\", "")
+                .Replace("'", "\\'")
+                .Replace("`", "")
+                .Replace("´", ""); 
         }
 
         internal void SetContext(GraphContextBase graphContextBase)

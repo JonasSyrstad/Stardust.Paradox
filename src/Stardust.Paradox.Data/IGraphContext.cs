@@ -29,6 +29,8 @@ namespace Stardust.Paradox.Data
         Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex;
         void Attatch<T>(T item);
 
+        void Clear();
+
         event SavingChangesHandler SavingChanges;
         event SavingChangesHandler ChangesSaved;
         event SavingChangesHandler SaveChangesError;

@@ -103,7 +103,11 @@ namespace Stardust.Paradox.CosmosDbTest
             var tc = new TestContext(new GremlinNetLanguageConnector("jonas-graphtest.gremlin.cosmosdb.azure.com", "graphTest", "services", "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A=="));
             tc.SavingChanges += (sender, args) => { _output.WriteLine($"saving changes with {args.TrackedItems.Count()} tracked items"); };
             tc.ChangesSaved += (sender, args) => { _output.WriteLine($"saved changes with {args.TrackedItems.Count()} tracked items"); };
-            tc.SaveChangesError += (sender, args) => { _output.WriteLine($"saving changes failed with message: {args.Error.Message}"); };
+            tc.SaveChangesError += (sender, args) =>
+            {
+                _output.WriteLine($"failed statement: {args.FailedUpdateStatement}");
+                _output.WriteLine($"saving changes failed with message: {args.Error.Message}");
+            };
             return tc;
         }
 
@@ -139,6 +143,28 @@ namespace Stardust.Paradox.CosmosDbTest
                 t.LastName = "Syrstad";
                 t.VerifiedEmail = true;
                 _output.WriteLine(JsonConvert.SerializeObject(t));
+            }
+
+
+        }
+
+        [Fact]
+        public async Task EscapeCharacterTest()
+        {
+            IProfile t;
+            using (var tc = TestContext())
+            {
+                t = tc.CreateEntity<IProfile>("jonas.syrstad");
+                Assert.NotNull(t);
+                t.Email = "jonas.syrstad@dnvgl.com";
+                t.FirstName = "Jonas";
+                t.LastName = "Syrstad";
+                t.Description = "jonas's little test";
+                t.VerifiedEmail = true;
+                await tc.SaveChangesAsync();
+                _output.WriteLine(JsonConvert.SerializeObject(t));
+                tc.Delete(t);
+                await tc.SaveChangesAsync();
             }
 
 
@@ -314,6 +340,7 @@ namespace Stardust.Paradox.CosmosDbTest
                 test.LastName = "test";
                 test.LastUpdated = DateTime.Now;
                 test.Name = "test";
+                test.Number = 1;
                 await tc.SaveChangesAsync();
             }
 
@@ -431,6 +458,68 @@ namespace Stardust.Paradox.CosmosDbTest
                 await c.Profiles.DeleteAsync("string");
                 await c.Profiles.DeleteAsync("string2");
                 await c.SaveChangesAsync();
+            }
+        }
+
+        [Fact]
+        public async Task CreateGetDeleteItemWithEdgesParallel()
+        {
+            try
+            {
+                GremlinContext.ParallelSaveExecution = true;
+                using (var c = TestContext())
+                {
+                    var i = c.Profiles.Create("string");
+                    i.Name = "string";
+                    i.Email = "string";
+                    i.FirstName = "string";
+                    i.LastName = "string";
+                    var i2 = c.Profiles.Create("string2");
+                    i2.Name = "string";
+                    i2.Email = "string";
+                    i2.FirstName = "string";
+                    i2.LastName = "string";
+                    await c.SaveChangesAsync();
+                }
+
+                using (var c = TestContext())
+                {
+                    var i = await c.Profiles.GetAsync("string");
+                    var t = await c.Profiles.GetAsync("string2");
+                    i.Parents.Add(t);
+                    await c.SaveChangesAsync();
+                    Assert.NotNull(i);
+                }
+
+                using (var c = TestContext())
+                {
+                    var i = await c.Profiles.GetAsync("string");
+                    var t = await c.Profiles.GetAsync("string2");
+                    await i.Parents.LoadAsync();
+                    i.Parents.Remove(t);
+                    await c.SaveChangesAsync();
+                    Assert.NotNull(i);
+                }
+
+                using (var c = TestContext())
+                {
+                    var i = await c.Profiles.GetAsync("string");
+                    var t = await c.Profiles.GetAsync("string2");
+                    Assert.Empty(i.Parents);
+                    Assert.Empty(t.Children);
+                    Assert.NotNull(i);
+                }
+
+                using (var c = TestContext())
+                {
+                    await c.Profiles.DeleteAsync("string");
+                    await c.Profiles.DeleteAsync("string2");
+                    await c.SaveChangesAsync();
+                }
+            }
+            finally
+            {
+                GremlinContext.ParallelSaveExecution = false;
             }
         }
 

@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
-using System.Linq.Expressions;
-using System.Reflection;
-using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.CodeGeneration;
@@ -13,6 +6,13 @@ using Stardust.Paradox.Data.Internals;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Paradox.Data.Tree;
 using Stardust.Particles;
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data
 {
@@ -204,31 +204,40 @@ namespace Stardust.Paradox.Data
         public async Task SaveChangesAsync()
         {
             SavingChanges?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
+            string updateStatement = null;
             try
             {
                 var deleted = new List<GraphDataEntity>();
+                var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
-                    await _connector.ExecuteAsync(graphDataEntity.Value.GetUpdateStatement());
-
+                    updateStatement = graphDataEntity.Value.GetUpdateStatement();
+                    if (GremlinContext.ParallelSaveExecution)
+                        tasks.Add(_connector.ExecuteAsync(updateStatement));
+                    else
+                        await _connector.ExecuteAsync(updateStatement);
                     if (graphDataEntity.Value.IsDeleted)
                         deleted.Add(graphDataEntity.Value);
 
                 }
-                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
-                    foreach (var edges in graphDataEntity.Value.GetEdges())
-                    {
-                        await edges.SaveChangesAsync();
-                    }
-                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
-                {
-                    foreach (var edges in graphDataEntity.Value.GetEdges())
-                    {
-                        await edges.SaveChangesAsync();
-                    }
-                    if (graphDataEntity.Value.IsDeleted)
-                        deleted.Add(graphDataEntity.Value);
 
+                if (GremlinContext.ParallelSaveExecution && tasks.Any())
+                {
+                    await Task.WhenAll(tasks);
+                    tasks.Clear();
+                }
+                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
+                    foreach (var edges in graphDataEntity.Value.GetEdges())
+                    {
+                        if (GremlinContext.ParallelSaveExecution)
+                            tasks.Add(edges.SaveChangesAsync());
+                        else
+                            await edges.SaveChangesAsync();
+                    }
+                if (GremlinContext.ParallelSaveExecution && tasks.Any())
+                {
+                    await Task.WhenAll(tasks);
+                    tasks.Clear();
                 }
                 foreach (var graphDataEntity in deleted)
                 {
@@ -241,7 +250,7 @@ namespace Stardust.Paradox.Data
             }
             catch (Exception ex)
             {
-                SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex });
+                SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement });
             }
             ChangesSaved?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
         }
@@ -285,6 +294,11 @@ namespace Stardust.Paradox.Data
             _trackedEntities.TryAdd(i._entityKey, i);
         }
 
+        public void Clear()
+        {
+            _trackedEntities.Clear();
+        }
+
         public event SavingChangesHandler SavingChanges;
         public event SavingChangesHandler ChangesSaved;
 
@@ -297,20 +311,20 @@ namespace Stardust.Paradox.Data
         {
             try
             {
-                Action<object, object> action;
                 if (!propertyInfos.TryGetValue(item.GetType() + "." + key, out var prop))
                 {
                     prop = item.GetType().GetProperty(key,
                         BindingFlags.Public | BindingFlags.FlattenHierarchy | BindingFlags.Instance);
                     propertyInfos.TryAdd(item.GetType() + "." + key, prop);
                 }
+                if (prop == null) return;
                 if (prop.GetCustomAttribute<InlineSerializationAttribute>() != null)
                 {
                     var v = GetValue(item, key) as IInlineCollection;
                     v.LoadFromTransferData(value?.ToString());
                     return;
                 }
-                if (!_setProppertyValueFunc.TryGetValue(item.GetType() + "." + key, out action))
+                if (!_setProppertyValueFunc.TryGetValue(item.GetType() + "." + key, out Action<object, object> action))
                 {
 
 
@@ -322,6 +336,10 @@ namespace Stardust.Paradox.Data
                     action.Invoke(item, new DateTime(long.Parse(value.ToString())));
                 else if (prop.PropertyType == typeof(DateTime?))
                     action.Invoke(item, value == null ? (DateTime?)null : new DateTime(long.Parse(value?.ToString())));
+                else if (prop.PropertyType == typeof(int))
+                    action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));
+                else if (prop.PropertyType == typeof(int?))
+                    action.Invoke(item, value == null ? (int?)null : int.Parse(value?.ToString()));
                 else
                     action.Invoke(item, value);
             }
@@ -358,9 +376,8 @@ namespace Stardust.Paradox.Data
 
         private static object GetValue(object item, string key)
         {
-            Func<object, object> action;
             PropertyInfo prop;
-            if (!getExpressionCache.TryGetValue(item.GetType() + "." + key, out action))
+            if (!getExpressionCache.TryGetValue(item.GetType() + "." + key, out Func<object, object> action))
             {
                 prop = item.GetType().GetProperty(key,
                     BindingFlags.Public | BindingFlags.FlattenHierarchy | BindingFlags.Instance);

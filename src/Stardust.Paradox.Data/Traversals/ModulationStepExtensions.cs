@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Stardust.Particles.Collection.Arrays;
+using System;
 using System.Linq;
 
 namespace Stardust.Paradox.Data.Traversals
 {
     public static class ModulationStepExtensions
     {
-        public static GremlinQuery By(this GremlinQuery queryBase,OrderingTypes ordering)
+        public static GremlinQuery By(this GremlinQuery queryBase, OrderingTypes ordering)
         {
             return new ComposedGremlinQuery(queryBase, $".by({ordering.ToString().ToLower()})");
         }
@@ -19,13 +20,13 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".by()");
         }
 
-        public static GremlinQuery By(this GremlinQuery queryBase,string name)
+        public static GremlinQuery By(this GremlinQuery queryBase, string name)
         {
             return new ComposedGremlinQuery(queryBase, $".by('{name}')");
         }
         public static GremlinQuery By(this GremlinQuery queryBase, Func<GremlinQuery, GremlinQuery> inner)
         {
-            return new LambdaComposedGremlinQuery(queryBase, ".by('{0}')",query =>inner.Invoke(new PredicateGremlinQuery(query._connector)) );
+            return new LambdaComposedGremlinQuery(queryBase, ".by('{0}')", query => inner.Invoke(new PredicateGremlinQuery(query._connector)));
         }
         public static GremlinQuery Dedup(this GremlinQuery queryBase)
         {
@@ -42,12 +43,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".simplePath()");
         }
 
-        public static GremlinQuery Sample(this GremlinQuery queryBase,int startVertex)
+        public static GremlinQuery Sample(this GremlinQuery queryBase, int startVertex)
         {
             return new ComposedGremlinQuery(queryBase, $".sample({startVertex})");
         }
 
-        public static GremlinQuery Where(this GremlinQuery queryBase,string name,Func<PredicateGremlinQuery,GremlinQuery> expression)
+        public static GremlinQuery Where(this GremlinQuery queryBase, string name, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
             return new LambdaComposedGremlinQuery(queryBase, $".where('{name}',{{0}})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
         }
@@ -56,14 +57,21 @@ namespace Stardust.Paradox.Data.Traversals
             return new LambdaComposedGremlinQuery(queryBase, $".where({{0}})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
         }
 
-        public static GremlinQuery Match(this GremlinQuery queryBase,params Func<PredicateGremlinQuery, GremlinQuery>[] expression)
+        public static GremlinQuery Match(this GremlinQuery queryBase, params Func<PredicateGremlinQuery, GremlinQuery>[] expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, $".match({{0}})", query =>string.Join(",", expression.Select(i=>i.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery())));
+            return new LambdaComposedGremlinQuery(queryBase, $".match({{0}})", query => string.Join(",", expression.Select(i => i.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery())));
         }
 
         public static GremlinQuery Select(this GremlinQuery queryBase, params string[] items)
         {
             return new ComposedGremlinQuery(queryBase, $".select({string.Join(",", items.Select(s => $"'{s}'"))})");
+        }
+
+        public static GremlinQuery Select(this GremlinQuery queryBase, SelectTypes selectType, params string[] items)
+        {
+            if (items.ContainsElements())
+                return new ComposedGremlinQuery(queryBase, $".select({selectType.ToString().ToLower()},{string.Join(",", items.Select(s => $"'{s}'"))})");
+            return new ComposedGremlinQuery(queryBase, $".select({selectType.ToString().ToLower()})");
         }
 
         public static GremlinQuery Count(this GremlinQuery queryBase)
@@ -91,16 +99,16 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".path()");
         }
 
-        public static GremlinQuery Project(this GremlinQuery queryBase,params string[] values)
+        public static GremlinQuery Project(this GremlinQuery queryBase, params string[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".project({string.Join(",",values.Select(s=>$"'{s}'"))})");
+            return new ComposedGremlinQuery(queryBase, $".project({string.Join(",", values.Select(s => $"'{s}'"))})");
         }
         public static GremlinQuery Tree(this GremlinQuery queryBase)
         {
             return new ComposedGremlinQuery(queryBase, $".tree()");
         }
 
-        public static GremlinQuery Aggregate(this GremlinQuery queryBase,string value)
+        public static GremlinQuery Aggregate(this GremlinQuery queryBase, string value)
         {
             return new ComposedGremlinQuery(queryBase, $".aggregate('{value}')");
         }
@@ -120,7 +128,7 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".to()");
         }
 
-        public static GremlinQuery From(this GremlinQuery queryBase,string key)
+        public static GremlinQuery From(this GremlinQuery queryBase, string key)
         {
             return new ComposedGremlinQuery(queryBase, $".from('{key}')");
         }
@@ -129,5 +137,12 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new ComposedGremlinQuery(queryBase, $".to('{key}')");
         }
+    }
+
+    public enum SelectTypes
+    {
+        First,
+        Last,
+        All
     }
 }

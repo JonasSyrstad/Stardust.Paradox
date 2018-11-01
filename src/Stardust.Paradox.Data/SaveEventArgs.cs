@@ -8,5 +8,6 @@ namespace Stardust.Paradox.Data
     {
         public IEnumerable<IVertex> TrackedItems { get; internal set; }
         public Exception Error { get; set; }
+        public string FailedUpdateStatement { get; set; }
     }
 }

@@ -74,6 +74,8 @@ namespace Stardust.Paradox.CosmosDbTest
         IEdgeCollection<IProfile> AllSiblings { get; set; }
 
         bool Adult { get; set; }
+        string Description { get; set; }
+        int Number { get; set; }
     }
 
 

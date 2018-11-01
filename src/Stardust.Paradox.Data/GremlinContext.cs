@@ -11,6 +11,8 @@ namespace Stardust.Paradox.Data
             _connector = connector;
         }
 
+        public static bool ParallelSaveExecution { get; set; }
+
         public GremlinQuery V()=>new GremlinQuery(_connector,"g.V()");
 
         public GremlinQuery V(string id) => new GremlinQuery(_connector,$"g.V('{id}')");
