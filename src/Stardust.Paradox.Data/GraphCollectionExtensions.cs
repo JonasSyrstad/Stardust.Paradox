@@ -51,7 +51,7 @@ namespace Stardust.Paradox.Data
         public static async Task<IVertexTreeRoot<T>> GetTreeAsync<T>(this IVertex vertex, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex
         {
             var v = vertex as GraphDataEntity;
-            return await v._context.GetTreeAsync(v._entityKey, byProperty);
+            return await v._context.GetTreeAsync(v._entityKey, byProperty).ConfigureAwait(false);
         }
     }
 }

@@ -33,12 +33,12 @@ namespace Stardust.Paradox.Data.Internals
             if (!IsDirty) return;
             foreach (var edge in _addedCollection)
             {
-                await edge.AddToVertexAsync(_edgeLabel ?? _reverseLabel);
+                await edge.AddToVertexAsync(_edgeLabel ?? _reverseLabel).ConfigureAwait(false);
             }
             _addedCollection.Clear();
             foreach (var edge in _deletedCollection)
             {
-                await edge.DropEdgeAsync(_edgeLabel ?? _reverseLabel);
+                await edge.DropEdgeAsync(_edgeLabel ?? _reverseLabel).ConfigureAwait(false);
             }
             _deletedCollection.Clear();
             IsDirty = false;
@@ -69,13 +69,13 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task<IEnumerable<TTout>> ToVerticesAsync()
         {
-            await LoadAsync();
+            await LoadAsync().ConfigureAwait(false);
             return _collection.Select(e => e.Vertex);
         }
 
         public async Task<IEnumerable<IEdge<TTout>>> ToEdgesAsync()
         {
-            await LoadEdges();
+            await LoadEdges().ConfigureAwait(false);
             return _edgeCollection;
         }
 
@@ -105,7 +105,7 @@ namespace Stardust.Paradox.Data.Internals
                 IsDirty = false;
                 _addedCollection.Clear();
                 _deletedCollection.Clear();
-                var v = await GetEdgeContent();
+                var v = await GetEdgeContent().ConfigureAwait(false);
                 _collection.Clear();
                 if (v != null)
                     foreach (var tout in from i in v where i != null select i)
@@ -128,7 +128,7 @@ namespace Stardust.Paradox.Data.Internals
                 IsDirty = false;
                 _addedCollection.Clear();
                 _deletedCollection.Clear();
-                var v = await GetEdgeonly();
+                var v = await GetEdgeonly().ConfigureAwait(false);
                 _edgeCollection.Clear();
                 if (v != null)
                     foreach (var edge in from i in v where i != null select i)
@@ -158,12 +158,12 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey))).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel != _edgeLabel)
-                    return await _context.VAsync<TTout>(ReverseLabelQuery());
+                    return await _context.VAsync<TTout>(ReverseLabelQuery()).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel == _edgeLabel)
-                    return await _context.VAsync<TTout>(EdgeLabelQuery());
-                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery());
+                    return await _context.VAsync<TTout>(EdgeLabelQuery()).ConfigureAwait(false);
+                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery()).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -175,12 +175,12 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                if (_gremlinQuery.ContainsCharacters()) return await _context.ExecuteAsync<dynamic>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_gremlinQuery.ContainsCharacters()) return await _context.ExecuteAsync<dynamic>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey))).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel != _edgeLabel)
-                    return await _context.ExecuteAsync<dynamic>(ReverseLabelQueryEdgeOnly());
+                    return await _context.ExecuteAsync<dynamic>(ReverseLabelQueryEdgeOnly()).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel == _edgeLabel)
-                    return await _context.ExecuteAsync<dynamic>(EdgeLabelQueryEdgeOnly());
-                return await _context.ExecuteAsync<dynamic>(SimpleEdgeLabelQueryEdgeOnly());
+                    return await _context.ExecuteAsync<dynamic>(EdgeLabelQueryEdgeOnly()).ConfigureAwait(false);
+                return await _context.ExecuteAsync<dynamic>(SimpleEdgeLabelQueryEdgeOnly()).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -193,12 +193,12 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey)));
+                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey))).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel != _edgeLabel)
-                    return await _context.VAsync<TTout>(ReverseLabelQuery());
+                    return await _context.VAsync<TTout>(ReverseLabelQuery()).ConfigureAwait(false);
                 if (_reverseLabel != null && _reverseLabel == _edgeLabel)
-                    return await _context.VAsync<TTout>(EdgeLabelQuery());
-                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery());
+                    return await _context.VAsync<TTout>(EdgeLabelQuery()).ConfigureAwait(false);
+                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery()).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

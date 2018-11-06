@@ -19,29 +19,29 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task<T> GetAsync(string id)
         {
-            return await _context.VAsync<T>(id);
+            return await _context.VAsync<T>(id).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue)
         {
             var propertyName = QueryFuncExt.GetInfo(byProperty).ToCamelCase();
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue)).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue, int page, int pageSize = 20)
         {
             var propertyName = QueryFuncExt.GetInfo(byProperty).ToCamelCase();
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue).Range(page * pageSize, (page * pageSize) + pageSize));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Has(propertyName, hasValue).Range(page * pageSize, (page * pageSize) + pageSize)).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> AllAsync()
         {
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20)
         {
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize)).ConfigureAwait(false);
         }
 
         public T Create()
@@ -71,24 +71,24 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task DeleteAsync(string id)
         {
-            var item = await GetAsync(id);
+            var item = await GetAsync(id).ConfigureAwait(false);
             _context.Delete(item);
         }
 
         public async Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query, int page, int pageSize = 20)
         {
-            return await _context.VAsync<T>(context => query.Extend(g => g.Range(page * pageSize, (page * pageSize) + pageSize)).Invoke(context));
+            return await _context.VAsync<T>(context => query.Extend(g => g.Range(page * pageSize, (page * pageSize) + pageSize)).Invoke(context)).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query)
         {
-            return await _context.VAsync<T>(query);
+            return await _context.VAsync<T>(query).ConfigureAwait(false);
         }
 
         public async Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20)
         {
             if (pageSize <= 0) pageSize = 20;
-            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize));
+            return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).Range(page * pageSize, (page * pageSize) + pageSize)).ConfigureAwait(false);
         }
     }
 }

@@ -341,7 +341,7 @@ namespace Stardust.Paradox.CosmosDbTest
                 test.LastUpdated = DateTime.Now;
                 test.Name = "test";
                 test.Number = 1;
-                await tc.SaveChangesAsync();
+                await tc.SaveChangesAsync().ConfigureAwait(false);
             }
 
             using (var tc = TestContext())

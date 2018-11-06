@@ -121,12 +121,12 @@ namespace Stardust.Paradox.Data
         public async Task<T> VAsync<T>(string id) where T : IVertex
         {
             if (_trackedEntities.TryGetValue(id, out var i)) return (T)(object)i;
-            return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true);
+            return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true).ConfigureAwait(false);
         }
 
         public async Task<T> GetOrCreate<T>(string id) where T : IVertex
         {
-            var i = await VAsync<T>(id);
+            var i = await VAsync<T>(id).ConfigureAwait(false);
             if (i == null)
                 return CreateEntity<T>(id);
             return i;
@@ -139,7 +139,7 @@ namespace Stardust.Paradox.Data
 
         public async Task<IEnumerable<T>> VAsync<T>(GremlinQuery g) where T : IVertex
         {
-            var v = await g.ExecuteAsync();
+            var v = await g.ExecuteAsync().ConfigureAwait(false);
             return v.Select(d => GetItemValue<T>((object)d)).ToList();
         }
 
@@ -163,7 +163,7 @@ namespace Stardust.Paradox.Data
 
             var d = enumerable.SingleOrDefault();
             if (d == null) return default(T);
-            return await Convert<T>(d, doEagerLoad);
+            return await Convert<T>(d, doEagerLoad).ConfigureAwait(false);
         }
 
         private async Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IVertex
@@ -179,7 +179,7 @@ namespace Stardust.Paradox.Data
             }
             i.Reset(false);
             i.SetContext(this);
-            await i.Eager(doEagerLoad);
+            await i.Eager(doEagerLoad).ConfigureAwait(false);
             _trackedEntities.TryAdd(i._entityKey, i);
             return item;
         }
@@ -215,7 +215,7 @@ namespace Stardust.Paradox.Data
                     if (GremlinContext.ParallelSaveExecution)
                         tasks.Add(_connector.ExecuteAsync(updateStatement));
                     else
-                        await _connector.ExecuteAsync(updateStatement);
+                        await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
                     if (graphDataEntity.Value.IsDeleted)
                         deleted.Add(graphDataEntity.Value);
 
@@ -223,7 +223,7 @@ namespace Stardust.Paradox.Data
 
                 if (GremlinContext.ParallelSaveExecution && tasks.Any())
                 {
-                    await Task.WhenAll(tasks);
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
                     tasks.Clear();
                 }
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
@@ -232,11 +232,11 @@ namespace Stardust.Paradox.Data
                         if (GremlinContext.ParallelSaveExecution)
                             tasks.Add(edges.SaveChangesAsync());
                         else
-                            await edges.SaveChangesAsync();
+                            await edges.SaveChangesAsync().ConfigureAwait(false);
                     }
                 if (GremlinContext.ParallelSaveExecution && tasks.Any())
                 {
-                    await Task.WhenAll(tasks);
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
                     tasks.Clear();
                 }
                 foreach (var graphDataEntity in deleted)
@@ -257,7 +257,7 @@ namespace Stardust.Paradox.Data
 
         public async Task<IEnumerable<dynamic>> ExecuteAsync<T>(Func<GremlinContext, GremlinQuery> func)
         {
-            return await func.Invoke(new GremlinContext(_connector)).ExecuteAsync();
+            return await func.Invoke(new GremlinContext(_connector)).ExecuteAsync().ConfigureAwait(false);
         }
 
         public async Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, string edgeLabel, bool incommingEdge = false) where T : IVertex
@@ -266,7 +266,7 @@ namespace Stardust.Paradox.Data
             if (!incommingEdge)
             {
                 c = await _connector.V(rootId).Repeat(p => p.Out(edgeLabel)).Until(p => p.OutE().Count().Is(0))
-                    .Tree().ExecuteAsync();
+                    .Tree().ExecuteAsync().ConfigureAwait(false);
                 //c =await _connector.V(rootId).Out(edgeLabel).Tree().ExecuteAsync();
             }
             else
@@ -274,7 +274,7 @@ namespace Stardust.Paradox.Data
                 c = await _connector.V(rootId)
                     .Repeat(p => p.__().In(edgeLabel))
                     .Until(p => p.InE(edgeLabel).Count().Is(0))
-                    .Tree().ExecuteAsync();
+                    .Tree().ExecuteAsync().ConfigureAwait(false);
                 //c = await _connector.V(rootId).In(edgeLabel).Tree().ExecuteAsync();
             }
             return new VertexTreeRoot<T>(c, this);

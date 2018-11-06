@@ -27,35 +27,35 @@ namespace Stardust.Paradox.CosmosDbTest
 
         public IEnumerable<TData> Execute<TData>(string query)
         {
-            return Task.Run(async () => await ExecuteAsync<TData>(query)).Result;
+            return Task.Run(async () => await ExecuteAsync<TData>(query).ConfigureAwait(false)).GetAwaiter().GetResult();
 
         }
 
         public async Task<IEnumerable<TData>> ExecuteAsync<TData>(string query)
         {
-            var graph = await DocumentCollection();
+            var graph = await DocumentCollection().ConfigureAwait(false);
             var gremlinQ = _client.CreateGremlinQuery<Vertex>(graph, query);
-            var d = await gremlinQ.ExecuteNextAsync<Vertex>();
+            var d = await gremlinQ.ExecuteNextAsync<Vertex>().ConfigureAwait(false);
             return d.Select(i => new JObject(i.GetVertexProperties().Select(s => new JProperty(s.Key, s.Value))))
                 .Select(jObj => (TData) jObj.ToObject(typeof(TData))).ToList();
         }
 
         public async Task<IEnumerable<dynamic>> ExecuteAsync(string query)
         {
-            var graph = await DocumentCollection();
+            var graph = await DocumentCollection().ConfigureAwait(false);
             var gremlinQ = _client.CreateGremlinQuery(graph, query);
-            var d = await gremlinQ.ExecuteNextAsync();
+            var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
             return d.AsEnumerable();
         }
 
         private async Task<DocumentCollection> DocumentCollection()
         {
             if (_graph != null) return _graph;
-            Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = "graphTest" });
+            Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = "graphTest" }).ConfigureAwait(false);
             _graph = await _client.CreateDocumentCollectionIfNotExistsAsync(
                 UriFactory.CreateDatabaseUri("graphTest"),
                 new DocumentCollection { Id = "services" },
-                new RequestOptions { OfferThroughput = 1000 });
+                new RequestOptions { OfferThroughput = 1000 }).ConfigureAwait(false);
             return _graph;
         }
     }

@@ -190,7 +190,7 @@ namespace Stardust.Paradox.Data.Internals
                             Logging.DebugMessage($"unable to load property {prop}");
                         }
                     }
-                    await Task.WhenAll(eagerTasks);
+                    await Task.WhenAll(eagerTasks).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)

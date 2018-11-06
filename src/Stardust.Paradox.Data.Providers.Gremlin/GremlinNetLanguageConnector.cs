@@ -34,7 +34,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 
         public virtual async Task<IEnumerable<dynamic>> ExecuteAsync(string compileQuery)
         {
-            var resp = await _client.SubmitAsync<dynamic>(compileQuery);
+            var resp = await _client.SubmitAsync<dynamic>(compileQuery).ConfigureAwait(false);
             return resp;
         }
 

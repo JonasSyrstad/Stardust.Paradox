@@ -38,8 +38,8 @@ namespace Stardust.Paradox.Data.Internals
         {
             IEnumerable<dynamic> v;
             if (AddReverse)
-                v = await _context.ExecuteAsync<T>(g => CreateReverseExpression(label, g, Properties));
-            else v = await _context.ExecuteAsync<T>(g => CreateAddEdgeExpression(label, g, Properties));
+                v = await _context.ExecuteAsync<T>(g => CreateReverseExpression(label, g, Properties)).ConfigureAwait(false);
+            else v = await _context.ExecuteAsync<T>(g => CreateAddEdgeExpression(label, g, Properties)).ConfigureAwait(false);
             _id = v.FirstOrDefault()?.id;
         }
 
@@ -90,7 +90,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task DropEdgeAsync(string label)
         {
-            await _context.ExecuteAsync<T>(g => g.V(FromId).BothE().HasLabel(label).Where(p => p.OtherV().HasId(ToId)).Drop());
+            await _context.ExecuteAsync<T>(g => g.V(FromId).BothE().HasLabel(label).Where(p => p.OtherV().HasId(ToId)).Drop()).ConfigureAwait(false);
         }
     }
 
