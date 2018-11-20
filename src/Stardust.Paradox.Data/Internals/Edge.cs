@@ -47,7 +47,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).To("s").From("t");
+                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).Property("id", $"{ToId}.{FromId}").To("s").From("t");
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);
@@ -66,7 +66,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).From("s").To("t");
+                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).Property("id", $"{ToId}.{FromId}").From("s").To("t");
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);

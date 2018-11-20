@@ -490,6 +490,21 @@ namespace Stardust.Paradox.CosmosDbTest
                     await c.SaveChangesAsync();
                     Assert.NotNull(i);
                 }
+                using (var c = TestContext())
+                {
+                    try
+                    {
+                        var i = await c.Profiles.GetAsync("string");
+                        var t = await c.Profiles.GetAsync("string2");
+                        i.Parents.Add(t);
+                        await c.SaveChangesAsync();
+                        Assert.NotNull(i);
+                    }
+                    catch (Exception ex)
+                    {
+                        _output.WriteLine(ex.Message);
+                    }
+                }
 
                 using (var c = TestContext())
                 {
