@@ -1,12 +1,12 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Particles;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    class EdgeReference<T> : IEdgeReference<T>, IEdgeCollection where T : IVertex
+    internal class EdgeReference<T> : IEdgeReference<T>, IEdgeCollection where T : IVertex
     {
         private readonly EdgeCollection<T> _innerCollection;
 
@@ -47,7 +47,8 @@ namespace Stardust.Paradox.Data.Internals
             var prev = await ToVertexAsync();
             if (prev != null)
                 _innerCollection.Remove(_innerCollection.SingleOrDefault<IEdge<T>>());
-            _innerCollection.Add(vertex);
+            if (vertex != null)
+                _innerCollection.Add(vertex);
         }
 
         public async Task<bool> HasValueAsync()
