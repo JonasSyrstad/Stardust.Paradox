@@ -541,6 +541,15 @@ namespace Stardust.Paradox.CosmosDbTest
         [Fact]
         public async Task QueryBuilderTest()
         {
+            var rangeQuery = G.V().Range(1, 1);
+            await PrintResult(rangeQuery, false);
+            var range = await rangeQuery.ExecuteAsync();
+            Assert.Empty(range);
+            rangeQuery = G.V().Range(1, 2);
+            await PrintResult(rangeQuery, false);
+            range = await rangeQuery.ExecuteAsync();
+            Assert.NotEmpty(range);
+            Assert.Equal(1, range.Count());
             ////var tor = JsonConvert.DeserializeObject("{\"name\": [\"tor\"],\"ocupation\": [\"\"]}", typeof(ServiceDefinition));
             var q1 = G.V()
                 .As("a").Out("parent").As("b")
@@ -580,6 +589,7 @@ namespace Stardust.Paradox.CosmosDbTest
             Assert.Equal("g.V().has('name','Sanne').as('s').in('parent').out('parent').where(without('s')).dedup().values('name')", siblings.ToString());
             await PrintResult(siblings);
             await PrintResult(siblings.Count());
+
             //var matchTest = G.V().Match(p => p.__().As("a").Out("parent").As("b"),
             //    p=>p.__().As("b").Has("name","Jonas")
             //    );

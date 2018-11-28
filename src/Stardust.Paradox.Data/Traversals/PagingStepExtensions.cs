@@ -12,13 +12,23 @@
             return queryBase.Range(scope, itemsToSkip, -1);
         }
 
-        public static GremlinQuery Range(this GremlinQuery queryBase, int itemsToSkip, int itemsToInclude)
+        public static GremlinQuery Range(this GremlinQuery queryBase, int lowEnd, int highEnd)
         {
-            return new ComposedGremlinQuery(queryBase, $".range({itemsToSkip},{itemsToInclude})");
+            return new ComposedGremlinQuery(queryBase, $".range({lowEnd},{highEnd})");
         }
-        public static GremlinQuery Range(this GremlinQuery queryBase, GraphScope scope, int itemsToSkip, int itemsToInclude)
+
+        public static GremlinQuery SkipTake(this GremlinQuery queryBase, int skip, int take)
         {
-            return new ComposedGremlinQuery(queryBase, $".range({scope.ToString().ToLower()},{itemsToSkip},{itemsToInclude})");
+            return queryBase.Range(skip, skip + take);
+        }
+
+        public static GremlinQuery SkipTake(this GremlinQuery queryBase, GraphScope scope, int skip, int take)
+        {
+            return queryBase.Range(scope, skip, skip + take);
+        }
+        public static GremlinQuery Range(this GremlinQuery queryBase, GraphScope scope, int lowEnd, int highEnd)
+        {
+            return new ComposedGremlinQuery(queryBase, $".range({scope.ToString().ToLower()},{lowEnd},{highEnd})");
         }
 
         public static GremlinQuery Limit(this GremlinQuery queryBase, int items)
