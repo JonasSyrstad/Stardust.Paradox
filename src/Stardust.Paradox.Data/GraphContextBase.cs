@@ -35,7 +35,7 @@ namespace Stardust.Paradox.Data
         }
 
         private static readonly object lockObject = new object();
-        private ConcurrentDictionary<string, GraphDataEntity> _trackedEntities = new ConcurrentDictionary<string, GraphDataEntity>();
+        private ConcurrentDictionary<string, IGraphEntityInternal> _trackedEntities = new ConcurrentDictionary<string, IGraphEntityInternal>();
 
 
         protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider)
@@ -68,10 +68,10 @@ namespace Stardust.Paradox.Data
             return Task.CompletedTask;
         }
 
-        public void Delete<T>(T toBeDeleted) where T : IVertex
+        public void Delete<T>(T toBeDeleted) where T : IGraphEntity
         {
-            var i = toBeDeleted as GraphDataEntity;
-            i.Delete();
+            var i = toBeDeleted as IGraphEntityInternal;
+            i?.Delete();
         }
 
         public void ResetChanges<T>(T entityToReset) where T : IVertex
@@ -100,8 +100,8 @@ namespace Stardust.Paradox.Data
 
 
             var item = Create<T>();
-            var i = item as GraphDataEntity;
-            i._entityKey = id;
+            var i = item as IGraphEntityInternal;
+            i.EntityKey = id;
             i.Reset(true);
             i.SetContext(this);
             _trackedEntities.TryAdd(id, i);
@@ -120,7 +120,7 @@ namespace Stardust.Paradox.Data
 
         public async Task<T> VAsync<T>(string id) where T : IVertex
         {
-            if (_trackedEntities.TryGetValue(id, out var i)) return (T)(object)i;
+            if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
             return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true).ConfigureAwait(false);
         }
 
@@ -143,12 +143,12 @@ namespace Stardust.Paradox.Data
             return v.Select(d => GetItemValue<T>((object)d)).ToList();
         }
 
-        internal T GetItemValue<T>(object o) where T : IVertex
+        internal T GetItemValue<T>(object o) where T : IGraphEntity
         {
             try
             {
                 var d = o as dynamic;
-                if (_trackedEntities.TryGetValue((string)d.id, out var i)) return (T)(object)i;
+                if (_trackedEntities.TryGetValue((string)d.id, out var i)) return (T)i;
                 return Convert<T>(d).Result;
             }
             catch (Exception ex)
@@ -158,7 +158,7 @@ namespace Stardust.Paradox.Data
             }
         }
 
-        private async Task<T> ConvertTo<T>(IEnumerable<dynamic> enumerable, bool doEagerLoad = false) where T : IVertex
+        private async Task<T> ConvertTo<T>(IEnumerable<dynamic> enumerable, bool doEagerLoad = false) where T : IGraphEntity
         {
 
             var d = enumerable.SingleOrDefault();
@@ -166,29 +166,48 @@ namespace Stardust.Paradox.Data
             return await Convert<T>(d, doEagerLoad).ConfigureAwait(false);
         }
 
-        private async Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IVertex
+        private async Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IGraphEntity
         {
             var item = Create<T>();
-            var i = item as GraphDataEntity;
-            i._entityKey = d.id;
-            i._eagerLoding = doEagerLoad;
-            foreach (var p in d.properties as JObject)
-            {
-                var y = p.Value.ToObject<Property[]>();
-                TransferData(item, p.Key.ToPascalCase(), y.First().Value);
-            }
+            var i = item as IGraphEntityInternal;
+            i.DoLoad(d);
+            i.EntityKey = d.id;
+            i.EagerLoading = doEagerLoad;
+            LoadProperties(d, item);
             i.Reset(false);
             i.SetContext(this);
             await i.Eager(doEagerLoad).ConfigureAwait(false);
-            _trackedEntities.TryAdd(i._entityKey, i);
+            _trackedEntities.TryAdd(i.EntityKey, i);
             return item;
+        }
+
+        private void LoadProperties<T>(dynamic d, T item) where T : IGraphEntity
+        {
+            if (d.properties != null)
+            {
+                var properties = d.properties as JObject;
+                if (properties != null)
+                    foreach (var p in properties)
+                    {
+                        if (typeof(IVertex).IsAssignableFrom(typeof(T)))
+                        {
+                            var y = p.Value.ToObject<Property[]>();
+                            TransferData(item, p.Key.ToPascalCase(), y.First().Value);
+                        }
+                        else
+                        {
+                            var y = p.Value.ToObject<object>();
+                            TransferData(item, p.Key.ToPascalCase(), y);
+                        }
+                    }
+            }
         }
 
         public T MakeInstance<T>(dynamic d) where T : IVertex
         {
             var item = Create<T>();
-            var i = item as GraphDataEntity;
-            i._entityKey = d.id;
+            var i = item as IGraphEntityInternal;
+            i.EntityKey = d.id;
 
             foreach (var p in d.properties as JObject)
             {
@@ -197,7 +216,7 @@ namespace Stardust.Paradox.Data
             }
             i.Reset(false);
             i.SetContext(this);
-            _trackedEntities.TryAdd(i._entityKey, i);
+            _trackedEntities.TryAdd(i.EntityKey, i);
             return item;
         }
 
@@ -207,7 +226,7 @@ namespace Stardust.Paradox.Data
             string updateStatement = null;
             try
             {
-                var deleted = new List<GraphDataEntity>();
+                var deleted = new List<IGraphEntityInternal>();
                 var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
@@ -227,13 +246,17 @@ namespace Stardust.Paradox.Data
                     tasks.Clear();
                 }
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
-                    foreach (var edges in graphDataEntity.Value.GetEdges())
+                {
+                    var e = graphDataEntity.Value as GraphDataEntity;
+                    if (e == null) continue;
+                    foreach (var edges in e.GetEdges())
                     {
                         if (GremlinContext.ParallelSaveExecution)
                             tasks.Add(edges.SaveChangesAsync());
                         else
                             await edges.SaveChangesAsync().ConfigureAwait(false);
                     }
+                }
                 if (GremlinContext.ParallelSaveExecution && tasks.Any())
                 {
                     await Task.WhenAll(tasks).ConfigureAwait(false);
@@ -241,7 +264,8 @@ namespace Stardust.Paradox.Data
                 }
                 foreach (var graphDataEntity in deleted)
                 {
-                    _trackedEntities.TryRemove(graphDataEntity._entityKey, out var d);
+
+                    _trackedEntities.TryRemove(graphDataEntity.EntityKey, out var d);
                 }
                 foreach (var graphDataEntity in _trackedEntities)
                 {
@@ -288,10 +312,10 @@ namespace Stardust.Paradox.Data
 
         public void Attatch<T>(T item)
         {
-            var i = item as GraphDataEntity;
-            if (i._entityKey.IsNullOrWhiteSpace()) i._entityKey = Guid.NewGuid().ToString();
+            var i = item as IGraphEntityInternal;
+            if (i.EntityKey.IsNullOrWhiteSpace()) i.EntityKey = Guid.NewGuid().ToString();
             i.SetContext(this);
-            _trackedEntities.TryAdd(i._entityKey, i);
+            _trackedEntities.TryAdd(i.EntityKey, i);
         }
 
         public void Clear()
@@ -303,6 +327,22 @@ namespace Stardust.Paradox.Data
         public event SavingChangesHandler ChangesSaved;
 
         public event SavingChangesHandler SaveChangesError;
+        public Task<IEnumerable<T>> EAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IEdgeEntity
+        {
+            return EAsync<T>(g.Invoke(new GremlinContext(_connector)));
+        }
+
+        public async Task<T> EAsync<T>(string id) where T : IEdgeEntity
+        {
+            if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
+            return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true).ConfigureAwait(false);
+        }
+
+        public async Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity
+        {
+            var v = await g.ExecuteAsync().ConfigureAwait(false);
+            return v.Select(d => GetItemValue<T>((object)d)).ToList();
+        }
 
         private static readonly ConcurrentDictionary<string, Func<object, object>> getExpressionCache = new ConcurrentDictionary<string, Func<object, object>>();
         private static readonly ConcurrentDictionary<string, PropertyInfo> propertyInfos = new ConcurrentDictionary<string, PropertyInfo>();
@@ -402,6 +442,16 @@ namespace Stardust.Paradox.Data
         {
             return new GraphSet<T>(this);
         }
+
+        protected IGraphSet<T> EdgeGraphSet<T>() where T : IEdgeEntity
+        {
+            return new EdgeGraphSet<T>(this);
+        }
+
+        //protected IGraphSet<T> GraphSet<T>() where T : IEdgeEntity
+        //{
+        //    return new GraphSet<T>(this);
+        //}
 
         protected virtual void Dispose(bool disposing)
         {

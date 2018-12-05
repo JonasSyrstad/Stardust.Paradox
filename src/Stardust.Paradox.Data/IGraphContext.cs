@@ -10,7 +10,7 @@ namespace Stardust.Paradox.Data
 {
     public interface IGraphContext
     {
-        void Delete<T>(T toBeDeleted) where T : IVertex;
+        void Delete<T>(T toBeDeleted) where T : IGraphEntity;
         void ResetChanges<T>(T entityToReset) where T : IVertex;
         T CreateEntity<T>(string id) where T : IVertex;
         GremlinQuery V<T>() where T : IVertex;
@@ -34,5 +34,12 @@ namespace Stardust.Paradox.Data
         event SavingChangesHandler SavingChanges;
         event SavingChangesHandler ChangesSaved;
         event SavingChangesHandler SaveChangesError;
+
+        Task<IEnumerable<T>> EAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IEdgeEntity;
+
+        Task<T> EAsync<T>(string id) where T : IEdgeEntity;
+
+        Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity;
+        
     }
 }

@@ -1,18 +1,18 @@
-﻿using System;
-using System.Linq.Expressions;
-using Stardust.Paradox.Data.Annotations;
+﻿using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
+using System;
+using System.Linq.Expressions;
 
 namespace Stardust.Paradox.Data
 {
 
-    public interface IGraphConfiguration<T> where T : IVertex
+    public interface IGraphConfiguration<T> where T : IGraphEntity
     {
         IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda);
-        IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda,bool eagerLoading);
+        IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, bool eagerLoading);
         IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label);
         IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label, bool eagerLoading);
-        IGraphConfiguration<T> AddInline(Expression<Func<T, object>> inPropertyLambda,  SerializationType serialization);
+        IGraphConfiguration<T> AddInline(Expression<Func<T, object>> inPropertyLambda, SerializationType serialization);
 
         IGraphConfiguration<T> AddQuery(Expression<Func<T, object>> inPropertyLambda, string gremlinQuery);
 
@@ -23,22 +23,18 @@ namespace Stardust.Paradox.Data
         /// <typeparam name="T"></typeparam>
         /// <param name="label"></param>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IGraphEntity;
         /// <summary>
         /// Start configuring a new collection. This method builds the entity, no further configuration is possible
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>() where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>() where T : IGraphEntity;
 
-        /// <summary>
-        /// This method builds the entity, no further configuration is possible
-        /// </summary>
-        /// <returns></returns>
-        //IGraphConfiguration BuildCollection();
+
     }
 
-    public interface IEdgeConfiguration<T> where T : IVertex
+    public interface IEdgeConfiguration<T> where T : IGraphEntity
     {
         /// <summary>
         ///  Binds the corresponding accessor property
@@ -62,14 +58,14 @@ namespace Stardust.Paradox.Data
         /// <typeparam name="T"></typeparam>
         /// <param name="label"></param>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IGraphEntity;
 
         /// <summary>
         /// Start configuring a new collection. This method builds the entity, no further configuration is possible
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>() where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>() where T : IGraphEntity;
         /// <summary>
         ///  This method builds the entity, no further configuration is possible
         /// </summary>
@@ -81,12 +77,19 @@ namespace Stardust.Paradox.Data
 
     public interface IGraphConfiguration
     {
+
         //IGraphConfiguration AddCollection<T>() where T : IVertex;
         //IGraphConfiguration AddCollection<T>(string label) where T : IVertex;
 
-        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IGraphEntity;
 
-        IGraphConfiguration<T> ConfigureCollection<T>() where T : IVertex;
+        IGraphConfiguration<T> ConfigureCollection<T>() where T : IGraphEntity;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        IGraphConfiguration SafeAsync();
 
         void BuildModel();
     }

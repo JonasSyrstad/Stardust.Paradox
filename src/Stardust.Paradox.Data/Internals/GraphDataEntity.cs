@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    public abstract class GraphDataEntity : IVertex
+    public abstract class GraphDataEntity : IGraphEntityInternal, IVertex
     {
         public event PropertyChangedHandler PropertyChanged;
         public event PropertyChangingHandler PropertyChanging;
@@ -84,7 +84,7 @@ namespace Stardust.Paradox.Data.Internals
             return false;
         }
 
-        protected internal void Reset(bool isNew)
+        public void Reset(bool isNew)
         {
             _isLoading = false;
             IsNew = isNew;
@@ -100,7 +100,20 @@ namespace Stardust.Paradox.Data.Internals
         [JsonIgnore]
         public bool IsDirty { get; internal set; }
 
-        internal string GetUpdateStatement()
+        public string EntityKey
+        {
+            get => _entityKey;
+            set => _entityKey = value;
+        }
+
+        public bool EagerLoading
+        {
+            get => _eagerLoding;
+            set => _eagerLoding = value;
+        }
+
+
+        public string GetUpdateStatement()
         {
             return vertexSelector + gremlinUpdateStatement;
         }
@@ -140,22 +153,22 @@ namespace Stardust.Paradox.Data.Internals
             return value.Replace("\\", "")
                 .Replace("'", "\\'")
                 .Replace("`", "")
-                .Replace("´", ""); 
+                .Replace("´", "");
         }
 
-        internal void SetContext(GraphContextBase graphContextBase)
+        void IGraphEntityInternal.SetContext(GraphContextBase graphContextBase)
         {
             _context = graphContextBase;
         }
 
-        internal void Delete()
+        public void Delete()
         {
             gremlinUpdateStatement = ".drop()";
             IsDeleted = true;
             IsDirty = true;
         }
 
-        internal bool IsDeleted { get; set; }
+        public bool IsDeleted { get; internal set; }
         internal bool IsNew { get; set; }
 
         [JsonProperty("label", DefaultValueHandling = DefaultValueHandling.Include)]
@@ -199,6 +212,11 @@ namespace Stardust.Paradox.Data.Internals
             }
 
 
+        }
+
+        public void DoLoad(dynamic o)
+        {
+            if (Label != o.label.ToString()) throw new InvalidCastException($"Unable to cast graph item with label {o.label} to {Label}");
         }
     }
 }

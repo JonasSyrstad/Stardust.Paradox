@@ -70,7 +70,7 @@ namespace Stardust.Paradox.Data.Internals
         public async Task<IEnumerable<TTout>> ToVerticesAsync()
         {
             await LoadAsync().ConfigureAwait(false);
-            return _collection.Select(e => e.Vertex);
+            return _collection?.Select(e => e.Vertex) ?? new List<TTout>();
         }
 
         public async Task<IEnumerable<IEdge<TTout>>> ToEdgesAsync()
@@ -91,11 +91,23 @@ namespace Stardust.Paradox.Data.Internals
 
         public IEnumerator<IEdge<TTout>> GetEnumerator()
         {
-            if (!_isLoaded && _parent._eagerLoding)
+            if (!_isLoaded /*&& _parent._eagerLoding*/)
             {
-                LoadAsync().Wait();
+                Load();
             }
             return _collection.GetEnumerator();
+        }
+
+        private void Load()
+        {
+            if (GraphConfiguration.UseSafeAsync)
+            {
+                Task.Run(async ()=>await LoadAsync().ConfigureAwait(false))
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            LoadAsync().ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
         public async Task LoadAsync()
@@ -322,7 +334,16 @@ namespace Stardust.Paradox.Data.Internals
             return result;
         }
 
-        public int Count => _collection.Count;
+        public int Count
+        {
+            get
+            {
+                if (!_isLoaded) Load();
+                var collectionCount = _collection.Count;
+                return collectionCount;
+            }
+        }
+
         public bool IsReadOnly => _gremlinQuery.ContainsCharacters();
     }
 }

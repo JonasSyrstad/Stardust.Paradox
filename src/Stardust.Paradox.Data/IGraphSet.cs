@@ -1,13 +1,13 @@
-﻿using System;
+﻿using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Traversals;
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Annotations;
-using Stardust.Paradox.Data.Traversals;
 
 namespace Stardust.Paradox.Data
 {
-    public interface IGraphSet<T> where T : IVertex
+    public interface IGraphSet<T> where T : IGraphEntity
     {
         Task DeleteAsync(string id);
         Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20);
@@ -36,13 +36,13 @@ namespace Stardust.Paradox.Data
         /// <param name="id"></param>
         /// <param name="initializer"></param>
         /// <returns></returns>
-        T Create(string id,Func<T,T> initializer);
-        
+        T Create(string id, Func<T, T> initializer);
+
         /// <summary>
         /// Creates a new item with a Guid as id
         /// </summary>
         /// <returns></returns>
-        T Create( Func<T, T> initializer);
+        T Create(Func<T, T> initializer);
 
         void Attatch(T item);
     }

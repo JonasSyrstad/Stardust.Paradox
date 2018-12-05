@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>1.3.3</Version>
+    <Version>2.0.0-pre01</Version>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
     <Description>Annotation for the 'Stardust.Paradox.Data' Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>

@@ -85,6 +85,24 @@ namespace Stardust.Paradox.CosmosDbTest
             }
         }
 
+        [Fact]
+        public async Task GetTypedEdges()
+        {
+            using (var tc = TestContext())
+            {
+                var j = await tc.Profiles.AllAsync(0, 1);
+                var e = await tc.Employments.AllAsync(0, 1);
+                var inV = await e.First().InVAsync();
+                var outV = await e.First().OutVAsync();
+                Assert.NotNull(inV);
+                Assert.NotNull(outV);
+                e.First().HiredDate = DateTime.Now;
+                e.First().Manager = "Test Manager";
+                await tc.SaveChangesAsync();
+
+            }
+        }
+
         private TestContext TestContext()
         {
             JsonConvert.DefaultSettings = () =>
@@ -107,6 +125,7 @@ namespace Stardust.Paradox.CosmosDbTest
             {
                 _output.WriteLine($"failed statement: {args.FailedUpdateStatement}");
                 _output.WriteLine($"saving changes failed with message: {args.Error.Message}");
+                _output.WriteLine(args.Error.StackTrace);
             };
             return tc;
         }
@@ -324,6 +343,15 @@ namespace Stardust.Paradox.CosmosDbTest
 
                 jonas2 = await tc.Profiles.FilterAsync(p => p.Name, "Jonas");
                 Assert.Single(jonas2);
+                //await jonas.Children.LoadAsync();
+                var c = jonas.Children.Count<IProfile>();
+                var nochildren = await jonas.Children.FirstOrDefault<IProfile>().Children.ToVerticesAsync();
+                Assert.NotNull(nochildren);
+                Assert.Empty(nochildren);
+                foreach (var profile in nochildren)
+                {
+                    _output.WriteLine("wtf?!?");
+                }
                 _output.WriteLine(JsonConvert.SerializeObject(await jonas2.SingleOrDefault().GetTreeAsync<IProfile>(p => p.Parents)));
             }
         }
@@ -618,32 +646,5 @@ namespace Stardust.Paradox.CosmosDbTest
         {
             //_scope.TryDispose();
         }
-    }
-
-    public class TestContext : GraphContextBase
-    {
-        public TestContext(IGremlinLanguageConnector connector) : base(connector, Resolver.CreateScopedResolver())
-        {
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            base.Dispose(disposing);
-            ServiceProvider.TryDispose();
-        }
-
-        protected override bool InitializeModel(IGraphConfiguration configuration)
-        {
-            configuration.ConfigureCollection<IProfile>()
-                .AddEdge(t => t.Parents, "parent").Reverse<IProfile>(t => t.Children)
-                .AddQuery(t => t.AllSiblings, g => g.V("{id}").As("s").In("parent").Out("parent").Dedup())
-            .ConfigureCollection<ICompany>();
-
-            return true;
-        }
-
-        public IGraphSet<IProfile> Profiles => GraphSet<IProfile>();
-
-        public IGraphSet<ICompany> Companies => GraphSet<ICompany>();
     }
 }

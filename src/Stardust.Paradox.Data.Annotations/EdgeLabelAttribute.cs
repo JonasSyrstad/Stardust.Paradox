@@ -2,13 +2,11 @@
 
 namespace Stardust.Paradox.Data.Annotations
 {
-    [AttributeUsage(AttributeTargets.Property)]
-    public class EdgeLabelAttribute : Attribute
+    [AttributeUsage(AttributeTargets.Property|AttributeTargets.Interface)]
+    public class EdgeLabelAttribute : VertexLabelAttribute
     {
-        public EdgeLabelAttribute(string label)
+        public EdgeLabelAttribute(string label) : base(label)
         {
-            Label = label;
         }
-        public string Label { get; set; }
     }
 }
