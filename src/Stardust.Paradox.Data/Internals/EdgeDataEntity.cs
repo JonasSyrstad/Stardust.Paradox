@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    public abstract class EdgeDataEntity<TIn, TOut> : IGraphEntityInternal, IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
+
+    public abstract class EdgeDataEntity<TIn, TOut> : IGraphEntityInternal, IEdgeEntityInternal, IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
     {
 
         private string gremlinUpdateStatement = "";
@@ -42,7 +43,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public void DoLoad(dynamic o)
         {
-            if(Label!=o.label.ToString()) throw new InvalidCastException($"Unable to cast graph item with label {o.label} to {Label}");
+            if (Label != o.label.ToString()) throw new InvalidCastException($"Unable to cast graph item with label {o.label} to {Label}");
             InVertexId = o.inV.ToString();
             OutVertextId = o.outV.ToString();
 
@@ -63,23 +64,30 @@ namespace Stardust.Paradox.Data.Internals
             return _inV != null ? _inV : (_inV = await _context.GetOrCreate<TIn>(InVertexId));
         }
 
-        public void SetInVertex(TIn vertex)
+        void IEdgeEntityInternal.SetInVertex(IVertex vertex)
         {
             var old = _inV as GraphDataEntity;
             var newV = vertex as GraphDataEntity;
             if (old?._entityKey == newV?._entityKey) return;
-            _inV = vertex;
-            gremlinUpdateStatement += $".from('{newV._entityKey}')";
-            IsDirty = true;
+            _inV = (TIn)vertex;
+            if (_outV != null && _inV != null)
+            {
+                gremlinUpdateStatement += $".V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').as('b').from('a').to('b')";
+                IsDirty = true;
+            }
         }
 
-        public void SetOutVertex(TOut vertex)
+        void IEdgeEntityInternal.SetOutVertex(IVertex vertex)
         {
             var old = _inV as GraphDataEntity;
             var newV = vertex as GraphDataEntity;
             if (old?._entityKey == newV?._entityKey) return;
-            _outV = vertex;
-            gremlinUpdateStatement += $".to('{newV._entityKey}')";
+            _outV = (TOut)vertex;
+            if (_outV != null && _inV != null)
+            {
+                gremlinUpdateStatement += $".V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').as('b').from('a').to('b')";
+                IsDirty = true;
+            }
             IsDirty = true;
         }
 
@@ -186,5 +194,7 @@ namespace Stardust.Paradox.Data.Internals
         [JsonIgnore]
         public bool IsDirty { get; internal set; }
 
+        [JsonIgnore]
+        public string Type => "edge";
     }
 }

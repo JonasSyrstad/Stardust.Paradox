@@ -1,4 +1,5 @@
-﻿using Stardust.Paradox.Data.Annotations;
+﻿using System;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,7 +48,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).Property("id", $"{ToId}.{FromId}").To("s").From("t");
+                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").To("s").From("t");
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);
@@ -66,13 +67,11 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).Property("id", $"{ToId}.{FromId}").From("s").To("t");
+                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").From("s").To("t");
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);
                 }
-                //expression.To("t");
-                //if (AddReverse) return expression.V().V(ToId).As("y").V(FromId).AddE(ReverseLabel??label).To("y");
                 return expression;
             }
             catch (System.Exception ex)

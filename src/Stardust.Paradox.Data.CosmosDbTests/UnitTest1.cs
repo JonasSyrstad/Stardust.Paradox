@@ -99,7 +99,8 @@ namespace Stardust.Paradox.CosmosDbTest
                 e.First().HiredDate = DateTime.Now;
                 e.First().Manager = "Test Manager";
                 await tc.SaveChangesAsync();
-
+                var createdE = tc.Employments.Create(j.First(), await e.First().OutVAsync());
+                Assert.NotNull(createdE);
             }
         }
 

@@ -74,7 +74,7 @@ namespace Stardust.Paradox.Data
             i?.Delete();
         }
 
-        public void ResetChanges<T>(T entityToReset) where T : IVertex
+        public void ResetChanges<T>(T entityToReset) where T : IGraphEntity
         {
             var i = entityToReset as GraphDataEntity;
             i.Reset(i.IsNew);
@@ -95,7 +95,7 @@ namespace Stardust.Paradox.Data
             return default(T);
         }
 
-        public T CreateEntity<T>(string id) where T : IVertex
+        public T CreateEntity<T>(string id) where T : IGraphEntity
         {
 
 
@@ -227,28 +227,14 @@ namespace Stardust.Paradox.Data
             try
             {
                 var deleted = new List<IGraphEntityInternal>();
+
+                await SaveEntities("vertex", deleted);
+                await SaveEntities("edge", deleted);
+
                 var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
-                    updateStatement = graphDataEntity.Value.GetUpdateStatement();
-                    if (GremlinContext.ParallelSaveExecution)
-                        tasks.Add(_connector.ExecuteAsync(updateStatement));
-                    else
-                        await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
-                    if (graphDataEntity.Value.IsDeleted)
-                        deleted.Add(graphDataEntity.Value);
-
-                }
-
-                if (GremlinContext.ParallelSaveExecution && tasks.Any())
-                {
-                    await Task.WhenAll(tasks).ConfigureAwait(false);
-                    tasks.Clear();
-                }
-                foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
-                {
-                    var e = graphDataEntity.Value as GraphDataEntity;
-                    if (e == null) continue;
+                    if (!(graphDataEntity.Value is GraphDataEntity e)) continue;
                     foreach (var edges in e.GetEdges())
                     {
                         if (GremlinContext.ParallelSaveExecution)
@@ -277,6 +263,25 @@ namespace Stardust.Paradox.Data
                 SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement });
             }
             ChangesSaved?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
+        }
+
+        private async Task SaveEntities(string type, List<IGraphEntityInternal> deleted)
+        {
+            var tasks = new List<Task>();
+            foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty && i.Value.Type == type select i)
+            {
+                var updateStatement = graphDataEntity.Value.GetUpdateStatement();
+                if (GremlinContext.ParallelSaveExecution)
+                    tasks.Add(_connector.ExecuteAsync(updateStatement));
+                else
+                    await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
+                if (graphDataEntity.Value.IsDeleted)
+                    deleted.Add(graphDataEntity.Value);
+            }
+            if (GremlinContext.ParallelSaveExecution && tasks.Any())
+            {
+                await Task.WhenAll(tasks).ConfigureAwait(false);
+            }
         }
 
         public async Task<IEnumerable<dynamic>> ExecuteAsync<T>(Func<GremlinContext, GremlinQuery> func)
@@ -443,7 +448,7 @@ namespace Stardust.Paradox.Data
             return new GraphSet<T>(this);
         }
 
-        protected IGraphSet<T> EdgeGraphSet<T>() where T : IEdgeEntity
+        protected IEdgeGraphSet<T> EdgeGraphSet<T>() where T : IEdgeEntity
         {
             return new EdgeGraphSet<T>(this);
         }

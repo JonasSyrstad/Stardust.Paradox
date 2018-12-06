@@ -7,22 +7,16 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data
 {
-    public interface IGraphSet<T> where T : IGraphEntity
+    public interface IEdgeGraphSet<T> : IGraphSetBase<T>
+        where T : IGraphEntity 
     {
-        Task DeleteAsync(string id);
-        Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20);
-        Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query, int page, int pageSize = 20);
-        Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query);
-        Task<T> GetAsync(string id);
 
-        Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue);
+        T Create(IVertex inVertex, IVertex outVertex);
 
-        Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue, int page, int pageSize = 20);
+    }
 
-
-        Task<IEnumerable<T>> AllAsync();
-
-        Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20);
+    public interface IGraphSet<T> : IGraphSetBase<T> where T : IGraphEntity
+    {
         /// <summary>
         /// Creates a new item with a Guid as id
         /// </summary>
@@ -43,6 +37,24 @@ namespace Stardust.Paradox.Data
         /// </summary>
         /// <returns></returns>
         T Create(Func<T, T> initializer);
+    }
+    public interface IGraphSetBase<T> where T : IGraphEntity
+    {
+        Task DeleteAsync(string id);
+        Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20);
+        Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query, int page, int pageSize = 20);
+        Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query);
+        Task<T> GetAsync(string id);
+
+        Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue);
+
+        Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue, int page, int pageSize = 20);
+
+
+        Task<IEnumerable<T>> AllAsync();
+
+        Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20);
+       
 
         void Attatch(T item);
     }

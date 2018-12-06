@@ -34,7 +34,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
         public IGraphSet<ICompany> Companies => GraphSet<ICompany>();
 
-        public IGraphSet<IEmployment> Employments => EdgeGraphSet<IEmployment>();
+        public IEdgeGraphSet<IEmployment> Employments => EdgeGraphSet<IEmployment>();
     }
 
     [EdgeLabel("employer")]

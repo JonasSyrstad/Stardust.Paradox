@@ -53,5 +53,12 @@ namespace Stardust.Paradox.Data
             var v = vertex as GraphDataEntity;
             return await v._context.GetTreeAsync(v._entityKey, byProperty).ConfigureAwait(false);
         }
+
+        public static T Create<T, TIn, TOut>(this IEdgeGraphSet<T> graphSet, TIn inV, TOut outV)
+            where T : IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
+        {
+            var entity = graphSet.Create((IVertex) inV, (IVertex) outV);
+            return entity;
+        }
     }
 }

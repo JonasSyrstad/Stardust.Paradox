@@ -11,8 +11,8 @@ namespace Stardust.Paradox.Data
     public interface IGraphContext
     {
         void Delete<T>(T toBeDeleted) where T : IGraphEntity;
-        void ResetChanges<T>(T entityToReset) where T : IVertex;
-        T CreateEntity<T>(string id) where T : IVertex;
+        void ResetChanges<T>(T entityToReset) where T : IGraphEntity;
+        T CreateEntity<T>(string id) where T : IGraphEntity;
         GremlinQuery V<T>() where T : IVertex;
         GremlinQuery V<T>(string id) where T : IVertex;
         Task<T> VAsync<T>(string id) where T : IVertex;

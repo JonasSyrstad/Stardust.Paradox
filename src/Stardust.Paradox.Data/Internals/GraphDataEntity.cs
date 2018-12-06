@@ -218,5 +218,8 @@ namespace Stardust.Paradox.Data.Internals
         {
             if (Label != o.label.ToString()) throw new InvalidCastException($"Unable to cast graph item with label {o.label} to {Label}");
         }
+
+        [JsonIgnore]
+        public string Type => "vertex";
     }
 }
