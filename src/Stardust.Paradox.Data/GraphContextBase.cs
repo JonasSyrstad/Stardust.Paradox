@@ -201,23 +201,34 @@ namespace Stardust.Paradox.Data
             return item;
         }
 
+        private string failedUpdateStatement = null;
         public async Task SaveChangesAsync()
         {
             SavingChanges?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
-            string updateStatement = null;
+            failedUpdateStatement = null;
+
             try
             {
                 var deleted = new List<GraphDataEntity>();
                 var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
                 {
-                    updateStatement = graphDataEntity.Value.GetUpdateStatement();
-                    if (GremlinContext.ParallelSaveExecution)
-                        tasks.Add(_connector.ExecuteAsync(updateStatement));
-                    else
-                        await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
-                    if (graphDataEntity.Value.IsDeleted)
-                        deleted.Add(graphDataEntity.Value);
+                    var updateStatement = graphDataEntity.Value.GetUpdateStatement();
+                    try
+                    {
+
+                        if (GremlinContext.ParallelSaveExecution)
+                            tasks.Add(UpdateInParalell(updateStatement));
+                        else
+                            await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
+                        if (graphDataEntity.Value.IsDeleted)
+                            deleted.Add(graphDataEntity.Value);
+                    }
+                    catch (Exception ex)
+                    {
+                        failedUpdateStatement = updateStatement;
+                        throw;
+                    }
 
                 }
 
@@ -250,9 +261,25 @@ namespace Stardust.Paradox.Data
             }
             catch (Exception ex)
             {
-                SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement });
+                SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = failedUpdateStatement });
             }
             ChangesSaved?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
+        }
+
+        private async Task<IEnumerable<dynamic>> UpdateInParalell(string updateStatement)
+        {
+            try
+            {
+                return await _connector.ExecuteAsync(updateStatement);
+            }
+            catch (Exception)
+            {
+                lock (failedUpdateStatement)
+                {
+                    failedUpdateStatement += updateStatement;
+                }
+                throw;
+            }
         }
 
         public async Task<IEnumerable<dynamic>> ExecuteAsync<T>(Func<GremlinContext, GremlinQuery> func)
