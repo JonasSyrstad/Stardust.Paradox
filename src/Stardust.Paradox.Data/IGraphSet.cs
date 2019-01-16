@@ -13,6 +13,8 @@ namespace Stardust.Paradox.Data
 
         T Create(IVertex inVertex, IVertex outVertex);
 
+	    Task<T> GetAsync(string inId, string outId);
+
     }
 
     public interface IGraphSet<T> : IGraphSetBase<T> where T : IGraphEntity

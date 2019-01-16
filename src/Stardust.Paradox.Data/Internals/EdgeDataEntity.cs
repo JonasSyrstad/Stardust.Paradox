@@ -70,11 +70,20 @@ namespace Stardust.Paradox.Data.Internals
             var newV = vertex as GraphDataEntity;
             if (old?._entityKey == newV?._entityKey) return;
             _inV = (TIn)vertex;
+            MakeUpdateStatement();
+        }
+
+        private string MakeUpdateStatement()
+        {
             if (_outV != null && _inV != null)
             {
-                gremlinUpdateStatement += $".V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').as('b').from('a').to('b')";
+                _edgeSelector = "";
+                _edgeSelector +=
+                    $"g.V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').addE('{Label}').as('b').from('a').to('b').property('id','{_entityKey}')";
                 IsDirty = true;
+
             }
+            return _edgeSelector;
         }
 
         void IEdgeEntityInternal.SetOutVertex(IVertex vertex)
@@ -83,11 +92,7 @@ namespace Stardust.Paradox.Data.Internals
             var newV = vertex as GraphDataEntity;
             if (old?._entityKey == newV?._entityKey) return;
             _outV = (TOut)vertex;
-            if (_outV != null && _inV != null)
-            {
-                gremlinUpdateStatement += $".V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').as('b').from('a').to('b')";
-                IsDirty = true;
-            }
+            MakeUpdateStatement();
             IsDirty = true;
         }
 
@@ -178,7 +183,10 @@ namespace Stardust.Paradox.Data.Internals
             IsDeleted = false;
             gremlinUpdateStatement = "";
 
-            _edgeSelector = isNew ? $"g.addE('{Label}').property('id',{GetValue(_entityKey)})" : $"g.E('{_entityKey}')";
+            if (isNew)
+                MakeUpdateStatement();
+            else
+                _edgeSelector = $"g.E('{_entityKey}')";
             IsDirty = false;
             IsNew = isNew;
             IsDeleted = false;

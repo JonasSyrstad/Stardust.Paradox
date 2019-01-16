@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
-    internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
+	internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
     {
         private readonly string _edgeLabel;
         private readonly string _gremlinQuery;
