@@ -4,6 +4,8 @@ using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Particles;
 using System;
+using System.Collections;
+using System.Collections.Generic;
 
 namespace Stardust.Paradox.CosmosDbTest
 {
@@ -45,5 +47,8 @@ namespace Stardust.Paradox.CosmosDbTest
         DateTime HiredDate { get; set; }
 
         string Manager { get; set; }
+
+		[InlineSerialization(SerializationType.ClearText)]
+		ICollection<string> TestInline { get; set; }
     }
 }

@@ -18,7 +18,7 @@ namespace Stardust.Paradox.Data.Internals
         }
 
         private static ConcurrentDictionary<string, SerializationType> _serializationTypes = new ConcurrentDictionary<string, SerializationType>();
-        private readonly GraphDataEntity _parent;
+        private readonly IGraphEntityInternal _parent;
         private readonly string _name;
         private List<T> _internal;
         public InlineCollection()
@@ -26,7 +26,7 @@ namespace Stardust.Paradox.Data.Internals
             _internal = new List<T>();
         }
 
-        public InlineCollection(GraphDataEntity parent, string name) : this()
+        public InlineCollection(IGraphEntityInternal parent, string name) : this()
         {
             _parent = parent;
             _name = name;

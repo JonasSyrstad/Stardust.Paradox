@@ -15,7 +15,8 @@ namespace Stardust.Paradox.Data.Internals
         void SetContext(GraphContextBase graphContextBase);
         Task Eager(bool doEagerLoad);
         void DoLoad(dynamic o);
-
-        string Type { get; }
+	    void OnPropertyChanged(object value, string propertyName = null);
+	    bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null);
+		string Type { get; }
     }
 }

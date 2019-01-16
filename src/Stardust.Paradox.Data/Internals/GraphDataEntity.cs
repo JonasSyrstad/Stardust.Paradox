@@ -57,7 +57,7 @@ namespace Stardust.Paradox.Data.Internals
             return (IEdgeReference<TOut>)edgeCollection;
         }
 
-        protected internal virtual void OnPropertyChanged(object value, string propertyName = null)
+        public virtual void OnPropertyChanged(object value, string propertyName = null)
         {
             if (_isLoading) return;
             if (IsDeleted)
@@ -73,7 +73,7 @@ namespace Stardust.Paradox.Data.Internals
             }
         }
 
-        protected internal bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
+	    public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
         {
             if (_isLoading) return true;
             if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
