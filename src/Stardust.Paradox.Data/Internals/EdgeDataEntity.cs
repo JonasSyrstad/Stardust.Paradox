@@ -136,7 +136,7 @@ namespace Stardust.Paradox.Data.Internals
 			switch (value)
 			{
 				case string s:
-					var r = $"'{EscapeString(s)}'";
+					var r = $"'{GraphDataEntity.EscapeString(s)}'";
 					if (r == "'''") return "''";
 					return r;
 				case DateTime time:
@@ -159,14 +159,7 @@ namespace Stardust.Paradox.Data.Internals
 			throw new ArgumentException("Unknown type", nameof(value));
 		}
 
-		private static object EscapeString(string value)
-		{
-			if (value.IsNullOrWhiteSpace()) return value;
-			return value.Replace("\\", "")
-				.Replace("'", "\\'")
-				.Replace("`", "")
-				.Replace("´", "");
-		}
+		
 		public bool IsDeleted
 		{
 			get;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -49,7 +50,7 @@ namespace Stardust.Paradox.Data.Traversals
             }
 
             if (value is string s)
-                return queryBase.Params("property", name, s);
+                return queryBase.Params("property", name, GraphDataEntity.EscapeString( s));
             return queryBase.Params(name, value.ToString());
 
         }

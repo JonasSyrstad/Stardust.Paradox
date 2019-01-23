@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Linq;
+using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -26,7 +27,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         internal static GremlinQuery Params(this GremlinQuery queryBase,string name, params string[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"'{s}'"))})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"'{GraphDataEntity.EscapeString(s)}'"))})");
         }
 
         internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params int[] values)

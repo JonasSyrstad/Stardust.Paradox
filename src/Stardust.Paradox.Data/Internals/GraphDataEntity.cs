@@ -147,13 +147,9 @@ namespace Stardust.Paradox.Data.Internals
             throw new ArgumentException("Unknown type", nameof(value));
         }
 
-        private static object EscapeString(string value)
+        internal static string EscapeString(string value)
         {
-            if (value.IsNullOrWhiteSpace()) return value;
-            return value.Replace("\\", "")
-                .Replace("'", "\\'")
-                .Replace("`", "")
-                .Replace("´", "");
+	        return value.EscapeGremlinString();
         }
 
         void IGraphEntityInternal.SetContext(GraphContextBase graphContextBase)
