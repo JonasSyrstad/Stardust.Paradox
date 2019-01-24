@@ -4,6 +4,7 @@ using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -14,7 +15,8 @@ namespace Stardust.Paradox.Data.Internals
 	public abstract class EdgeDataEntity<TIn, TOut> : IGraphEntityInternal, IEdgeEntityInternal, IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
 	{
 
-		private string gremlinUpdateStatement = "";
+		//private string gremlinUpdateStatement = "";
+		private Dictionary<string, Update> UpdateChain = new Dictionary<string, Update>();
 		private readonly ConcurrentDictionary<string, IInlineCollection> _inlineCollections = new ConcurrentDictionary<string, IInlineCollection>();
 		public string EntityKey
 		{
@@ -30,7 +32,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public string GetUpdateStatement()
 		{
-			return _edgeSelector + gremlinUpdateStatement;
+			return _edgeSelector + string.Join("", UpdateChain.Select(u => u.Value.UpdateStatement)); ;
 		}
 		public void SetContext(GraphContextBase graphContextBase)
 		{
@@ -117,7 +119,10 @@ namespace Stardust.Paradox.Data.Internals
 			if (value != null)
 			{
 				PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
-				gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
+				if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
+					update.UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
+				else UpdateChain.Add(propertyName.ToCamelCase(), new Update { UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})" });
+
 				IsDirty = true;
 			}
 		}
@@ -159,7 +164,7 @@ namespace Stardust.Paradox.Data.Internals
 			throw new ArgumentException("Unknown type", nameof(value));
 		}
 
-		
+
 		public bool IsDeleted
 		{
 			get;
@@ -184,7 +189,7 @@ namespace Stardust.Paradox.Data.Internals
 			_isLoading = false;
 			IsNew = isNew;
 			IsDeleted = false;
-			gremlinUpdateStatement = "";
+			UpdateChain.Clear();
 
 			if (isNew)
 				MakeUpdateStatement();
@@ -197,7 +202,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public void Delete()
 		{
-			gremlinUpdateStatement = ".drop()";
+			UpdateChain.Add("____drop____", new Update { UpdateStatement = ".drop()" });
 			IsDeleted = true;
 			IsDirty = true;
 		}
