@@ -80,6 +80,7 @@ namespace Stardust.Paradox.Data.Internals
 			if (edge == null) throw new InvalidOperationException("Unable to construct edge");
 			edge.SetInVertex(inVertex);
 			edge.SetOutVertex(outVertex);
+			edge.Reset(true);
 			return entity;
 
 		}

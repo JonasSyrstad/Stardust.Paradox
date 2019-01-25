@@ -46,6 +46,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public void DoLoad(dynamic o)
 		{
+			_isLoading = true;
 			if (Label != o.label.ToString()) throw new InvalidCastException($"Unable to cast graph item with label {o.label} to {Label}");
 			InVertexId = o.inV.ToString();
 			OutVertextId = o.outV.ToString();
@@ -73,16 +74,17 @@ namespace Stardust.Paradox.Data.Internals
 			var newV = vertex as GraphDataEntity;
 			if (old?._entityKey == newV?._entityKey) return;
 			_inV = (TIn)vertex;
+			InVertexId = newV?.EntityKey;
 			MakeUpdateStatement();
 		}
 
 		private string MakeUpdateStatement()
 		{
-			if (_outV != null && _inV != null)
+			if (InVertexId != null && OutVertextId != null)
 			{
 				_edgeSelector = "";
 				_edgeSelector +=
-					$"g.V('{((IGraphEntityInternal)_outV).EntityKey}').as('a').V('{((IGraphEntityInternal)_outV).EntityKey}').addE('{Label}').as('b').from('a').to('b').property('id','{_entityKey}')";
+					$"g.V('{InVertexId}').as('a').V('{OutVertextId}').as('b').addE('{Label}').from('a').to('b').property('id','{_entityKey}')";
 				IsDirty = true;
 
 			}
@@ -95,6 +97,7 @@ namespace Stardust.Paradox.Data.Internals
 			var newV = vertex as GraphDataEntity;
 			if (old?._entityKey == newV?._entityKey) return;
 			_outV = (TOut)vertex;
+			OutVertextId = newV.EntityKey;
 			MakeUpdateStatement();
 			IsDirty = true;
 		}
@@ -174,6 +177,8 @@ namespace Stardust.Paradox.Data.Internals
 		public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
 		{
 			if (_isLoading) return true;
+			if(_edgeSelector.IsNullOrWhiteSpace())
+				Reset(false);
 			if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
 			{
 				PropertyChanging?.Invoke(this, new PropertyChangingHandlerArgs(newValue, oldValue, propertyName));

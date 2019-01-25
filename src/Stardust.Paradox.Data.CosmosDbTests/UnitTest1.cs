@@ -107,6 +107,13 @@ namespace Stardust.Paradox.CosmosDbTest
 				var outEdges = await tc.Employments.GetByOutIdAsync(e.First().OutVertextId);
 				Assert.NotEmpty(inEdges);
 				Assert.NotEmpty(outEdges);
+				var newEdge = tc.Employments.Create(await e.First().InVAsync(), await e.First().OutVAsync());
+				Assert.NotNull(newEdge);
+				newEdge.HiredDate=DateTime.Now;
+				newEdge.Manager = "test";
+				await tc.SaveChangesAsync();
+				tc.Delete(newEdge);
+				await tc.SaveChangesAsync();
 			}
 		}
 

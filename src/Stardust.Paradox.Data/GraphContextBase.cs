@@ -170,6 +170,7 @@ namespace Stardust.Paradox.Data
 		{
 			var item = Create<T>();
 			var i = item as IGraphEntityInternal;
+			
 			i.DoLoad(d);
 			i.EntityKey = d.id;
 			i.EagerLoading = doEagerLoad;
