@@ -315,7 +315,7 @@ namespace Stardust.Paradox.Data
 			return GetTreeAsync<T>(rootId, propertyName, incommingEdge);
 		}
 
-		public void Attatch<T>(T item)
+		public void Attach<T>(T item)
 		{
 			var i = item as IGraphEntityInternal;
 			if (i.EntityKey.IsNullOrWhiteSpace()) i.EntityKey = Guid.NewGuid().ToString();

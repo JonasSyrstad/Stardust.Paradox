@@ -64,9 +64,9 @@ namespace Stardust.Paradox.Data.Internals
             return Create(Guid.NewGuid().ToString(), initializer);
         }
 
-        public void Attatch(T item)
+        public void Attach(T item)
         {
-            _context.Attatch<T>(item);
+            _context.Attach<T>(item);
         }
 
         public async Task DeleteAsync(string id)

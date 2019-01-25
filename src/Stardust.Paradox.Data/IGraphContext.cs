@@ -27,7 +27,7 @@ namespace Stardust.Paradox.Data
         Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, string edgeLabel, bool incommingEdge = false) where T : IVertex;
 
         Task<IVertexTreeRoot<T>> GetTreeAsync<T>(string rootId, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex;
-        void Attatch<T>(T item);
+        void Attach<T>(T item);
 
         void Clear();
 

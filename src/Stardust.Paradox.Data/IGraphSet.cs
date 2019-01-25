@@ -7,17 +7,7 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data
 {
-    public interface IEdgeGraphSet<T> : IGraphSetBase<T>
-        where T : IGraphEntity 
-    {
-
-        T Create(IVertex inVertex, IVertex outVertex);
-
-	    Task<T> GetAsync(string inId, string outId);
-
-    }
-
-    public interface IGraphSet<T> : IGraphSetBase<T> where T : IGraphEntity
+	public interface IGraphSet<T> : IGraphSetBase<T> where T : IGraphEntity
     {
         /// <summary>
         /// Creates a new item with a Guid as id
@@ -58,6 +48,6 @@ namespace Stardust.Paradox.Data
         Task<IEnumerable<T>> AllAsync(int page, int pageSize = 20);
        
 
-        void Attatch(T item);
+        void Attach(T item);
     }
 }

@@ -46,9 +46,9 @@ namespace Stardust.Paradox.Data.Internals
 		}
 
 
-		public void Attatch(T item)
+		public void Attach(T item)
 		{
-			_context.Attatch<T>(item);
+			_context.Attach<T>(item);
 		}
 
 		public async Task DeleteAsync(string id)
@@ -86,8 +86,21 @@ namespace Stardust.Paradox.Data.Internals
 
 		public async Task<T> GetAsync(string inId, string outId)
 		{
-			var e = await _context.EAsync<T>(g => g.V(inId).BothE().Where(p => p.__().OtherV().HasId(outId)));
+			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).BothE().Where(p => p.__().OtherV().HasId(outId.EscapeGremlinString()))).ConfigureAwait(false);
 			return e.SingleOrDefault();
+		}
+
+		public async Task<IEnumerable<T>> GetByInIdAsync(string inId)
+		{
+
+			var e = await _context.EAsync<T>(g =>g.V(inId.EscapeGremlinString()).InE().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
+			return e;
+		}
+
+		public async Task<IEnumerable<T>> GetByOutIdAsync(string outId)
+		{
+			var e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
+			return e;
 		}
 	}
 }
