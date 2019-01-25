@@ -84,7 +84,7 @@ namespace Stardust.Paradox.Data.Internals
 			{
 				_edgeSelector = "";
 				_edgeSelector +=
-					$"g.V('{InVertexId}').as('a').V('{OutVertextId}').as('b').addE('{Label}').from('a').to('b').property('id','{_entityKey}')";
+					$"g.V('{InVertexId}').as('a').V('{OutVertextId}').as('b').addE('{Label}').from('b').to('a').property('id','{_entityKey}')";
 				IsDirty = true;
 
 			}
