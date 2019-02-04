@@ -222,7 +222,7 @@ namespace Stardust.Paradox.Data.Internals
 		}
 
 		[JsonIgnore]
-		public string Type => "vertex";
+		public string _EntityType => "vertex";
 	}
 
 	internal class Update

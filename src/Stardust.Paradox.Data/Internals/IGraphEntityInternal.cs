@@ -17,6 +17,6 @@ namespace Stardust.Paradox.Data.Internals
         void DoLoad(dynamic o);
 	    void OnPropertyChanged(object value, string propertyName = null);
 	    bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null);
-		string Type { get; }
+		string _EntityType { get; }
     }
 }

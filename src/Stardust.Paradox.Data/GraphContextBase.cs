@@ -269,7 +269,7 @@ namespace Stardust.Paradox.Data
 		private async Task SaveEntities(string type, List<IGraphEntityInternal> deleted)
 		{
 			var tasks = new List<Task>();
-			foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty && i.Value.Type == type select i)
+			foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty && i.Value._EntityType == type select i)
 			{
 				var updateStatement = graphDataEntity.Value.GetUpdateStatement();
 				if (GremlinContext.ParallelSaveExecution)

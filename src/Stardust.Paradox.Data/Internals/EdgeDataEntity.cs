@@ -216,6 +216,6 @@ namespace Stardust.Paradox.Data.Internals
 		public bool IsDirty { get; internal set; }
 
 		[JsonIgnore]
-		public string Type => "edge";
+		public string _EntityType => "edge";
 	}
 }
