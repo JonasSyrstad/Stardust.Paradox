@@ -377,7 +377,7 @@ namespace Stardust.Paradox.Data
 					action = CreateSet(prop);
 					_setProppertyValueFunc.TryAdd(item.GetType() + "." + key, action);
 				}
-
+				if(value==null) return;
 				if (prop.PropertyType == typeof(DateTime))
 					action.Invoke(item, new DateTime(long.Parse(value.ToString())));
 				else if (prop.PropertyType == typeof(DateTime?))

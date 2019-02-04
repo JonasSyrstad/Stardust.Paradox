@@ -114,8 +114,6 @@ namespace Stardust.Paradox.CosmosDbTest
 				await tc.SaveChangesAsync();
 				tc.Delete(newEdge);
 				await tc.SaveChangesAsync();
-				var es = await tc.Employments.GetByInIdAsync((await e.First().InVAsync()).Id);
-				Assert.NotEmpty(es);
 			}
 		}
 
