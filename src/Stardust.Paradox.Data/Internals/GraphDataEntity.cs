@@ -5,7 +5,6 @@ using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -71,10 +70,21 @@ namespace Stardust.Paradox.Data.Internals
 				PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
 				//gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
 				if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
-					update.UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
-				else UpdateChain.Add(propertyName.ToCamelCase(), new Update { UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})" });
+					update.Value = GetValue(value);
+				else UpdateChain.Add(propertyName.ToCamelCase(), new Update { PropertyName = propertyName.ToCamelCase(), Value = GetValue(value) });
 
 				IsDirty = true;
+			}
+		}
+		internal object GetValue(object value)
+		{
+			if (value == null) return null;
+			switch (value)
+			{
+				case IInlineCollection i:
+					return i.ToTransferData();
+				default:
+					return value;
 			}
 		}
 
@@ -88,6 +98,8 @@ namespace Stardust.Paradox.Data.Internals
 			}
 			return false;
 		}
+		private Dictionary<string, object> selectorParameters = new Dictionary<string, object>();
+		private bool _parametrized;
 
 		public void Reset(bool isNew)
 		{
@@ -96,7 +108,21 @@ namespace Stardust.Paradox.Data.Internals
 			IsDeleted = false;
 			UpdateChain.Clear();
 			_edges.Clear();
-			vertexSelector = isNew ? $"g.addV('{Label}').property('id',{GetValue(_entityKey)})" : $"g.V('{_entityKey}')";
+			if (_parametrized)
+			{
+				selectorParameters.Clear();
+				selectorParameters.Add("___ekey", _entityKey);
+				if (isNew)
+					selectorParameters.Add("__label", Label);
+				vertexSelector = isNew ? $"g.addV(__label).property('id',___ekey)" : $"g.V(___ekey)";
+			}
+			else
+			{
+				
+					vertexSelector = isNew ? $"g.addV('{Label}').property('id',{Update.GetValue(_entityKey)})" : $"g.V('{_entityKey}')";
+				
+			}
+			//vertexSelector = isNew ? $"g.addV('{Label}').property('id',{Update.GetValue(_entityKey)})" : $"g.V('{_entityKey}')";
 			IsDirty = false;
 			IsNew = isNew;
 			IsDeleted = false;
@@ -118,54 +144,32 @@ namespace Stardust.Paradox.Data.Internals
 		}
 
 
-		public string GetUpdateStatement()
+		public string GetUpdateStatement(bool parameterized)
 		{
+			if (parameterized)
+			{
+				return vertexSelector + string.Join("", UpdateChain.Select(u => u.Value.ParameterizedUpdateStatement));
+			}
 			return vertexSelector + string.Join("", UpdateChain.Select(u => u.Value.UpdateStatement));
 		}
 
-		private string GetValue(object value)
-		{
-			if (value == null) return null;
-			switch (value)
-			{
-				case string s:
-					var r = $"'{EscapeString(s)}'";
-					if (r == "'''") return "''";
-					return r;
-				case DateTime time:
-					return $"{time.Ticks}";
-				case int no:
-					return no.ToString(CultureInfo.InvariantCulture);
-				case decimal dec:
-					return dec.ToString(CultureInfo.InvariantCulture);
-				case long lng:
-					return lng.ToString(CultureInfo.InvariantCulture);
-				case float flt:
-					return flt.ToString(CultureInfo.InvariantCulture);
-				case double dbl:
-					return dbl.ToString(CultureInfo.InvariantCulture);
-				case bool yn:
-					return yn.ToString(CultureInfo.InvariantCulture).ToLower();
-				case IInlineCollection i:
-					return $"'{i.ToTransferData()}'";
-			}
-			throw new ArgumentException("Unknown type", nameof(value));
-		}
+
 
 		internal static string EscapeString(string value)
 		{
 			return value.EscapeGremlinString();
 		}
 
-		void IGraphEntityInternal.SetContext(GraphContextBase graphContextBase)
+		void IGraphEntityInternal.SetContext(GraphContextBase graphContextBase, bool connectorCanParameterizeQueries)
 		{
+			_parametrized = connectorCanParameterizeQueries;
 			_context = graphContextBase;
 		}
 
 		public void Delete()
 		{
 			//gremlinUpdateStatement = ".drop()";
-			UpdateChain.Add("____drop____", new Update { UpdateStatement = ".drop()" });
+			UpdateChain.Add("____drop____", new Update { Parameterless = ".drop()" });
 			IsDeleted = true;
 			IsDirty = true;
 		}
@@ -223,10 +227,24 @@ namespace Stardust.Paradox.Data.Internals
 
 		[JsonIgnore]
 		public string _EntityType => "vertex";
-	}
 
-	internal class Update
-	{
-		internal string UpdateStatement { get; set; }
+		public Dictionary<string, object> GetParameterizedValues()
+		{
+			var p= UpdateChain.Where(v => v.Value.HasParameters)
+				.ToDictionary(k => $"__{k.Value.PropertyName}", v => GetValue(v));
+			foreach (var selectorParameter in selectorParameters)
+			{
+				p.Add(selectorParameter.Key, selectorParameter.Value);
+			}
+			return p;
+		}
+
+		private static object GetValue(KeyValuePair<string, Update> v)
+		{
+			if (v.Value.Value == null) return null;
+			if (v.Value.Value is DateTime dt)
+				return dt.Ticks;
+			return v.Value.Value;
+		}
 	}
 }

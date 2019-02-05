@@ -30,12 +30,16 @@ namespace Stardust.Paradox.Data.Internals
 			set { }
 		}
 
-		public string GetUpdateStatement()
+		public string GetUpdateStatement(bool parameterized)
 		{
-			return _edgeSelector + string.Join("", UpdateChain.Select(u => u.Value.UpdateStatement)); ;
+			if (_edgeSelector == null) MakeUpdateStatement(parameterized);
+			if (parameterized)
+				return _edgeSelector + string.Join("", UpdateChain.Select(u => u.Value.ParameterizedUpdateStatement));
+			return _edgeSelector + string.Join("", UpdateChain.Select(u => u.Value.UpdateStatement));
 		}
-		public void SetContext(GraphContextBase graphContextBase)
+		public void SetContext(GraphContextBase graphContextBase, bool connectorCanParameterizeQueries)
 		{
+			_parametrized = connectorCanParameterizeQueries;
 			_context = graphContextBase;
 		}
 
@@ -75,17 +79,34 @@ namespace Stardust.Paradox.Data.Internals
 			if (old?._entityKey == newV?._entityKey) return;
 			_inV = (TIn)vertex;
 			InVertexId = newV?.EntityKey;
-			MakeUpdateStatement();
 		}
 
-		private string MakeUpdateStatement()
+		private Dictionary<string, object> selectorParameters = new Dictionary<string, object>();
+		private bool _parametrized;
+
+		private string MakeUpdateStatement(bool parameterized)
 		{
 			if (InVertexId != null && OutVertextId != null)
 			{
-				_edgeSelector = "";
-				_edgeSelector +=
-					$"g.V('{InVertexId}').as('a').V('{OutVertextId}').as('b').addE('{Label}').from('b').to('a').property('id','{_entityKey}')";
-				IsDirty = true;
+				if (parameterized)
+				{
+					selectorParameters.Clear();
+					selectorParameters.Add("inVId", InVertexId);
+					selectorParameters.Add("outVID", OutVertextId);
+					selectorParameters.Add("___label", Label);
+					selectorParameters.Add("___ekey", _entityKey);
+					_edgeSelector = "";
+					_edgeSelector +=
+						$"g.V(inVId).as('a').V(outVID).as('b').addE(___label).from('b').to('a').property('id',___ekey)";
+					IsDirty = true;
+				}
+				else
+				{
+					_edgeSelector = "";
+					_edgeSelector +=
+						$"g.V('{InVertexId.EscapeGremlinString()}').as('a').V('{OutVertextId.EscapeGremlinString()}').as('b').addE('{Label}').from('b').to('a').property('id','{_entityKey}')";
+					IsDirty = true;
+				}
 
 			}
 			return _edgeSelector;
@@ -98,7 +119,6 @@ namespace Stardust.Paradox.Data.Internals
 			if (old?._entityKey == newV?._entityKey) return;
 			_outV = (TOut)vertex;
 			OutVertextId = newV.EntityKey;
-			MakeUpdateStatement();
 			IsDirty = true;
 		}
 
@@ -123,13 +143,23 @@ namespace Stardust.Paradox.Data.Internals
 			{
 				PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
 				if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
-					update.UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
-				else UpdateChain.Add(propertyName.ToCamelCase(), new Update { UpdateStatement = $".property('{propertyName.ToCamelCase()}',{GetValue(value)})" });
+					update.Value = GetValue(value);
+				else UpdateChain.Add(propertyName.ToCamelCase(), new Update { PropertyName = propertyName.ToCamelCase(), Value = GetValue(value) });
 
 				IsDirty = true;
 			}
 		}
-
+		internal object GetValue(object value)
+		{
+			if (value == null) return null;
+			switch (value)
+			{
+				case IInlineCollection i:
+					return i.ToTransferData();
+				default:
+					return value;
+			}
+		}
 		protected IInlineCollection<T> GetInlineCollection<T>(string name)
 		{
 			if (_inlineCollections.TryGetValue(name, out IInlineCollection i)) return (IInlineCollection<T>)i;
@@ -137,36 +167,6 @@ namespace Stardust.Paradox.Data.Internals
 			_inlineCollections.TryAdd(name, i);
 			return (IInlineCollection<T>)i;
 		}
-
-		private string GetValue(object value)
-		{
-			if (value == null) return null;
-			switch (value)
-			{
-				case string s:
-					var r = $"'{GraphDataEntity.EscapeString(s)}'";
-					if (r == "'''") return "''";
-					return r;
-				case DateTime time:
-					return $"{time.Ticks}";
-				case int no:
-					return no.ToString(CultureInfo.InvariantCulture);
-				case decimal dec:
-					return dec.ToString(CultureInfo.InvariantCulture);
-				case long lng:
-					return lng.ToString(CultureInfo.InvariantCulture);
-				case float flt:
-					return flt.ToString(CultureInfo.InvariantCulture);
-				case double dbl:
-					return dbl.ToString(CultureInfo.InvariantCulture);
-				case bool yn:
-					return yn.ToString(CultureInfo.InvariantCulture).ToLower();
-				case IInlineCollection i:
-					return $"'{i.ToTransferData()}'";
-			}
-			throw new ArgumentException("Unknown type", nameof(value));
-		}
-
 
 		public bool IsDeleted
 		{
@@ -177,7 +177,7 @@ namespace Stardust.Paradox.Data.Internals
 		public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
 		{
 			if (_isLoading) return true;
-			if(_edgeSelector.IsNullOrWhiteSpace())
+			if (_edgeSelector.IsNullOrWhiteSpace())
 				Reset(false);
 			if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
 			{
@@ -196,10 +196,23 @@ namespace Stardust.Paradox.Data.Internals
 			IsDeleted = false;
 			UpdateChain.Clear();
 
-			if (isNew)
-				MakeUpdateStatement();
+			if (_parametrized)
+			{
+				selectorParameters.Clear();
+				
+				if (!isNew)
+				{
+					selectorParameters.Add("___ekey", _entityKey);
+					_edgeSelector = $"g.E(___ekey)";
+				} 
+			}
 			else
-				_edgeSelector = $"g.E('{_entityKey}')";
+			{
+				if (!isNew)
+				{
+					_edgeSelector = $"g.E('{_entityKey.EscapeGremlinString()}')";
+				}
+			}
 			IsDirty = false;
 			IsNew = isNew;
 			IsDeleted = false;
@@ -207,7 +220,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public void Delete()
 		{
-			UpdateChain.Add("____drop____", new Update { UpdateStatement = ".drop()" });
+			UpdateChain.Add("____drop____", new Update { Parameterless = ".drop()" });
 			IsDeleted = true;
 			IsDirty = true;
 		}
@@ -217,5 +230,16 @@ namespace Stardust.Paradox.Data.Internals
 
 		[JsonIgnore]
 		public string _EntityType => "edge";
+
+		public Dictionary<string, object> GetParameterizedValues()
+		{
+			var p = UpdateChain.Where(v => v.Value.HasParameters)
+				.ToDictionary(k => $"__{k.Value.PropertyName}", v => v.Value.Value);
+			foreach (var selectorParameter in selectorParameters)
+			{
+				p.Add(selectorParameter.Key, selectorParameter.Value);
+			}
+			return p;
+		}
 	}
 }

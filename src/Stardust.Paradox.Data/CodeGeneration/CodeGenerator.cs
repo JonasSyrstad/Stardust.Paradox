@@ -19,7 +19,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
         private static AssemblyBuilder _builder;
         private static ModuleBuilder _moduleBuilder;
 
-        private static string EdgeLabel(Type entityType, MemberInfo member)
+        internal static string EdgeLabel(Type entityType, MemberInfo member)
         {
             var def = GetMemberBinding(entityType, member);
             return def?.EdgeLabel;
@@ -32,7 +32,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             return new EagerAttribute();
         }
 
-        private static string EdgeReverseLabel(Type entityType, MemberInfo member)
+        internal static string EdgeReverseLabel(Type entityType, MemberInfo member)
         {
             var def = GetMemberBinding(entityType, member);
             return def?.ReverseEdgeLabel;

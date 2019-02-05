@@ -54,7 +54,8 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
                 .Select(jObj => (T)jObj.ToObject(typeof(T))).ToList();
         }
 
-        public async Task<IEnumerable<dynamic>> ExecuteAsync(string query)
+        public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
+	        Dictionary<string, object> parametrizedValues)
         {
             var graph = await DocumentCollection().ConfigureAwait(false);
             var gremlinQ = _client.CreateGremlinQuery(graph, query);
@@ -62,7 +63,9 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
             return d.AsEnumerable();
         }
 
-        private async Task<DocumentCollection> DocumentCollection()
+	    public bool CanParameterizeQueries => false;
+
+	    private async Task<DocumentCollection> DocumentCollection()
         {
             if (_graph != null) return _graph;
             Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = _databaseName }).ConfigureAwait(false);

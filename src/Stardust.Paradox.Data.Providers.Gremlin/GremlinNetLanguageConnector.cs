@@ -32,13 +32,25 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
             _client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
         }
 
-        public virtual async Task<IEnumerable<dynamic>> ExecuteAsync(string compileQuery)
+        public virtual async Task<IEnumerable<dynamic>> ExecuteAsync(string compileQuery,
+	        Dictionary<string, object> parametrizedValues)
         {
-            var resp = await _client.SubmitAsync<dynamic>(compileQuery).ConfigureAwait(false);
-            return resp;
+
+			try
+			{
+				var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues).ConfigureAwait(false);
+				return resp;
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine(compileQuery);
+				throw;
+			}
         }
 
-        protected virtual void Dispose(bool disposing)
+	    public bool CanParameterizeQueries => true;
+
+	    protected virtual void Dispose(bool disposing)
         {
             if (disposing)
             {

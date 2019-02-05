@@ -22,7 +22,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Tail(this GremlinQuery queryBase, int last)
         {
-            return new ComposedGremlinQuery(queryBase, $"tail({last})");
+            return new ComposedGremlinQuery(queryBase, $"tail({queryBase.ComposeParameter(last)})");
         }
 
         public static GremlinQuery Tail(this GremlinQuery queryBase, GraphScope scope)
@@ -64,7 +64,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Coin(this GremlinQuery queryBase,double bias)
         {
-            return new ComposedGremlinQuery(queryBase, $"coin({bias.ToString("N",CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"coin({queryBase.ComposeParameter(bias)})");
         }
 
         public static GremlinQuery PeerPressure(this GremlinQuery queryBase)

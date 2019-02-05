@@ -27,26 +27,26 @@ namespace Stardust.Paradox.Data.Traversals
 
         internal static GremlinQuery Params(this GremlinQuery queryBase,string name, params string[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"'{GraphDataEntity.EscapeString(s)}'"))})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"{queryBase.ComposeParameter(s)}"))})");
         }
 
         internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params int[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values)})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => queryBase.ComposeParameter(s)))})");
         }
 
         internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params long[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values)})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => queryBase.ComposeParameter(s)))})");
         }
 
         internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params decimal[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s=>s.ToString(CultureInfo.InvariantCulture)))})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s=> queryBase.ComposeParameter(s)))})");
         }
         internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params bool[] values)
         {
-            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => s.ToString(CultureInfo.InvariantCulture)))})");
+            return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => queryBase.ComposeParameter(s)))})");
         }
     }
 }

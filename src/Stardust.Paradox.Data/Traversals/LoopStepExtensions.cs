@@ -7,17 +7,17 @@ namespace Stardust.Paradox.Data.Traversals
     {
         public static GremlinQuery Repeat(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "repeat({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "repeat({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery Until(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "until({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "until({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery Times(this GremlinQuery queryBase, int times)
         {
-            return new ComposedGremlinQuery(queryBase, $"times({times})");
+            return new ComposedGremlinQuery(queryBase, $"times({queryBase.ComposeParameter(times)})");
         }
 
         public static GremlinQuery Loops(this GremlinQuery queryBase)
@@ -42,17 +42,17 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Option(this GremlinQuery queryBase, string value, Func<GremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, $"option('{value}',{{0}})", expression);
+            return new LambdaComposedGremlinQuery(queryBase, $"option({queryBase.ComposeParameter(value)},{{0}})", expression);
         }
 
         public static GremlinQuery Option(this GremlinQuery queryBase, long value, Func<GremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, $"option({value},{{0}})", expression);
+            return new LambdaComposedGremlinQuery(queryBase, $"option({queryBase.ComposeParameter(value)},{{0}})", expression);
         }
 
         public static GremlinQuery Option(this GremlinQuery queryBase, decimal value, Func<GremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, $"option({value.ToString(CultureInfo.InvariantCulture)},{{0}})", expression);
+            return new LambdaComposedGremlinQuery(queryBase, $"option({queryBase.ComposeParameter(value)},{{0}})", expression);
         }
     }
 }

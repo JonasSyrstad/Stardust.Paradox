@@ -56,11 +56,14 @@ namespace Stardust.Paradox.CosmosDbTest
 				var dnvgl = CreateCompany(tc, "DNVGL", "dnvgl.com", "kema.com");
 				var gss = CreateCompany(tc, "GSS");
 				var gssIt = CreateCompany(tc, "GSSIT");
+				await tc.SaveChangesAsync();
 				dnvgl.Divisions.Add(gss);
+				await tc.SaveChangesAsync();
 				gss.Divisions.Add(gssIt);
 				await tor.Spouce.SetVertexAsync(rita);
 
 				jonas.Parents.Add(tor);
+
 				jonas.Parents.Add(rita);
 				jonas.Employers.Add(gssIt);
 				sanne.Parents.Add(jonas, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
@@ -315,7 +318,8 @@ namespace Stardust.Paradox.CosmosDbTest
 				_output.WriteLine("Tree:");
 				_output.WriteLine(JsonConvert.SerializeObject(tree));
 				_output.WriteLine("Jonas:");
-				jonas = await tc.GetTreeAsync<IProfile>("Jonas", p => p.Parents, true);
+				
+				jonas = await tc.GetTreeAsync<IProfile>("Jonas", t=>t.Parents, true);
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
 			}
 
@@ -602,7 +606,8 @@ namespace Stardust.Paradox.CosmosDbTest
 			await PrintResult(q2);
 			var q3 = G.V("Jonas");
 			await PrintResult(q3);
-			var q4 = G.V().Where(p => p.HasLabel("person"));
+			var q4 = G.V();
+				q4=q4.Where(p => p.HasLabel("person"));
 			await PrintResult(q4, false);
 			var q5 = G.V(1).Until(p => p.Has("name", "Jonas")).Repeat(p => p.Out()).Path().By("name");
 			await PrintResult(q5, false, false);
@@ -628,7 +633,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				.Where(p => p.Without("s")).Dedup()//filter self and deduplicated result set
 				.Values("name");//project the names
 								//g.V().has('name','sanne').as('s').out('parent').in('parent').where(without('s')).dedup().values('name')
-			Assert.Equal("g.V().has('name','Sanne').as('s').in('parent').out('parent').where(without('s')).dedup().values('name')", siblings.ToString());
+			Assert.Equal("g.V().has(__p0,__p1).as(__p2).in(__p3).out(__p4).where(without(__p6)).dedup().values(__p5)", siblings.ToString());
 			await PrintResult(siblings);
 			await PrintResult(siblings.Count());
 

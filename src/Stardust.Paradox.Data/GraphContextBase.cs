@@ -102,8 +102,8 @@ namespace Stardust.Paradox.Data
 			var item = Create<T>();
 			var i = item as IGraphEntityInternal;
 			i.EntityKey = id;
+			i.SetContext(this, _connector.CanParameterizeQueries);
 			i.Reset(true);
-			i.SetContext(this);
 			_trackedEntities.TryAdd(id, i);
 			return item;
 		}
@@ -170,13 +170,13 @@ namespace Stardust.Paradox.Data
 		{
 			var item = Create<T>();
 			var i = item as IGraphEntityInternal;
-			
+
 			i.DoLoad(d);
 			i.EntityKey = d.id;
 			i.EagerLoading = doEagerLoad;
 			LoadProperties(d, item);
+			i.SetContext(this, _connector.CanParameterizeQueries);
 			i.Reset(false);
-			i.SetContext(this);
 			await i.Eager(doEagerLoad).ConfigureAwait(false);
 			_trackedEntities.TryAdd(i.EntityKey, i);
 			return item;
@@ -215,8 +215,8 @@ namespace Stardust.Paradox.Data
 				var y = p.Value.ToObject<Property[]>();
 				TransferData(item, p.Key.ToPascalCase(), y.First().Value);
 			}
+			i.SetContext(this, _connector.CanParameterizeQueries);
 			i.Reset(false);
-			i.SetContext(this);
 			_trackedEntities.TryAdd(i.EntityKey, i);
 			return item;
 		}
@@ -271,11 +271,11 @@ namespace Stardust.Paradox.Data
 			var tasks = new List<Task>();
 			foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty && i.Value._EntityType == type select i)
 			{
-				var updateStatement = graphDataEntity.Value.GetUpdateStatement();
+				var updateStatement = graphDataEntity.Value.GetUpdateStatement(_connector.CanParameterizeQueries);
 				if (GremlinContext.ParallelSaveExecution)
-					tasks.Add(_connector.ExecuteAsync(updateStatement));
+					tasks.Add(_connector.ExecuteAsync(updateStatement, graphDataEntity.Value.GetParameterizedValues()));
 				else
-					await _connector.ExecuteAsync(updateStatement).ConfigureAwait(false);
+					await _connector.ExecuteAsync(updateStatement, graphDataEntity.Value.GetParameterizedValues()).ConfigureAwait(false);
 				if (graphDataEntity.Value.IsDeleted)
 					deleted.Add(graphDataEntity.Value);
 			}
@@ -320,7 +320,7 @@ namespace Stardust.Paradox.Data
 		{
 			var i = item as IGraphEntityInternal;
 			if (i.EntityKey.IsNullOrWhiteSpace()) i.EntityKey = Guid.NewGuid().ToString();
-			i.SetContext(this);
+			i.SetContext(this, _connector.CanParameterizeQueries);
 			_trackedEntities.TryAdd(i.EntityKey, i);
 		}
 
@@ -377,11 +377,21 @@ namespace Stardust.Paradox.Data
 					action = CreateSet(prop);
 					_setProppertyValueFunc.TryAdd(item.GetType() + "." + key, action);
 				}
-				if(value==null) return;
+				if (value == null) return;
 				if (prop.PropertyType == typeof(DateTime))
-					action.Invoke(item, new DateTime(long.Parse(value.ToString())));
+				{
+					if (value is DateTime d)
+						action.Invoke(item, d);
+					else
+						action.Invoke(item, new DateTime(long.Parse(value.ToString())));
+				}
 				else if (prop.PropertyType == typeof(DateTime?))
-					action.Invoke(item, value == null ? (DateTime?)null : new DateTime(long.Parse(value?.ToString())));
+				{
+					if (value is DateTime d)
+						action.Invoke(item, d);
+					else
+						action.Invoke(item, value == null ? (DateTime?)null : new DateTime(long.Parse(value?.ToString())));
+				}
 				else if (prop.PropertyType == typeof(int))
 					action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));
 				else if (prop.PropertyType == typeof(int?))

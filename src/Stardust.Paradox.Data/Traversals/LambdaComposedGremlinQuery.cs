@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Stardust.Paradox.Data.Traversals
@@ -24,10 +25,20 @@ namespace Stardust.Paradox.Data.Traversals
 			var baseQ = _queryBase.CompileQuery();
 			if ((!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith("."))) query = $".{query}";
 			query = _inner != null ? string.Format(query,
-				string.Join(",", _inner.Select(i => i.Invoke(new GremlinQuery(_connector, ""))))) :
+				string.Join(",", _inner.Select(i => i.Invoke(new GremlinQuery(_queryBase, ""))))) :
 				string.Format(query,
-					string.Join(",", _inner2.Select(i => i.Invoke(new GremlinQuery(_connector, "")).CompileQuery()))); ;
+					string.Join(",", _inner2.Select(i => i.Invoke(new GremlinQuery(_queryBase, "")).CompileQuery()))); ;
 			return _queryBase.CompileQuery() + query;
+		}
+
+		public override Dictionary<string, object> Parameters
+		{
+			get
+			{
+				if (_queryBase != null)
+					return _queryBase.Parameters;
+				return _parameters ?? (_parameters = new Dictionary<string, object>());
+			}
 		}
 	}
 }

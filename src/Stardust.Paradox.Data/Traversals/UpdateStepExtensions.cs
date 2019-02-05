@@ -14,7 +14,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery AddV(this GremlinQuery queryBase, string label)
         {
-            return new ComposedGremlinQuery(queryBase, $"addV('{label}')");
+            return new ComposedGremlinQuery(queryBase, $"addV({queryBase.ComposeParameter(label)})");
         }
 
         public static GremlinQuery Property(this GremlinQuery queryBase, string name, string value)
@@ -57,37 +57,37 @@ namespace Stardust.Paradox.Data.Traversals
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, long p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, decimal p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, bool p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, DateTime p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}','{p2.ToString(CultureInfo.InvariantCulture)}')");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, double p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         private static GremlinQuery Params(this GremlinQuery queryBase, string property, string name, float p2)
         {
-            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{p2.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"{property}('{name}',{queryBase.ComposeParameter(p2)})");
         }
 
         public static GremlinQuery Property(this GremlinQuery queryBase, string name, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, $"property('{name}',{{0}})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, $"property('{name}',{{0}})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
         public static GremlinQuery Properties(this GremlinQuery queryBase, string name)
         {
@@ -101,7 +101,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery AddE(this GremlinQuery queryBase, string label)
         {
-            return new ComposedGremlinQuery(queryBase, $"addE('{label}')");
+            return new ComposedGremlinQuery(queryBase, $"addE({queryBase.ComposeParameter(label)})");
         }
 
         public static GremlinQuery Inject(this GremlinQuery queryBase, params string[] values)

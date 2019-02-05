@@ -1,12 +1,19 @@
-﻿namespace Stardust.Paradox.Data.Traversals
+﻿using System.Collections.Generic;
+
+namespace Stardust.Paradox.Data.Traversals
 {
     public class PredicateGremlinQuery:GremlinQuery
     {
-        internal PredicateGremlinQuery(IGremlinLanguageConnector connector) : base(connector, "")
-        {
-           
-        }
+	    private GremlinQuery _queryBase;
 
-        public GremlinQuery P => this.P();
-    }
+	    internal PredicateGremlinQuery(GremlinQuery query) : base(query, "")
+        {
+	        _queryBase = query;
+
+        }
+	    
+		public GremlinQuery P => this.P();
+
+	    
+	}
 }
