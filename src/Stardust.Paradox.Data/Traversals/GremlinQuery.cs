@@ -79,7 +79,7 @@ namespace Stardust.Paradox.Data.Traversals
 				{
 					return $"'{s.EscapeGremlinString()}'";
 				}
-				return value;
+				return value?.ToString().ToLower();
 			}
 			string v;
 			lock (Parameters)
