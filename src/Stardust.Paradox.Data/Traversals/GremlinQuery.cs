@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations;
 
@@ -79,6 +81,9 @@ namespace Stardust.Paradox.Data.Traversals
 				{
 					return $"'{s.EscapeGremlinString()}'";
 				}
+
+				if (value is DateTime dt)
+					return dt.Ticks.ToString(CultureInfo.InvariantCulture);
 				return value?.ToString().ToLower();
 			}
 			string v;
