@@ -115,6 +115,7 @@ namespace Stardust.Paradox.Data
 
 		public GremlinQuery V<T>(string id) where T : IVertex
 		{
+			Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
 			return GremlinFactory.G.V(id).HasLabel(_dataSetLabelMapping[typeof(T)]);
 		}
 
@@ -148,7 +149,19 @@ namespace Stardust.Paradox.Data
 			try
 			{
 				var d = o as dynamic;
-				if (_trackedEntities.TryGetValue((string)d.id, out var i)) return (T)i;
+				if (_trackedEntities.TryGetValue((string) d.id, out var i))
+				{
+
+					try
+					{
+						return (T)i;
+					}
+					catch (Exception ex)
+					{
+
+						Logging.DebugMessage($"Unable to cast: {d.id}");
+					}
+				}
 				return Convert<T>(d).Result;
 			}
 			catch (Exception ex)
