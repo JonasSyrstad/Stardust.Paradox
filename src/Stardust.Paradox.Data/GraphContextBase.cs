@@ -121,6 +121,7 @@ namespace Stardust.Paradox.Data
 
 		public async Task<T> VAsync<T>(string id) where T : IVertex
 		{
+			Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
 			if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
 			return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true).ConfigureAwait(false);
 		}
@@ -159,7 +160,7 @@ namespace Stardust.Paradox.Data
 					catch (Exception ex)
 					{
 
-						Logging.DebugMessage($"Unable to cast: {d.id}");
+						Logging.DebugMessage($"Unable to cast: {d.id} to {typeof(T).FullName}");
 					}
 				}
 				return Convert<T>(d).Result;
@@ -190,7 +191,7 @@ namespace Stardust.Paradox.Data
 			LoadProperties(d, item);
 			i.SetContext(this, _connector.CanParameterizeQueries);
 			i.Reset(false);
-			await i.Eager(doEagerLoad).ConfigureAwait(false);
+			//await i.Eager(doEagerLoad).ConfigureAwait(false);
 			_trackedEntities.TryAdd(i.EntityKey, i);
 			return item;
 		}
