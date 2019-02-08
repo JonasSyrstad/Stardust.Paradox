@@ -8,6 +8,7 @@ using Microsoft.Azure.Graphs;
 using Microsoft.Azure.Graphs.Elements;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Providers.CosmosDb
 {
@@ -57,11 +58,29 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
         public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
 	        Dictionary<string, object> parametrizedValues)
         {
-            var graph = await DocumentCollection().ConfigureAwait(false);
-            var gremlinQ = _client.CreateGremlinQuery(graph, query);
-            var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
-            return d.AsEnumerable();
+			try
+			{
+				if (OutputAllQueries) Logging.DebugMessage($"gremlin: {query}");
+				var graph = await DocumentCollection().ConfigureAwait(false);
+				var gremlinQ = _client.CreateGremlinQuery(graph, query);
+				var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
+				return d.AsEnumerable();
+			}
+			catch (Exception ex)
+			{
+				if (OutputDebugLog)
+				{
+					Logging.DebugMessage($"Failed query: {query}");
+					Logging.Exception(ex);
+					Console.WriteLine(query);
+				}
+				throw;
+			}
         }
+
+	    public bool OutputAllQueries { get; set; }
+
+	    public bool OutputDebugLog { get; set; }
 
 	    public bool CanParameterizeQueries => false;
 
