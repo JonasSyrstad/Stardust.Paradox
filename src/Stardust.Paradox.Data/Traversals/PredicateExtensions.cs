@@ -124,12 +124,12 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{key}','{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))}')");
+            return new ComposedGremlinQuery(queryBase, $"has('{key}',{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string label, string key, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{label}','{key}','{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))}')");
+            return new ComposedGremlinQuery(queryBase, $"has('{label}','{key}',{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key, string value)
