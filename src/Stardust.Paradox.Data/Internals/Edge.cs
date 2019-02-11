@@ -4,6 +4,7 @@ using Stardust.Paradox.Data.Traversals;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+#pragma warning disable 168
 #pragma warning disable 693
 #pragma warning disable 67
 
@@ -60,7 +61,7 @@ namespace Stardust.Paradox.Data.Internals
             }
             catch (System.Exception ex)
             {
-
+				
                 throw;
             }
         }

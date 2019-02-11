@@ -157,7 +157,7 @@ namespace Stardust.Paradox.Data
 					{
 						return (T)i;
 					}
-					catch (Exception ex)
+					catch 
 					{
 						
 						Logging.DebugMessage($"Unable to cast: {d.id} to {typeof(T).FullName}");
@@ -165,7 +165,7 @@ namespace Stardust.Paradox.Data
 				}
 				return Convert<T>(d).Result;
 			}
-			catch (Exception ex)
+			catch
 			{
 				Logging.DebugMessage($"{o?.ToString() ?? "{null}"}");
 				throw;
@@ -180,7 +180,7 @@ namespace Stardust.Paradox.Data
 			return await Convert<T>(d, doEagerLoad).ConfigureAwait(false);
 		}
 
-		private async Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IGraphEntity
+		private  Task<T> Convert<T>(dynamic d, bool doEagerLoad = false) where T : IGraphEntity
 		{
 			var item = Create<T>();
 			var i = item as IGraphEntityInternal;
@@ -193,7 +193,7 @@ namespace Stardust.Paradox.Data
 			i.Reset(false);
 			//await i.Eager(doEagerLoad).ConfigureAwait(false);
 			_trackedEntities.TryAdd(i.EntityKey, i);
-			return item;
+			return Task.FromResult(item);
 		}
 
 		private void LoadProperties<T>(dynamic d, T item) where T : IGraphEntity

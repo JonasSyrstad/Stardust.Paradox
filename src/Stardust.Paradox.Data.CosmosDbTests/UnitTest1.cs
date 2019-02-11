@@ -1,6 +1,5 @@
 using Newtonsoft.Json;
 using Stardust.Nucleus;
-using Stardust.Nucleus.TypeResolver;
 using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Providers.Gremlin;
@@ -22,7 +21,6 @@ namespace Stardust.Paradox.CosmosDbTest
 	public class GremlinTests : IDisposable
 	{
 		private readonly ITestOutputHelper _output;
-		private readonly IKernelContext _scope;
 
 		public GremlinTests(ITestOutputHelper output)
 		{
@@ -595,7 +593,7 @@ namespace Stardust.Paradox.CosmosDbTest
 			await PrintResult(rangeQuery, false);
 			range = await rangeQuery.ExecuteAsync();
 			Assert.NotEmpty(range);
-			Assert.Equal(1, range.Count());
+			Assert.Single(range);
 			////var tor = JsonConvert.DeserializeObject("{\"name\": [\"tor\"],\"ocupation\": [\"\"]}", typeof(ServiceDefinition));
 			var q1 = G.V()
 				.As("a").Out("parent").As("b")
