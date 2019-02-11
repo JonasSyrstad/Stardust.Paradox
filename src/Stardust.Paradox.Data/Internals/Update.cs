@@ -13,7 +13,7 @@ namespace Stardust.Paradox.Data.Internals
 			get
 			{
 				if (Parameterless != null) return Parameterless;
-				return $".property('{PropertyName}','{GetValue(Value)}')";
+				return $".property('{PropertyName}',{GetValue(Value)})";
 			}
 		}
 

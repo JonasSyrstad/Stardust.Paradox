@@ -9,6 +9,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 {
 	public class GremlinNetLanguageConnector : IGremlinLanguageConnector, IDisposable
 	{
+		private readonly ILogging _logger;
 		public static bool IsAspNetCore { get; set; }
 		private GremlinClient _client;
 
@@ -19,15 +20,17 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		/// <param name="databaseName"></param>
 		/// <param name="graphName"></param>
 		/// <param name="accessKey"></param>
-		public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey)
+		public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey, ILogging logger = null)
 		{
+			_logger = logger;
 			var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
 
 			_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
 		}
 
-		public GremlinNetLanguageConnector(string gremlinHostname, string username, string password, int port = 8182, bool enableSsl = true)
+		public GremlinNetLanguageConnector(string gremlinHostname, string username, string password, int port = 8182, bool enableSsl = true,ILogging logger = null)
 		{
+			_logger = logger;
 			var server = new GremlinServer(gremlinHostname, port, enableSsl, username, password);
 
 			_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
@@ -37,7 +40,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		{
 			try
 			{
-				if(OutputAllQueries) Logging.DebugMessage($"gremlin: {compileQuery}");
+				if(OutputAllQueries) Log($"gremlin: {compileQuery}");
 				var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues).ConfigureAwait(false);
 				return resp;
 			}
@@ -45,12 +48,33 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 			{
 				if(OutputDebugLog)
 				{
-					Logging.DebugMessage($"Failed query: {compileQuery}");
-					Logging.Exception(ex);
-					Console.WriteLine(compileQuery);
+					Log(compileQuery,ex);
 				}
 				throw;
 			}
+		}
+
+		private void Log(string query, Exception ex)
+		{
+			if (_logger != null)
+			{
+				_logger.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
+				_logger.Exception(ex, "CosmosDb gremlin connector");
+			}
+			else
+			{
+				Logging.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
+				Logging.Exception(ex, "CosmosDb gremlin connector");
+			}
+
+			Console.WriteLine(query);
+		}
+
+		private void Log(string message)
+		{
+			if (_logger != null) _logger.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
+			else
+				Logging.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
 		}
 
 		public bool OutputDebugLog { get; set; }
