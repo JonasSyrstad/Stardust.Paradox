@@ -177,8 +177,6 @@ namespace Stardust.Paradox.Data.Internals
 		public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
 		{
 			if (_isLoading) return true;
-			if (_edgeSelector.IsNullOrWhiteSpace())
-				Reset(IsNew);
 			if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
 			{
 				PropertyChanging?.Invoke(this, new PropertyChangingHandlerArgs(newValue, oldValue, propertyName));
