@@ -159,7 +159,7 @@ namespace Stardust.Paradox.Data
 					}
 					catch (Exception ex)
 					{
-
+						
 						Logging.DebugMessage($"Unable to cast: {d.id} to {typeof(T).FullName}");
 					}
 				}

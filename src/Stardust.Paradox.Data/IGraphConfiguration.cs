@@ -23,13 +23,13 @@ namespace Stardust.Paradox.Data
         /// <typeparam name="T"></typeparam>
         /// <param name="label"></param>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IGraphEntity;
+        IGraphConfiguration<Tn> ConfigureCollection<Tn>(string label) where Tn : IGraphEntity;
         /// <summary>
         /// Start configuring a new collection. This method builds the entity, no further configuration is possible
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>() where T : IGraphEntity;
+        IGraphConfiguration<Tn> ConfigureCollection<Tn>() where Tn : IGraphEntity;
 
 
     }
@@ -58,14 +58,14 @@ namespace Stardust.Paradox.Data
         /// <typeparam name="T"></typeparam>
         /// <param name="label"></param>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>(string label) where T : IGraphEntity;
+        IGraphConfiguration<Tn> ConfigureCollection<Tn>(string label) where Tn : IGraphEntity;
 
         /// <summary>
         /// Start configuring a new collection. This method builds the entity, no further configuration is possible
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
-        IGraphConfiguration<T> ConfigureCollection<T>() where T : IGraphEntity;
+        IGraphConfiguration<Tn> ConfigureCollection<Tn>() where Tn : IGraphEntity;
         /// <summary>
         ///  This method builds the entity, no further configuration is possible
         /// </summary>

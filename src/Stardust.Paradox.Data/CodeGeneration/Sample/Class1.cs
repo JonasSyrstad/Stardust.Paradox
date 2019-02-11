@@ -4,6 +4,7 @@ using Stardust.Paradox.Data.Internals;
 using System;
 using System.Collections.Generic;
 using System.Text;
+#pragma warning disable 649
 
 namespace Stardust.Paradox.Data.CodeGeneration.Sample
 {

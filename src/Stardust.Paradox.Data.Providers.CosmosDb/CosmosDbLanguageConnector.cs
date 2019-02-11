@@ -9,17 +9,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.Providers.CosmosDb
 {
-	public class CosmosDbLanguageConnector : IGremlinLanguageConnector
+	public class CosmosDbLanguageConnector : LanguageConnectorBase,IGremlinLanguageConnector
 	{
 		private readonly string _databaseName;
 		private readonly int _throughput;
 		private readonly ILogging _logger;
 		private readonly string _collectionName;
 
-		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, string collectionName = null, int throughput = 1000, ILogging logger = null)
+		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, string collectionName = null, int throughput = 1000, ILogging logger = null):base(logger)
 		{
 			_databaseName = databaseName;
 			_throughput = throughput;
@@ -31,7 +32,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 					authKeyOrResourceToken);
 		}
 
-		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, JsonSerializerSettings serializationSettings, ConnectionPolicy connectionPolicy, ConsistencyLevel consistencyLevel = ConsistencyLevel.Session, string collectionName = null, int throughput = 1000, ILogging logger = null)
+		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, JsonSerializerSettings serializationSettings, ConnectionPolicy connectionPolicy, ConsistencyLevel consistencyLevel = ConsistencyLevel.Session, string collectionName = null, int throughput = 1000, ILogging logger = null) : base(logger)
 		{
 			_databaseName = databaseName;
 			_collectionName = collectionName ?? databaseName;
@@ -65,7 +66,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 		{
 			try
 			{
-				if (OutputAllQueries) Log($"gremlin: {query}");
+				Log($"gremlin: {query}");
 				var graph = await DocumentCollection().ConfigureAwait(false);
 				var gremlinQ = _client.CreateGremlinQuery(graph, query);
 				var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
@@ -73,40 +74,13 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			}
 			catch (Exception ex)
 			{
-				if (OutputDebugLog)
-				{
-					Log(query, ex);
-				}
+				Log(query, ex);
 				throw;
 			}
 		}
 
-		private void Log(string query, Exception ex)
-		{
-			if (_logger != null)
-			{
-				_logger.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
-				_logger.Exception(ex, "CosmosDb gremlin connector");
-			}
-			else
-			{
-				Logging.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
-				Logging.Exception(ex, "CosmosDb gremlin connector");
-			}
+		
 
-			Console.WriteLine(query);
-		}
-
-		private void Log(string message)
-		{
-			if (_logger != null) _logger.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
-			else
-				Logging.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
-		}
-
-		public bool OutputAllQueries { get; set; }
-
-		public bool OutputDebugLog { get; set; }
 
 		public bool CanParameterizeQueries => false;
 

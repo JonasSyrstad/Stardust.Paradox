@@ -8,23 +8,9 @@ namespace Stardust.Paradox.Data.Internals
 	internal class Update
 	{
 		internal string Parameterless { get; set; }
-		internal string UpdateStatement
-		{
-			get
-			{
-				if (Parameterless != null) return Parameterless;
-				return $".property('{PropertyName}',{GetValue(Value)})";
-			}
-		}
+		internal string UpdateStatement => Parameterless ?? $".property('{PropertyName}',{GetValue(Value)})";
 
-		internal string ParameterizedUpdateStatement
-		{
-			get
-			{
-				if (Parameterless != null) return Parameterless;
-				return $".property('{PropertyName}',__{PropertyName})";
-			}
-		}
+		internal string ParameterizedUpdateStatement => Parameterless ?? $".property('{PropertyName}',__{PropertyName})";
 
 		internal bool HasParameters => PropertyName != null;
 
