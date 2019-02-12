@@ -87,7 +87,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public async Task<T> GetAsync(string inId, string outId)
 		{
-			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).BothE().Where(p => p.__().OtherV().HasId(outId.EscapeGremlinString()))).ConfigureAwait(false);
+			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).InE().Where(p => p.__().OtherV().HasId(outId.EscapeGremlinString()))).ConfigureAwait(false);
 			return e.SingleOrDefault();
 		}
 
