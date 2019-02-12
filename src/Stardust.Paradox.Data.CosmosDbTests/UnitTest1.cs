@@ -21,11 +21,12 @@ namespace Stardust.Paradox.CosmosDbTest
 	public class GremlinTests : IDisposable
 	{
 		private readonly ITestOutputHelper _output;
+		private IDependencyResolver _scope;
 
 		public GremlinTests(ITestOutputHelper output)
 		{
 			_output = output;
-
+			_scope = Resolver.CreateScopedResolver();
 		}
 
 		static GremlinTests()
@@ -134,15 +135,34 @@ namespace Stardust.Paradox.CosmosDbTest
 			};
 			//var tc = new TestContext(new Class1());
 			var tc = new TestContext(new GremlinNetLanguageConnector("jonas-graphtest.gremlin.cosmosdb.azure.com", "graphTest", "services", "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A=="));
-			tc.SavingChanges += (sender, args) => { _output.WriteLine($"saving changes with {args.TrackedItems.Count()} tracked items"); };
-			tc.ChangesSaved += (sender, args) => { _output.WriteLine($"saved changes with {args.TrackedItems.Count()} tracked items"); };
-			tc.SaveChangesError += (sender, args) =>
+			tc.OnDisposing = c =>
 			{
-				_output.WriteLine($"failed statement: {args.FailedUpdateStatement}");
-				_output.WriteLine($"saving changes failed with message: {args.Error.Message}");
-				_output.WriteLine(args.Error.StackTrace);
+				c.SaveChangesError -= OnTcOnSaveChangesError;
+				c.SavingChanges -= OnTcOnSavingChanges;
+				c.ChangesSaved -= OnTcOnChangesSaved;
 			};
+
+			tc.SavingChanges += OnTcOnSavingChanges;
+			tc.ChangesSaved += OnTcOnChangesSaved;
+			tc.SaveChangesError += OnTcOnSaveChangesError;
 			return tc;
+		}
+
+		private void OnTcOnSavingChanges(object sender, SaveEventArgs args)
+		{
+			_output.WriteLine($"saving changes with {args.TrackedItems.Count()} tracked items");
+		}
+
+		private void OnTcOnChangesSaved(object sender, SaveEventArgs args)
+		{
+			_output.WriteLine($"saved changes with {args.TrackedItems.Count()} tracked items");
+		}
+
+		private void OnTcOnSaveChangesError(object sender, SaveEventArgs args)
+		{
+			_output.WriteLine($"failed statement: {args.FailedUpdateStatement}");
+			_output.WriteLine($"saving changes failed with message: {args.Error.Message}");
+			_output.WriteLine(args.Error.StackTrace);
 		}
 
 		private static IProfile CreateItem(TestContext tc, string id, string ocupation = null, bool isAdult = false)
@@ -248,7 +268,7 @@ namespace Stardust.Paradox.CosmosDbTest
 			}
 		}
 
-		[Fact]
+		//[Fact]
 		public async Task DataContextReadTestAsync()
 		{
 			IProfile jonas;
@@ -324,7 +344,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
 		}
 
-		[Fact]
+		//[Fact]
 		public async Task DataContextReadWriteTestAsync()
 		{
 			using (var tc = TestContext())
@@ -661,7 +681,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
 		public void Dispose()
 		{
-			//_scope.TryDispose();
+			_scope.TryDispose();
 		}
 	}
 }

@@ -17,10 +17,15 @@ namespace Stardust.Paradox.CosmosDbTest
 
         protected override void Dispose(bool disposing)
         {
+			OnDisposing?.Invoke(this);
             base.Dispose(disposing);
             ServiceProvider.TryDispose();
+
         }
 
+	    public Action<TestContext> OnDisposing { get; set; }
+	    
+    
         protected override bool InitializeModel(IGraphConfiguration configuration)
         {
             configuration.ConfigureCollection<IProfile>()

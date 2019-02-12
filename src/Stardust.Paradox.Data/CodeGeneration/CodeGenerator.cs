@@ -5,6 +5,7 @@ using Stardust.Particles;
 using Stardust.Particles.Collection;
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -61,9 +62,10 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
             return def;
         }
-
+		internal static ConcurrentDictionary<Type,string> EdgeLables=new ConcurrentDictionary<Type, string>();
         public static Type MakeEdgeDataEntity(Type entity, string label)
         {
+	        EdgeLables.TryAdd(entity, label);
             var dataContract = entity;
             var generics = entity.GetInterfaces().Single(c => c.GenericTypeArguments.Length == 2).GenericTypeArguments;
             var baseType = typeof(EdgeDataEntity<,>).MakeGenericType(generics);

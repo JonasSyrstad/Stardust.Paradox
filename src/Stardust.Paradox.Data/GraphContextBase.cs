@@ -473,9 +473,9 @@ namespace Stardust.Paradox.Data
 			return new GraphSet<T>(this);
 		}
 
-		protected IEdgeGraphSet<T> EdgeGraphSet<T>() where T : IEdgeEntity
+		protected IEdgeGraphSet<T> EdgeGraphSet<T>(bool useVerticesIdsAsEdgeId=false) where T : IEdgeEntity
 		{
-			return new EdgeGraphSet<T>(this);
+			return new EdgeGraphSet<T>(this,useVerticesIdsAsEdgeId);
 		}
 
 		//protected IGraphSet<T> GraphSet<T>() where T : IEdgeEntity
