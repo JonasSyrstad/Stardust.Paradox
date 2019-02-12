@@ -268,7 +268,7 @@ namespace Stardust.Paradox.CosmosDbTest
 			}
 		}
 
-		//[Fact]
+		[Fact]
 		public async Task DataContextReadTestAsync()
 		{
 			IProfile jonas;
@@ -276,12 +276,11 @@ namespace Stardust.Paradox.CosmosDbTest
 			{
 				jonas = await tc.VAsync<IProfile>("Jonas");
 
-
 				_output.WriteLine("Me");
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
 				Assert.NotNull(jonas);
 
-				var parents = jonas.Parents;
+				var parents = await jonas.Parents.ToVerticesAsync();
 				_output.WriteLine("Parents");
 				_output.WriteLine(JsonConvert.SerializeObject(parents));
 

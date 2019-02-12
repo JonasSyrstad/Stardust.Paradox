@@ -222,7 +222,7 @@ namespace Stardust.Paradox.Data.Internals
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQuery()
         {
             _referenceType = "out";
-            return g => g.V(_parent._entityKey).InE(_edgeLabel).OutV();
+            return g => g.V(_parent._entityKey).In(_edgeLabel);//.OutV();
         }
 
         private Func<GremlinContext, GremlinQuery> EdgeLabelQuery()
@@ -234,7 +234,7 @@ namespace Stardust.Paradox.Data.Internals
         private Func<GremlinContext, GremlinQuery> ReverseLabelQuery()
         {
             _referenceType = "in";
-            return g => g.V(_parent._entityKey).OutE(_reverseLabel).InV();
+            return g => g.V(_parent._entityKey).Out(_reverseLabel);//.InV();
         }
 
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQueryEdgeOnly()
