@@ -4,23 +4,23 @@ using Microsoft.Azure.Graphs;
 using Microsoft.Azure.Graphs.Elements;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.Providers.CosmosDb
 {
-	public class CosmosDbLanguageConnector : LanguageConnectorBase,IGremlinLanguageConnector
+	public class CosmosDbLanguageConnector : LanguageConnectorBase, IGremlinLanguageConnector
 	{
 		private readonly string _databaseName;
 		private readonly int _throughput;
 		private readonly ILogging _logger;
 		private readonly string _collectionName;
 
-		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, string collectionName = null, int throughput = 1000, ILogging logger = null):base(logger)
+		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, string collectionName = null, int throughput = 1000, ILogging logger = null) : base(logger)
 		{
 			_databaseName = databaseName;
 			_throughput = throughput;
@@ -66,10 +66,10 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 		{
 			try
 			{
-				Log($"gremlin: {query}");
 				var graph = await DocumentCollection().ConfigureAwait(false);
 				var gremlinQ = _client.CreateGremlinQuery(graph, query);
 				var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
+				Log($"gremlin: {query} (ru cost: {d.RequestCharge })");
 				return d.AsEnumerable();
 			}
 			catch (Exception ex)
@@ -79,7 +79,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			}
 		}
 
-		
+
 
 
 		public bool CanParameterizeQueries => false;
