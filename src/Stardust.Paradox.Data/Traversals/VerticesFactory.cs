@@ -30,7 +30,13 @@ namespace Stardust.Paradox.Data.Traversals
 			return new UpdatableGremlinQuery(connector, $"g.V('{ id.EscapeGremlinString()}')");
         }
 
-        public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector, int index)
+	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector, string id)
+	    {
+
+		    return new UpdatableGremlinQuery(connector, $"g.E('{ id.EscapeGremlinString()}')");
+	    }
+
+		public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector, int index)
         {
 			
             return new UpdatableGremlinQuery(connector, $"g.V({index})");

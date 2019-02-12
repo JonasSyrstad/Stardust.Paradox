@@ -355,7 +355,7 @@ namespace Stardust.Paradox.Data
 		public async Task<T> EAsync<T>(string id) where T : IEdgeEntity
 		{
 			if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
-			return await ConvertTo<T>(await _connector.V(id.EscapeGremlinString()).ExecuteAsync(), true).ConfigureAwait(false);
+			return await ConvertTo<T>(await _connector.E(id.EscapeGremlinString()).ExecuteAsync(), true).ConfigureAwait(false);
 		}
 
 		public async Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity
@@ -473,7 +473,7 @@ namespace Stardust.Paradox.Data
 			return new GraphSet<T>(this);
 		}
 
-		protected IEdgeGraphSet<T> EdgeGraphSet<T>(bool useVerticesIdsAsEdgeId=false) where T : IEdgeEntity
+		protected IEdgeGraphSet<T> EdgeGraphSet<T>(bool useVerticesIdsAsEdgeId) where T : IEdgeEntity
 		{
 			return new EdgeGraphSet<T>(this,useVerticesIdsAsEdgeId);
 		}
