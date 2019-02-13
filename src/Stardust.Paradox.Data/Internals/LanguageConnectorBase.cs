@@ -22,13 +22,13 @@ namespace Stardust.Paradox.Data.Internals
 			if (!OutputDebugLog) return;
 			if (_logger != null)
 			{
-				_logger.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
+				_logger.DebugMessage($"Failed query: {query}", LogType.Information, this.GetType().FullName);
 				_logger.Exception(ex, "CosmosDb gremlin connector");
 			}
 			else
 			{
-				Logging.DebugMessage($"Failed query: {query}", LogType.Information, "CosmosDb gremlin connector");
-				Logging.Exception(ex, "CosmosDb gremlin connector");
+				Logging.DebugMessage($"Failed query: {query}", LogType.Information, this.GetType().FullName);
+				Logging.Exception(ex, this.GetType().FullName);
 			}
 
 			Console.WriteLine(query);
@@ -40,21 +40,21 @@ namespace Stardust.Paradox.Data.Internals
 			if (_logger != null)
 			{
 
-				_logger.Exception(ex, "CosmosDb gremlin connector");
+				_logger.Exception(ex, this.GetType().FullName);
 			}
 			else
 			{
 
-				Logging.Exception(ex, "CosmosDb gremlin connector");
+				Logging.Exception(ex, this.GetType().FullName);
 			}
 		}
 
 		protected void Log(string message)
 		{
 			if(!OutputAllQueries) return;
-			if (_logger != null) _logger.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
+			if (_logger != null) _logger.DebugMessage(message, LogType.Information, this.GetType().FullName);
 			else
-				Logging.DebugMessage(message, LogType.Information, "CosmosDb gremlin connector");
+				Logging.DebugMessage(message, LogType.Information, this.GetType().FullName);
 		}
 	}
 }

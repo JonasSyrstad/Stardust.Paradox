@@ -29,23 +29,34 @@ namespace Stardust.Paradox.Data.Traversals
 	        var baseQuery=new UpdatableGremlinQuery(connector,"g");
 	         baseQuery._query = $"g.V({baseQuery.ComposeParameter(id)})";
 	        return baseQuery;
-	        //return new UpdatableGremlinQuery(connector, $"g.V('{ id.EscapeGremlinString()}')");
         }
 
-	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector, string id)
+	    public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector, string id,string partitionKey)
+	    {
+		    var baseQuery = new UpdatableGremlinQuery(connector, "g");
+		    baseQuery._query = $"g.V([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)}])";
+		    return baseQuery;
+	    }
+
+		public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector, string id)
 	    {
 		    var baseQuery = new UpdatableGremlinQuery(connector, "g");
 		    baseQuery._query = $"g.E({baseQuery.ComposeParameter(id)})";
 		    return baseQuery;
-			//return new UpdatableGremlinQuery(connector, $"g.E('{ id.EscapeGremlinString()}')");
 	    }
 
-	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector)
+	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector, string id, string partitionKey)
+	    {
+		    var baseQuery = new UpdatableGremlinQuery(connector, "g");
+		    baseQuery._query = $"g.E([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)},])";
+		    return baseQuery;
+	    }
+
+		public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector)
 	    {
 		    var baseQuery = new UpdatableGremlinQuery(connector, "g");
 		    baseQuery._query = $"g.E()";
 		    return baseQuery;
-		    //return new UpdatableGremlinQuery(connector, $"g.V('{ id.EscapeGremlinString()}')");
 	    }
 
 		public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector, int index)
@@ -53,7 +64,6 @@ namespace Stardust.Paradox.Data.Traversals
 	        var baseQuery = new UpdatableGremlinQuery(connector, "g");
 	        baseQuery._query = $"g.V({baseQuery.ComposeParameter(index)})";
 	        return baseQuery;
-			//return new UpdatableGremlinQuery(connector, $"g.V({index})");
         }
     }
 }

@@ -3,6 +3,7 @@
     public enum SerializationType
     {
         Base64,
-        ClearText
+        ClearText,
+		Compressed
     }
 }

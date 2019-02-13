@@ -44,7 +44,18 @@ namespace Stardust.Paradox.Data.Internals
             return await _context.VAsync<T>(g => g.V().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)]).SkipTake(page * pageSize, pageSize)).ConfigureAwait(false);
         }
 
-        public T Create()
+	    public async Task<T> GetAsync(string id, string partitionKey)
+	    {
+			return await _context.VAsync<T>(id,partitionKey).ConfigureAwait(false);
+		}
+
+	    public async Task DeleteAsync(string id, string partitionKey)
+	    {
+			var item = await GetAsync(id,partitionKey).ConfigureAwait(false);
+		    _context.Delete(item);
+		}
+
+	    public T Create()
         {
             return Create(Guid.NewGuid().ToString());
         }

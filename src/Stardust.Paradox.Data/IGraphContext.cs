@@ -17,7 +17,9 @@ namespace Stardust.Paradox.Data
         GremlinQuery V<T>(string id) where T : IVertex;
         Task<T> VAsync<T>(string id) where T : IVertex;
 
-        Task<T> GetOrCreate<T>(string id) where T : IVertex;
+	    Task<T> VAsync<T>(string id,string partitionKey) where T : IVertex;
+
+		Task<T> GetOrCreate<T>(string id) where T : IVertex;
 
         Task<IEnumerable<T>> VAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IVertex;
         Task<IEnumerable<T>> VAsync<T>(GremlinQuery g) where T : IVertex;
@@ -39,7 +41,9 @@ namespace Stardust.Paradox.Data
 
         Task<T> EAsync<T>(string id) where T : IEdgeEntity;
 
-        Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity;
+	    Task<T> EAsync<T>(string id,string partitionKey) where T : IEdgeEntity;
+
+		Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity;
         
     }
 }

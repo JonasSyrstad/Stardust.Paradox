@@ -24,6 +24,7 @@ Added parameterized queries for connectors that support it.</PackageReleaseNotes
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="2.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="Stardust.Particles" Version="5.0.1" />
+    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
     <PackageReference Include="System.Reflection" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit.ILGeneration" Version="4.3.0" />
@@ -34,6 +35,10 @@ Added parameterized queries for connectors that support it.</PackageReleaseNotes
 
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="CosmosDbExtensions\" />
   </ItemGroup>
 
 </Project>

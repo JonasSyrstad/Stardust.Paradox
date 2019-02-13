@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Gremlin.Net.Driver.Exceptions;
 using Gremlin.Net.Driver.Messages;
+using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
@@ -44,10 +45,9 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 			{
 				try
 				{
-					Log($"gremlin: {compileQuery}");
 					var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues).ConfigureAwait(false);
 					Log(resp.StatusAttributes.TryGetValue("x-ms-request-charge", out var ru)
-						? $"gremlin: {compileQuery} (ru cost: {ru})"
+						? $"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})"
 						: $"gremlin: {compileQuery}");
 					return resp;
 				}

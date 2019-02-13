@@ -26,6 +26,11 @@ namespace Stardust.Paradox.Data.Internals
 			return await _context.EAsync<T>(id).ConfigureAwait(false);
 		}
 
+		public async Task<T> GetPartitionedAsync(string id,string partitionKey)
+		{
+			return await _context.EAsync<T>(id,partitionKey).ConfigureAwait(false);
+		}
+
 		public async Task<IEnumerable<T>> FilterAsync(Expression<Func<T, object>> byProperty, string hasValue)
 		{
 			var propertyName = QueryFuncExt.GetInfo(byProperty).ToCamelCase();
@@ -92,13 +97,13 @@ namespace Stardust.Paradox.Data.Internals
 
 		}
 
-		public async Task<T> GetAsync(string inId, string outId)
+		public async Task<T> GetAsync(string inId, string outId, bool partitioned = false)
 		{
 			if (_useVerticesIdsAsEdgeId)
 			{
 				if (label == null)
 					label = CodeGenerator.EdgeLables[typeof(T)];
-				return await GetAsync($"{label}{inId}{outId}");
+				return await GetAsync($"{label}{inId}{outId}",outId);
 			}
 			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).InE().Where(p => p.__().OtherV().HasId(outId.EscapeGremlinString()))).ConfigureAwait(false);
 			return e.SingleOrDefault();

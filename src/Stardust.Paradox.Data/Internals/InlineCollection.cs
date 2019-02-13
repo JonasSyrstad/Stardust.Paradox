@@ -5,6 +5,8 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Text;
 
 namespace Stardust.Paradox.Data.Internals
@@ -93,9 +95,38 @@ namespace Stardust.Paradox.Data.Internals
 
 		public override string ToString()
 		{
-			if (Serialization == SerializationType.ClearText)
-				return JsonConvert.SerializeObject(this);
-			return Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this)));
+			switch (Serialization)
+			{
+				case SerializationType.ClearText:
+					return JsonConvert.SerializeObject(this);
+				case SerializationType.Base64:
+					return Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this)));
+				case SerializationType.Compressed:
+				default:
+					return Convert.ToBase64String(Compress(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this))));
+			}
+		}
+
+		private static byte[] Compress(byte[] data)
+		{
+			using (var compressedStream = new MemoryStream())
+			using (var zipStream = new GZipStream(compressedStream, CompressionMode.Compress))
+			{
+				zipStream.Write(data, 0, data.Length);
+				zipStream.Close();
+				return compressedStream.ToArray();
+			}
+		}
+
+		private static byte[] Decompress(byte[] data)
+		{
+			using (var compressedStream = new MemoryStream(data))
+			using (var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+			using (var resultStream = new MemoryStream())
+			{
+				zipStream.CopyTo(resultStream);
+				return resultStream.ToArray();
+			}
 		}
 
 		string IInlineCollection.ToTransferData()
@@ -108,6 +139,8 @@ namespace Stardust.Paradox.Data.Internals
 			if (data.IsNullOrWhiteSpace()) return this;
 			if (Serialization == SerializationType.Base64)
 				data = Encoding.UTF8.GetString(Convert.FromBase64String(data));
+			if(Serialization==SerializationType.Compressed)
+				data = Encoding.UTF8.GetString(Decompress(Convert.FromBase64String(data)));
 			if (data.IsNullOrWhiteSpace()) return this;
 			_internal = JsonConvert.DeserializeObject<List<T>>(data);
 			return this;

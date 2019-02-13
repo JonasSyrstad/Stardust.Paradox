@@ -126,6 +126,13 @@ namespace Stardust.Paradox.Data
 			return await ConvertTo<T>(await _connector.V(id).ExecuteAsync(), true).ConfigureAwait(false);
 		}
 
+		public async Task<T> VAsync<T>(string id, string partitionKey) where T : IVertex
+		{
+			Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName}) with partitionKey {partitionKey}");
+			if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
+			return await ConvertTo<T>(await _connector.V(id,partitionKey).ExecuteAsync(), true).ConfigureAwait(false);
+		}
+
 		public async Task<T> GetOrCreate<T>(string id) where T : IVertex
 		{
 			var i = await VAsync<T>(id).ConfigureAwait(false);
@@ -355,7 +362,13 @@ namespace Stardust.Paradox.Data
 		public async Task<T> EAsync<T>(string id) where T : IEdgeEntity
 		{
 			if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
-			return await ConvertTo<T>(await _connector.E(id.EscapeGremlinString()).ExecuteAsync(), true).ConfigureAwait(false);
+			return await ConvertTo<T>(await _connector.E(id).ExecuteAsync(), true).ConfigureAwait(false);
+		}
+
+		public async Task<T> EAsync<T>(string id, string partitionKey) where T : IEdgeEntity
+		{
+			if (_trackedEntities.TryGetValue(id, out var i)) return (T)i;
+			return await ConvertTo<T>(await _connector.E(id,partitionKey).ExecuteAsync(), true).ConfigureAwait(false);
 		}
 
 		public async Task<IEnumerable<T>> EAsync<T>(GremlinQuery g) where T : IEdgeEntity
