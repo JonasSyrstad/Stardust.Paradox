@@ -343,7 +343,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
 		}
 
-		//[Fact]
+		[Fact]
 		public async Task DataContextReadWriteTestAsync()
 		{
 			using (var tc = TestContext())

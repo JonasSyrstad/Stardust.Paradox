@@ -14,14 +14,14 @@ A database connector based on gremlin.net</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <PackageReleaseNotes />
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.0.0-pre04</Version>
+    <Version>2.0.0-pre05</Version>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Gremlin.Net" Version="3.3.3" />
+    <PackageReference Include="Gremlin.Net" Version="3.4.0" />
   </ItemGroup>
 
   <ItemGroup>
