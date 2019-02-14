@@ -141,6 +141,14 @@ namespace Stardust.Paradox.Data
 			return i;
 		}
 
+		public async Task<T> GetOrCreate<T>(string id,string partitionKey) where T : IVertex
+		{
+			var i = await VAsync<T>(id,partitionKey).ConfigureAwait(false);
+			if (i == null)
+				return CreateEntity<T>(id);
+			return i;
+		}
+
 		public Task<IEnumerable<T>> VAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IVertex
 		{
 			return VAsync<T>(g.Invoke(new GremlinContext(_connector)));

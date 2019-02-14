@@ -53,7 +53,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (ResponseException responseException)
 				{
-					if (responseException.StatusAttributes.TryGetValue("status", out var s))
+					if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
 					{
 						if ((int)s == 429)
 						{

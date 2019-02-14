@@ -71,6 +71,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				herman.Parents.Add(kine, new Dictionary<string, object> { { "birthPlace", "Kristiansand" }, { "created", DateTime.Now } });
 				marena.Parents.Add(jonas);
 				kine.Children.Add(mathilde);
+				await kine.Spouce.SetVertexAsync(jonas);
 				await tc.SaveChangesAsync();
 			}
 
@@ -111,7 +112,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				Assert.NotEmpty(outEdges);
 				var newEdge = tc.Employments.Create(await e.First().InVAsync(), await e.First().OutVAsync());
 				Assert.NotNull(newEdge);
-				newEdge.HiredDate=DateTime.Now;
+				newEdge.HiredDate = DateTime.Now;
 				newEdge.Manager = "test";
 				await tc.SaveChangesAsync();
 				tc.Delete(newEdge);
@@ -169,6 +170,7 @@ namespace Stardust.Paradox.CosmosDbTest
 		{
 			var item = tc.CreateEntity<IProfile>(id);
 			item.Name = id;
+			item.Pk = id;
 			item.FirstName = id;
 			item.Ocupation = ocupation;
 			item.Adult = isAdult;
@@ -179,6 +181,7 @@ namespace Stardust.Paradox.CosmosDbTest
 		{
 			var item = tc.CreateEntity<ICompany>(id);
 			item.Name = id;
+			item.Pk = id;
 			if (domains.ContainsElements())
 				item.EmailDomains.AddRange(domains);
 			return item;
@@ -244,25 +247,25 @@ namespace Stardust.Paradox.CosmosDbTest
 		{
 			using (var tc = TestContext())
 			{
-				var j = await tc.Profiles.GetAsync("Jonas");
+				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 			}
 			using (var tc = TestContext())
 			{
 				var t = Stopwatch.StartNew();
-				var j = await tc.Profiles.GetAsync("Jonas");
+				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 				t.Stop();
 				_output.WriteLine($"Gremlin.Net: {t.ElapsedMilliseconds}ms");
 			}
 			using (var tc = new TestContext(new Class1()))
 			{
 
-				var j = await tc.Profiles.GetAsync("Jonas");
+				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 
 			}
 			using (var tc = new TestContext(new Class1()))
 			{
 				var t = Stopwatch.StartNew();
-				var j = await tc.Profiles.GetAsync("Jonas");
+				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 				t.Stop();
 				_output.WriteLine($"Document client: {t.ElapsedMilliseconds}ms");
 			}
@@ -274,7 +277,7 @@ namespace Stardust.Paradox.CosmosDbTest
 			IProfile jonas;
 			using (var tc = TestContext())
 			{
-				jonas = await tc.VAsync<IProfile>("Jonas");
+				jonas = await tc.VAsync<IProfile>("Jonas", "Jonas");
 
 				_output.WriteLine("Me");
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
@@ -301,13 +304,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				_output.WriteLine(JsonConvert.SerializeObject(siblings));
 
 				_output.WriteLine("Spouce");
-				_output.WriteLine(JsonConvert.SerializeObject(jonas.Spouce));
-				var serializedJ = JsonConvert.SerializeObject(jonas);
-				_output.WriteLine(serializedJ);
-				//var deserializedJ = JsonConvert.DeserializeObject<IProfile>(serializedJ);
-				//Assert.NotNull(deserializedJ);
-				//_output.WriteLine("Serialization");
-				//_output.WriteLine(JsonConvert.SerializeObject(deserializedJ));
+				_output.WriteLine(JsonConvert.SerializeObject(await jonas.Spouce.ToVertexAsync()));
 
 				var gssit = (await jonas.Employers.ToVerticesAsync()).First();
 				var dnvgl = await gssit.Group.ToVertexAsync();
@@ -335,8 +332,8 @@ namespace Stardust.Paradox.CosmosDbTest
 				_output.WriteLine("Tree:");
 				_output.WriteLine(JsonConvert.SerializeObject(tree));
 				_output.WriteLine("Jonas:");
-				
-				jonas = await tc.GetTreeAsync<IProfile>("Jonas", t=>t.Parents, true);
+
+				jonas = await tc.GetTreeAsync<IProfile>("Jonas", t => t.Parents, true);
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
 			}
 
@@ -399,29 +396,24 @@ namespace Stardust.Paradox.CosmosDbTest
 			{
 				var test = tc.CreateEntity<IProfile>("test.item");
 				test.Email = "test.@dnvgl.com";
+				test.Pk = "test.item";
 				test.FirstName = "test";
 				test.LastName = "test";
 				test.LastUpdated = DateTime.Now;
 				test.Name = "test";
 				test.Number = 1;
 				await tc.SaveChangesAsync().ConfigureAwait(false);
-			}
-
-			using (var tc = TestContext())
-			{
-				var test2 = await tc.VAsync<IProfile>("test.item");
+				tc.Clear();
+				var test2 = await tc.VAsync<IProfile>("test.item", "test.item");
 				var j = await tc.VAsync<IProfile>("Jonas");
 				test2.Parents.Add(j);
 				await tc.SaveChangesAsync();
 				Assert.NotNull(test2);
 				tc.Delete(test2);
 				await tc.SaveChangesAsync();
+				tc.Clear();
 
-			}
-
-			using (var tc = TestContext())
-			{
-				test3 = await tc.VAsync<IProfile>("test.item");
+				test3 = await tc.VAsync<IProfile>("test.item", "test.item");
 				Assert.Null(test3);
 			}
 		}
@@ -454,6 +446,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				var i = c.Profiles.Create("string");
 				i.Name = "string";
 				i.Email = "string";
+				i.Pk = "string";
 				i.FirstName = "string";
 				i.LastName = "string";
 				await c.SaveChangesAsync();
@@ -461,12 +454,12 @@ namespace Stardust.Paradox.CosmosDbTest
 
 			using (var c = TestContext())
 			{
-				var i = await c.Profiles.GetAsync("string");
+				var i = await c.Profiles.GetAsync("string", "string");
 				Assert.NotNull(i);
 			}
 			using (var c = TestContext())
 			{
-				await c.Profiles.DeleteAsync("string");
+				await c.Profiles.DeleteAsync("string", "string");
 				await c.SaveChangesAsync();
 			}
 		}
@@ -478,10 +471,12 @@ namespace Stardust.Paradox.CosmosDbTest
 			{
 				var i = c.Profiles.Create("string");
 				i.Name = "string";
+				i.Pk = "string";
 				i.Email = "string";
 				i.FirstName = "string";
 				i.LastName = "string";
 				var i2 = c.Profiles.Create("string2");
+				i2.Pk = "string2";
 				i2.Name = "string";
 				i2.Email = "string";
 				i2.FirstName = "string";
@@ -491,8 +486,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
 			using (var c = TestContext())
 			{
-				var i = await c.Profiles.GetAsync("string");
-				var t = await c.Profiles.GetAsync("string2");
+				var i = await c.Profiles.GetAsync("string", "string");
+				var t = await c.Profiles.GetAsync("string2", "string2");
 				i.Parents.Add(t);
 				await c.SaveChangesAsync();
 				Assert.NotNull(i);
@@ -500,8 +495,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
 			using (var c = TestContext())
 			{
-				var i = await c.Profiles.GetAsync("string");
-				var t = await c.Profiles.GetAsync("string2");
+				var i = await c.Profiles.GetAsync("string", "string");
+				var t = await c.Profiles.GetAsync("string2", "string2");
 				await i.Parents.LoadAsync();
 				i.Parents.Remove(t);
 				await c.SaveChangesAsync();
@@ -510,15 +505,15 @@ namespace Stardust.Paradox.CosmosDbTest
 
 			using (var c = TestContext())
 			{
-				var i = await c.Profiles.GetAsync("string");
-				var t = await c.Profiles.GetAsync("string2");
+				var i = await c.Profiles.GetAsync("string", "string");
+				var t = await c.Profiles.GetAsync("string2", "string2");
 				Assert.Empty(i.Parents);
 				Assert.Empty(t.Children);
 				Assert.NotNull(i);
 			}
 			using (var c = TestContext())
 			{
-				await c.Profiles.DeleteAsync("string");
+				await c.Profiles.DeleteAsync("string", "string");
 				await c.Profiles.DeleteAsync("string2");
 				await c.SaveChangesAsync();
 			}
@@ -535,11 +530,13 @@ namespace Stardust.Paradox.CosmosDbTest
 					var i = c.Profiles.Create("string");
 					i.Name = "string";
 					i.Email = "string";
+					i.Pk = "string";
 					i.FirstName = "string";
 					i.LastName = "string";
 					var i2 = c.Profiles.Create("string2");
 					i2.Name = "string";
 					i2.Email = "string";
+					i2.Pk = "string2";
 					i2.FirstName = "string";
 					i2.LastName = "string";
 					await c.SaveChangesAsync();
@@ -547,8 +544,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
 				using (var c = TestContext())
 				{
-					var i = await c.Profiles.GetAsync("string");
-					var t = await c.Profiles.GetAsync("string2");
+					var i = await c.Profiles.GetAsync("string", "string");
+					var t = await c.Profiles.GetAsync("string2", "string2");
 					i.Parents.Add(t);
 					await c.SaveChangesAsync();
 					Assert.NotNull(i);
@@ -557,8 +554,8 @@ namespace Stardust.Paradox.CosmosDbTest
 				{
 					try
 					{
-						var i = await c.Profiles.GetAsync("string");
-						var t = await c.Profiles.GetAsync("string2");
+						var i = await c.Profiles.GetAsync("string", "string");
+						var t = await c.Profiles.GetAsync("string2", "string2");
 						i.Parents.Add(t);
 						await c.SaveChangesAsync();
 						Assert.NotNull(i);
@@ -571,8 +568,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
 				using (var c = TestContext())
 				{
-					var i = await c.Profiles.GetAsync("string");
-					var t = await c.Profiles.GetAsync("string2");
+					var i = await c.Profiles.GetAsync("string", "string");
+					var t = await c.Profiles.GetAsync("string2", "string2");
 					await i.Parents.LoadAsync();
 					i.Parents.Remove(t);
 					await c.SaveChangesAsync();
@@ -581,8 +578,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
 				using (var c = TestContext())
 				{
-					var i = await c.Profiles.GetAsync("string");
-					var t = await c.Profiles.GetAsync("string2");
+					var i = await c.Profiles.GetAsync("string", "string");
+					var t = await c.Profiles.GetAsync("string2", "string2");
 					Assert.Empty(i.Parents);
 					Assert.Empty(t.Children);
 					Assert.NotNull(i);
@@ -624,7 +621,7 @@ namespace Stardust.Paradox.CosmosDbTest
 			var q3 = G.V("Jonas");
 			await PrintResult(q3);
 			var q4 = G.V();
-				q4=q4.Where(p => p.HasLabel("person"));
+			q4 = q4.Where(p => p.HasLabel("person"));
 			await PrintResult(q4, false);
 			var q5 = G.V(1).Until(p => p.Has("name", "Jonas")).Repeat(p => p.Out()).Path().By("name");
 			await PrintResult(q5, false, false);

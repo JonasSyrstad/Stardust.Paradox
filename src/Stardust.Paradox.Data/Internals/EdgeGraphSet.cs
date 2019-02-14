@@ -112,13 +112,13 @@ namespace Stardust.Paradox.Data.Internals
 		public async Task<IEnumerable<T>> GetByInIdAsync(string inId)
 		{
 
-			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).InE().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
+			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).InE(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
 			return e;
 		}
 
 		public async Task<IEnumerable<T>> GetByOutIdAsync(string outId)
 		{
-			var e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE().HasLabel(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
+			var e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE(GraphContextBase._dataSetLabelMapping[typeof(T)])).ConfigureAwait(false);
 			return e;
 		}
 	}

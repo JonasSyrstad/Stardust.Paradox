@@ -48,7 +48,7 @@ namespace Stardust.Paradox.Data.Traversals
 	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector, string id, string partitionKey)
 	    {
 		    var baseQuery = new UpdatableGremlinQuery(connector, "g");
-		    baseQuery._query = $"g.E([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)},])";
+		    baseQuery._query = $"g.E([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)}])";
 		    return baseQuery;
 	    }
 
