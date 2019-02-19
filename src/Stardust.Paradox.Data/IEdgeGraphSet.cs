@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations;
 
@@ -13,6 +14,8 @@ namespace Stardust.Paradox.Data
 		Task<T> GetAsync(string inId, string outId,bool partitioned=false);
 
 		Task<T> GetPartitionedAsync(string id, string partitionKey);
+
+		Task<T> GetPartitionedAsync(Tuple<string, string> idAndPartitionKey);
 
 		Task<IEnumerable<T>> GetByInIdAsync(string inId);
 		Task<IEnumerable<T>> GetByOutIdAsync(string outId);

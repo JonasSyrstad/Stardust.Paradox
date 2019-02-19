@@ -11,7 +11,10 @@ namespace Stardust.Paradox.Data
     {
 	    Task<T> GetAsync(string id, string partitionKey);
 
-	    Task DeleteAsync(string id, string partitionKey);
+	    Task<T> GetAsync(Tuple<string, string> idAndPartitionKey);
+
+		Task DeleteAsync(string id, string partitionKey);
+	    Task DeleteAsync(Tuple<string, string> idAndPartitionKey);
 
 		/// <summary>
 		/// Creates a new item with a Guid as id
