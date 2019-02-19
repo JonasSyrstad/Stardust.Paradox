@@ -57,8 +57,8 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					{
 						if ((int)s == 429)
 						{
-							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as string??"200";
-							await Task.Delay(int.Parse(waitTime));
+							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as int? ?? 200;
+							await Task.Delay(waitTime);
 							if (retry > 5)
 							{
 								Log(compileQuery, responseException);

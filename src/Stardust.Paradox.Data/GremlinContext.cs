@@ -17,22 +17,25 @@ namespace Stardust.Paradox.Data
 
         public GremlinQuery V(string id)
 	    {
-		    if (_connector != null && _connector.CanParameterizeQueries)
-		    {
-			    return new GremlinQuery(_connector, "g.V({0})",id);
-		    }
-			return new GremlinQuery(_connector, $"g.V('{id}')");
+		    var q = new GremlinQuery(_connector, "");
+		    q._query = $"g.V({q.ComposeParameter(id)})";
+		    return q;
 	    }
 
-	    public GremlinQuery E() => new GremlinQuery(_connector, "g.E()");
+	    public GremlinQuery V(string id,string partitionKey)
+	    {
+			var q = new GremlinQuery(_connector, "");
+		    q._query = $"g.V([{q.ComposeParameter(id)},{q.ComposeParameter(partitionKey)}])";
+		    return q;
+		}
+
+		public GremlinQuery E() => new GremlinQuery(_connector, "g.E()");
 
         public GremlinQuery E(string id)
 	    {
-		    if (_connector.CanParameterizeQueries)
-		    {
-			    return new GremlinQuery(_connector, "g.E({0})", id);
-		    }
-			return new GremlinQuery(_connector, $"g.E('{id}')");
-	    }
+			var q = new GremlinQuery(_connector, "");
+		    q._query = $"g.E{q.ComposeParameter(id)})";
+		    return q;
+		}
     }
 }
