@@ -26,7 +26,7 @@ namespace Stardust.Paradox.Data.Internals
 			return await _context.EAsync<T>(id).ConfigureAwait(false);
 		}
 
-		public  Task<T> GetPartitionedAsync(Tuple<string, string> idAndPartitionKey)
+		public Task<T> GetPartitionedAsync((string, string) idAndPartitionKey)
 		{
 			return GetPartitionedAsync(idAndPartitionKey.Item1, idAndPartitionKey.Item2);
 		}

@@ -30,7 +30,7 @@ namespace Stardust.Paradox.Data
 		    return q;
 		}
 
-	    public GremlinQuery V(Tuple<string,string> idAndPartitionKey)
+	    public GremlinQuery V((string, string) idAndPartitionKey)
 	    {
 		    var q = new GremlinQuery(_connector, "");
 		    q._query = $"g.V([{q.ComposeParameter(idAndPartitionKey.Item1)},{q.ComposeParameter(idAndPartitionKey.Item2)}])";

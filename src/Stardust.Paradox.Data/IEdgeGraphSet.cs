@@ -15,7 +15,7 @@ namespace Stardust.Paradox.Data
 
 		Task<T> GetPartitionedAsync(string id, string partitionKey);
 
-		Task<T> GetPartitionedAsync(Tuple<string, string> idAndPartitionKey);
+		Task<T> GetPartitionedAsync((string, string) idAndPartitionKey);
 
 		Task<IEnumerable<T>> GetByInIdAsync(string inId);
 		Task<IEnumerable<T>> GetByOutIdAsync(string outId);

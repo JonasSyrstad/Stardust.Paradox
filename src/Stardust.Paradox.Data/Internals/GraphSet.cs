@@ -49,7 +49,7 @@ namespace Stardust.Paradox.Data.Internals
 			return await _context.VAsync<T>(id,partitionKey).ConfigureAwait(false);
 		}
 
-	    public Task<T> GetAsync(Tuple<string, string> idAndPartitionKey)
+	    public Task<T> GetAsync((string, string) idAndPartitionKey)
 	    {
 			return GetAsync(idAndPartitionKey.Item1, idAndPartitionKey.Item2);
 		}
@@ -60,7 +60,7 @@ namespace Stardust.Paradox.Data.Internals
 		    _context.Delete(item);
 		}
 
-	    public Task DeleteAsync(Tuple<string, string> idAndPartitionKey)
+	    public Task DeleteAsync((string, string) idAndPartitionKey)
 	    {
 		    return DeleteAsync(idAndPartitionKey.Item1, idAndPartitionKey.Item2);
 	    }

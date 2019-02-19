@@ -32,8 +32,7 @@ namespace Stardust.Paradox.Data.Traversals
 	        return baseQuery;
         }
 
-	    public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector,
-		    Tuple<string, string> idAndPartitionKey)
+	    public static UpdatableGremlinQuery V(this IGremlinLanguageConnector connector,(string, string) idAndPartitionKey)
 	    {
 		    return V(connector, idAndPartitionKey.Item1, idAndPartitionKey.Item2);
 	    }
@@ -52,7 +51,7 @@ namespace Stardust.Paradox.Data.Traversals
 		    return baseQuery;
 	    }
 	    public static UpdatableGremlinQuery E(this IGremlinLanguageConnector connector,
-		    Tuple<string, string> idAndPartitionKey)
+			(string, string) idAndPartitionKey)
 	    {
 		    return E(connector, idAndPartitionKey.Item1, idAndPartitionKey.Item2);
 	    }

@@ -133,6 +133,11 @@ namespace Stardust.Paradox.Data
 			return await ConvertTo<T>(await _connector.V(id,partitionKey).ExecuteAsync(), true).ConfigureAwait(false);
 		}
 
+		public Task<T> VAsync<T>((string, string) idAndPartitionKey) where T : IVertex
+		{
+			return VAsync<T>(idAndPartitionKey.Item1, idAndPartitionKey.Item2);
+		}
+
 		public async Task<T> GetOrCreate<T>(string id) where T : IVertex
 		{
 			var i = await VAsync<T>(id).ConfigureAwait(false);

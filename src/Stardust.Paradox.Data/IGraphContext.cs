@@ -19,6 +19,8 @@ namespace Stardust.Paradox.Data
 
 	    Task<T> VAsync<T>(string id,string partitionKey) where T : IVertex;
 
+	    Task<T> VAsync<T>((string, string) idAndPartitionKey) where T : IVertex;
+
 		Task<T> GetOrCreate<T>(string id) where T : IVertex;
 
         Task<IEnumerable<T>> VAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IVertex;
