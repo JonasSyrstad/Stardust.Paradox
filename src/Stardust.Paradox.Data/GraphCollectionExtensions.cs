@@ -48,6 +48,15 @@ namespace Stardust.Paradox.Data
             else if (throwException) throw new ArgumentException($"{inlineCollection?.GetType().FullName} does not support operation", nameof(inlineCollection));
         }
 
+		/// <summary>
+		/// Converts a string to a tuple, used with cosmosDb where the partitionKey property has the same value as the vertex id.
+		/// </summary>
+		/// <param name="id"></param>
+		/// <returns></returns>
+	    public static (string, string) ToTuple(this string id)
+	    {
+		    return (id, id);
+	    }
         public static async Task<IVertexTreeRoot<T>> GetTreeAsync<T>(this IVertex vertex, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex
         {
             var v = vertex as GraphDataEntity;
