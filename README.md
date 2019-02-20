@@ -78,6 +78,16 @@ public interface ICountry : IVertex
     IEdgeCollection<ICity> Cities { get; }
 }
 
+ [EdgeLabel("employer")]
+    public interface IEmployment : IEdge<IProfile, ICompany>
+    {
+        string Id { get; }
+
+        DateTime HiredDate { get; set; }
+
+        string Manager { get; set; }
+    }
+
 ```
 
 ## Defining the entity context and generating the entity implementations
@@ -93,6 +103,8 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
 
     public IGraphSet<ICompany> Companies => GraphSet<ICompany>();
 
+    public IGraphSet<IEmployment> Employments => EdgeGraphSet<IEmployment>();
+
     public MyEntityContext(IGremlinLanguageConnector connector, IServiceProvider resolver) : base(connector, resolver)
     {
     }
@@ -106,7 +118,8 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
             .ConfigureCollection<ICountry>()
                 .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers);
+                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers)
+                .ConfigureCollection<IEmployment>();;
         return true;
     }
 }

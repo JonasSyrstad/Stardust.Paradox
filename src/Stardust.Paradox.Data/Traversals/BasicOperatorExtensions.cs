@@ -22,12 +22,12 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery As(this GremlinQuery queryBase, string name)
         {
-            return new ComposedGremlinQuery(queryBase, $".as('{name}')");
+            return new ComposedGremlinQuery(queryBase, $".as({queryBase.ComposeParameter(name)})");
         }
 
         public static GremlinQuery V(this GremlinQuery queryBase, string id)
         {
-            return new ComposedGremlinQuery(queryBase, $".V('{id}')");
+            return new ComposedGremlinQuery(queryBase, $".V({queryBase.ComposeParameter(id)})");
         }
 
         public static GremlinQuery V(this GremlinQuery queryBase)
@@ -37,22 +37,22 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Constant(this GremlinQuery queryBase, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $".constant('{value}')");
+            return new ComposedGremlinQuery(queryBase, $".constant({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Constant(this GremlinQuery queryBase, long value)
         {
-            return new ComposedGremlinQuery(queryBase, $".constant({value})");
+            return new ComposedGremlinQuery(queryBase, $".constant({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Constant(this GremlinQuery queryBase, bool value)
         {
-            return new ComposedGremlinQuery(queryBase, $".constant({value.ToString().ToLower()})");
+            return new ComposedGremlinQuery(queryBase, $".constant({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Values(this GremlinQuery queryBase, string name)
         {
-            return new ComposedGremlinQuery(queryBase, $".values('{name}')");
+            return new ComposedGremlinQuery(queryBase, $".values({queryBase.ComposeParameter(name)})");
         }
 
         public static GremlinQuery Value(this GremlinQuery queryBase)
@@ -82,7 +82,7 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery ValueMap(this GremlinQuery queryBase, bool inclueAll)
         {
-            return new ComposedGremlinQuery(queryBase, $".valueMap({inclueAll.ToString().ToLower()})");
+            return new ComposedGremlinQuery(queryBase, $".valueMap({queryBase.ComposeParameter(inclueAll)})");
         }
 
         public static GremlinQuery ValueMap(this GremlinQuery queryBase, params string[] names)
@@ -97,12 +97,12 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery PropertiesMap(this GremlinQuery queryBase, params string[] names)
         {
-            return new ComposedGremlinQuery(queryBase, $".propertiesMap({string.Join(",", names.Select(s => $"'{s}'"))})");
+            return new ComposedGremlinQuery(queryBase, $".propertiesMap({string.Join(",", names.Select(s => $"{queryBase.ComposeParameter(s)}"))})");
         }
 
         public static GremlinQuery GroupBy(this GremlinQuery queryBase, string name)
         {
-            return new ComposedGremlinQuery(queryBase, $".group().by('{name}')");
+            return new ComposedGremlinQuery(queryBase, $".group().by({queryBase.ComposeParameter(name)})");
         }
 
         public static GremlinQuery Id(this GremlinQuery queryBase)

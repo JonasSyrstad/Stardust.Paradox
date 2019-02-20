@@ -3,6 +3,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
+using Stardust.Particles;
 
 namespace Stardust.Paradox.Data
 {
@@ -48,7 +49,10 @@ namespace Stardust.Paradox.Data
         internal static string GetEdgeLabel<T>(Expression<Func<T, object>> action) where T:IVertex
         {
             var expression = GetMemberInfo(action);
-            var name = expression.Member.GetCustomAttribute<EdgeLabelAttribute>()?.Label?? expression.Member.GetCustomAttribute<ReverseEdgeLabelAttribute>() ?.ReverseLabel;
+	        var name = CodeGeneration.CodeGenerator.EdgeLabel(expression.Member.DeclaringType, expression.Member) ??
+	                CodeGeneration.CodeGenerator.EdgeReverseLabel(expression.Member.DeclaringType, expression.Member);
+	        if (name.ContainsCharacters()) return name;
+			name = expression.Member.GetCustomAttribute<EdgeLabelAttribute>()?.Label?? expression.Member.GetCustomAttribute<ReverseEdgeLabelAttribute>() ?.ReverseLabel;
             return name;
         }
     }

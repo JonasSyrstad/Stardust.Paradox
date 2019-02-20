@@ -8,36 +8,36 @@ namespace Stardust.Paradox.Data.Traversals
     {
         public static GremlinQuery Is(this GremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $".is({value})");
+            return new ComposedGremlinQuery(queryBase, $".is({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Is(this GremlinQuery queryBase, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $".is('{value}')");
+            return new ComposedGremlinQuery(queryBase, $".is({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Is(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "is({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "is({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery Not(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "not({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "not({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
         public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "or({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "or({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery Optional(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "optional({0})", query => expression.Invoke(new PredicateGremlinQuery(query._connector)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, "optional({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
         public static GremlinQuery __(this PredicateGremlinQuery queryBase)
@@ -51,42 +51,42 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"eq({value})");
+            return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"eq({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $"eq('{value}')");
+            return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, bool value)
         {
-            return new ComposedGremlinQuery(queryBase, $"eq({value.ToString().ToLower()})");
+            return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, long value)
         {
-            return new ComposedGremlinQuery(queryBase, $"neq({value})");
+            return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"neq({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $"neq('{value}')");
+            return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, bool value)
         {
-            return new ComposedGremlinQuery(queryBase, $"neq({value.ToString().ToLower()})");
+            return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
         public static GremlinQuery Identity(this PredicateGremlinQuery queryBase)
         {
@@ -114,36 +114,36 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{key}')");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)})");
         }
 
         public static GremlinQuery HasNot(this GremlinQuery queryBase, string key)
         {
-            return new ComposedGremlinQuery(queryBase, $"hasNot('{key}')");
+            return new ComposedGremlinQuery(queryBase, $"hasNot({queryBase.ComposeParameter(key)})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{key}',{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))})");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{expression.Invoke(new PredicateGremlinQuery(queryBase))})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string label, string key, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{label}','{key}',{expression.Invoke(new PredicateGremlinQuery(queryBase._connector))})");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(label)},{queryBase.ComposeParameter(key)},{expression.Invoke(new PredicateGremlinQuery(queryBase))})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{key}','{value}')");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Has(this GremlinQuery queryBase, string key, bool value)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{key}',{value.ToString().ToLower()})");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
         public static GremlinQuery Has(this GremlinQuery queryBase, string label, string key, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $"has('{label}','{key}','{value}')");
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(label)},{queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Within(this PredicateGremlinQuery queryBase, params string[] values)
@@ -174,17 +174,17 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery TimeLimit(this PredicateGremlinQuery queryBase, int timeInMs)
         {
-            return new ComposedGremlinQuery(queryBase, $"timeLimit({timeInMs})");
+            return new ComposedGremlinQuery(queryBase, $"timeLimit({queryBase.ComposeParameter(timeInMs)})");
         }
 
         public static GremlinQuery Lt(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"lt({value})");
+            return new ComposedGremlinQuery(queryBase, $"lt({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Lt(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"lt({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"lt({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, int value)
@@ -194,62 +194,62 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"lte({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, string value)
         {
-            return new ComposedGremlinQuery(queryBase, $"gt('{value}')");
+            return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"gt({value})");
+            return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"gt({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Gte(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"gte({value})");
+            return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Gte(this PredicateGremlinQuery queryBase, decimal value)
         {
-            return new ComposedGremlinQuery(queryBase, $"gte({value.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
         }
 
         public static GremlinQuery Inside(this PredicateGremlinQuery queryBase, int start, int end)
         {
-            return new ComposedGremlinQuery(queryBase, $"inside({start},{end})");
+            return new ComposedGremlinQuery(queryBase, $"inside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
         public static GremlinQuery Inside(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
-            return new ComposedGremlinQuery(queryBase, $"inside({start.ToString(CultureInfo.InvariantCulture)},{end.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"inside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
         public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, int start, int end)
         {
-            return new ComposedGremlinQuery(queryBase, $"outside({start},{end})");
+            return new ComposedGremlinQuery(queryBase, $"outside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
         public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
-            return new ComposedGremlinQuery(queryBase, $"outside({start.ToString(CultureInfo.InvariantCulture)},{end.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"outside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
         public static GremlinQuery Between(this PredicateGremlinQuery queryBase, int start, int end)
         {
-            return new ComposedGremlinQuery(queryBase, $"between({start},{end})");
+            return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
         public static GremlinQuery Between(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
-            return new ComposedGremlinQuery(queryBase, $"between({start.ToString(CultureInfo.InvariantCulture)},{end.ToString(CultureInfo.InvariantCulture)})");
+            return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
     }
 }

@@ -1,9 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Internals;
+using System;
+using System.Collections.Generic;
+using System.Text;
+#pragma warning disable 649
 
 namespace Stardust.Paradox.Data.CodeGeneration.Sample
 {
@@ -14,7 +15,7 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
         private long _age;
         private string _email;
         private bool _validatedEmail;
-        private string _test;
+        private readonly string _test;
 
         [JsonProperty("id", DefaultValueHandling = DefaultValueHandling.Include)]
         public string Id

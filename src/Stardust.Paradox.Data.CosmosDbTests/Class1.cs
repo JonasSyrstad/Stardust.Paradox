@@ -40,7 +40,8 @@ namespace Stardust.Paradox.CosmosDbTest
         //        .Select(jObj => (TData) jObj.ToObject(typeof(TData))).ToList();
         //}
 
-        public async Task<IEnumerable<dynamic>> ExecuteAsync(string query)
+        public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
+	        Dictionary<string, object> parametrizedValues)
         {
             var graph = await DocumentCollection().ConfigureAwait(false);
             var gremlinQ = _client.CreateGremlinQuery(graph, query);
@@ -48,7 +49,9 @@ namespace Stardust.Paradox.CosmosDbTest
             return d.AsEnumerable();
         }
 
-        private async Task<DocumentCollection> DocumentCollection()
+	    public bool CanParameterizeQueries => false;
+
+	    private async Task<DocumentCollection> DocumentCollection()
         {
             if (_graph != null) return _graph;
             Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = "graphTest" }).ConfigureAwait(false);

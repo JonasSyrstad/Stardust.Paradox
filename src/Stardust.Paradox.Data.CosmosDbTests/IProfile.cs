@@ -30,7 +30,8 @@ namespace Stardust.Paradox.CosmosDbTest
 
         [InlineSerialization(SerializationType.Base64)]
         IInlineCollection<string> EmailDomains { get; }
-    }
+	    string Pk { get; set; }
+	}
 
     [VertexLabel("person")]
     public interface IProfile : IVertex
@@ -76,6 +77,7 @@ namespace Stardust.Paradox.CosmosDbTest
         bool Adult { get; set; }
         string Description { get; set; }
         int Number { get; set; }
+	    string Pk { get; set; }
     }
 
 

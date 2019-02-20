@@ -1,11 +1,5 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Stardust.Paradox.Data.Traversals;
 
 namespace Stardust.Paradox.Data
 {
@@ -16,6 +10,8 @@ namespace Stardust.Paradox.Data
     {
         //IEnumerable<T> Execute<T>(string query);
         //Task<IEnumerable<T>> ExecuteAsync<T>(string query);
-        Task<IEnumerable<dynamic>> ExecuteAsync(string query);
+        Task<IEnumerable<dynamic>> ExecuteAsync(string query,Dictionary<string,object> parametrizedValues);
+
+		bool CanParameterizeQueries { get; }
     }
 }

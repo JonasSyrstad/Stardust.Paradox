@@ -1,10 +1,12 @@
-﻿namespace Stardust.Paradox.Data.Traversals
+﻿using System.Collections.Generic;
+
+namespace Stardust.Paradox.Data.Traversals
 {
     public class ComposedGremlinQuery : GremlinQuery
     {
         protected readonly GremlinQuery _queryBase;
 
-        internal ComposedGremlinQuery(GremlinQuery queryBase, string query) : base(queryBase._connector, query)
+        internal ComposedGremlinQuery(GremlinQuery queryBase, string query) : base(queryBase, query)
         {
             _queryBase = queryBase;
         }
@@ -18,5 +20,11 @@
         }
 
         public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
-    }
+
+	    //internal override object ComposeParameter(object value)
+	    //{
+		   // return _queryBase.ComposeParameter(value);
+	    //}
+	   
+	}
 }

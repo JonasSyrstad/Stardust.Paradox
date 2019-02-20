@@ -6,7 +6,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 {
     public class InternalGraphSONReader1 : GraphSONReader
     {
-        private GraphSON2Reader _internal;
+        
 
         //public InternalGraphSONReader1()
         //{

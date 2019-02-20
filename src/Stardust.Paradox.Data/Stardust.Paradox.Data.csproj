@@ -2,23 +2,20 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>1.4.9</Version>
+    <Version>2.0.0</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright Stardust ©  2018</Copyright>
+    <Copyright>Copyright Stardust ©  2019</Copyright>
     <PackageLicenseUrl>https://github.com/JonasSyrstad/Stardust.Paradox/blob/Main/LICENSE</PackageLicenseUrl>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog%3A_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
-    <PackageReleaseNotes>1.3: Added fluent configuration of edge references
-1.3: Added basic Edge properties support
-1.4: Performance improvements and bugfixes
-1.4.6: Updated to use the new symbol package format
-1.4.7: Fixed confusing parameter naming for Range step and added a SkipTake step to help witn pagination
-</PackageReleaseNotes>
+    <PackageReleaseNotes>Added support for typed Edges.
+Added parameterized queries for connectors that support it, for connectors that doesnt support it input strings are escaped to avoid some injection attacks
+Added support for partitioning (CosmosDB)</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
@@ -28,6 +25,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="2.1.1" />
     <PackageReference Include="Newtonsoft.Json" Version="10.0.3" />
     <PackageReference Include="Stardust.Particles" Version="5.0.1" />
+    <PackageReference Include="System.IO.Compression" Version="4.3.0" />
     <PackageReference Include="System.Reflection" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit.ILGeneration" Version="4.3.0" />
@@ -38,6 +36,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="CosmosDbExtensions\" />
   </ItemGroup>
 
 </Project>

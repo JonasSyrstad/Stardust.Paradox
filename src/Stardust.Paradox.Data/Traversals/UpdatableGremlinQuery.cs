@@ -2,7 +2,7 @@
 {
     public class UpdatableGremlinQuery : GremlinQuery
     {
-        public UpdatableGremlinQuery(IGremlinLanguageConnector connector, string query) : base(connector, query)
+        internal UpdatableGremlinQuery(IGremlinLanguageConnector connector, string query) : base(connector, query)
         {
         }
 

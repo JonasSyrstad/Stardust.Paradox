@@ -9,7 +9,7 @@
 
         public static GremlinQuery E(this GremlinQuery queryBase, string edgeLabel)
         {
-            return new ComposedGremlinQuery(queryBase, $"E('{edgeLabel}')");
+            return new ComposedGremlinQuery(queryBase, $"E({queryBase.ComposeParameter(edgeLabel)})");
         }
 
         public static GremlinQuery E(this GremlinQuery queryBase)
@@ -68,7 +68,7 @@
 
         public static GremlinQuery SubGraph(this GremlinQuery queryBase,string graphLabel)
         {
-            return new ComposedGremlinQuery(queryBase, $"subgraph('{graphLabel}')");
+            return new ComposedGremlinQuery(queryBase, $"subgraph({queryBase.ComposeParameter(graphLabel)})");
         }
     }
 }
