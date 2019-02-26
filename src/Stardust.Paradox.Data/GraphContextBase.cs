@@ -24,6 +24,8 @@ namespace Stardust.Paradox.Data
 		internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
 		private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
 
+		public double ConsumedRU => _connector.ConsumedRU;
+
 		private bool Initialized
 		{
 			get

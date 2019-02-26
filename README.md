@@ -125,5 +125,56 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
 }
 
 ```
+## Using the datacontext
+
+```CS
+
+public class DemoController:Controller
+{
+    private MyEntityContext _dataContext;
+    public DemoController(MyEntityContext dataContext)
+    {
+        _dataContext=dataContext;
+    }
+
+    public Task<IActionResult> GetDataAsync(string personId)
+    {
+        var person=await _dataContext.Persons.GetAsync(persionId);
+        return new User
+        {
+            Id=person.Id,
+            FirstName=person.FistName,
+            LastName=person.LastName,
+            Email=person.Email
+        }
+    }
+
+    public Task<IActionResult> AddEmploymentAsync(string userId, string companyId,DateTime hiredDate, string managerName) //new in V2
+    {
+        var user=await await _dataContext.Persons.GetAsync(persionId);
+        var company=await _dataContext.Companies.GetAsync(companyId);
+        var e= _dataContext.Employments.Create(user,company);
+        e.HiredDate=hiredDate;
+        e.ManagerName=managerName;
+        await _dataContext.SaveChangesAsync();
+        //alternative
+        
+    }
+
+    public Task<IActionResult> AddEmploymentAlternativeAsync(string userId, string companyId,DateTime hiredDate, string managerName) //edge property handling in V1
+    {
+        var user=await await _dataContext.Persons.GetAsync(persionId);
+        var company=await _dataContext.Companies.GetAsync(companyId);
+        user.Employers.Add(company,new Dictionary<string,object>{
+            {"hiredDate",hiredDate},
+            {"managerName","managerName"}
+        })
+        await _dataContext.SaveChangesAsync();
+        //alternative
+        
+    }
+}
+
+```
 
 

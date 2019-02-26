@@ -82,7 +82,7 @@ namespace Stardust.Paradox.CosmosDbTest
 		{
 			using (var tc = TestContext())
 			{
-				var s = await tc.Profiles.GetAsync("Sanne");
+				var s = await tc.Profiles.GetAsync("Sanne".ToTuple());
 				var parents = await s.Parents.ToEdgesAsync();
 				Assert.NotNull(parents.FirstOrDefault()?.Properties.FirstOrDefault());
 			}

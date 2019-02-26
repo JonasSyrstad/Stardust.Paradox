@@ -1,9 +1,7 @@
 ﻿using Microsoft.Azure.Documents;
 using Microsoft.Azure.Documents.Client;
 using Microsoft.Azure.Graphs;
-using Microsoft.Azure.Graphs.Elements;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using System;
@@ -17,14 +15,12 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 	{
 		private readonly string _databaseName;
 		private readonly int _throughput;
-		private readonly ILogging _logger;
 		private readonly string _collectionName;
 
 		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, string collectionName = null, int throughput = 1000, ILogging logger = null) : base(logger)
 		{
 			_databaseName = databaseName;
 			_throughput = throughput;
-			_logger = logger;
 			_collectionName = collectionName ?? databaseName;
 			if (_client == null)
 				_client = new DocumentClient(
@@ -37,30 +33,14 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			_databaseName = databaseName;
 			_collectionName = collectionName ?? databaseName;
 			_throughput = throughput;
-			_logger = logger;
 			if (_client == null)
 				_client = new DocumentClient(
 					new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"), authKeyOrResourceToken, serializationSettings, connectionPolicy, consistencyLevel);
 		}
 
-
-
 		private static DocumentClient _client;
 		private static ResourceResponse<DocumentCollection> _graph;
-		public IEnumerable<T> Execute<T>(string query)
-		{
-			return Task.Run(async () => await ExecuteAsync<T>(query).ConfigureAwait(false)).GetAwaiter().GetResult();
-		}
-
-		public async Task<IEnumerable<T>> ExecuteAsync<T>(string query)
-		{
-			var graph = await DocumentCollection().ConfigureAwait(false);
-			var gremlinQ = _client.CreateGremlinQuery<Vertex>(graph, query);
-			var d = await gremlinQ.ExecuteNextAsync<Vertex>().ConfigureAwait(false);
-			return d.Select(i => new JObject(i.GetVertexProperties().Select(s => new JProperty(s.Key, s.Value))))
-				.Select(jObj => (T)jObj.ToObject(typeof(T))).ToList();
-		}
-
+		
 		public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
 			Dictionary<string, object> parametrizedValues)
 		{
@@ -70,6 +50,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 				var gremlinQ = _client.CreateGremlinQuery(graph, query);
 				var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
 				Log($"gremlin: {query} (ru cost: {d.RequestCharge })");
+				ConsumedRU += d.RequestCharge;
 				return d.AsEnumerable();
 			}
 			catch (Exception ex)
@@ -83,6 +64,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 
 
 		public bool CanParameterizeQueries => false;
+		public double ConsumedRU { get; private set; }
 
 		private async Task<DocumentCollection> DocumentCollection()
 		{

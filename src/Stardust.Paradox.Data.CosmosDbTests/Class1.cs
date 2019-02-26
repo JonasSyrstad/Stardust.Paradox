@@ -50,6 +50,7 @@ namespace Stardust.Paradox.CosmosDbTest
         }
 
 	    public bool CanParameterizeQueries => false;
+	    public double ConsumedRU { get; }
 
 	    private async Task<DocumentCollection> DocumentCollection()
         {
