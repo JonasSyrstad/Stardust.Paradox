@@ -142,11 +142,16 @@ namespace Stardust.Paradox.CosmosDbTest
 				c.SavingChanges -= OnTcOnSavingChanges;
 				c.ChangesSaved -= OnTcOnChangesSaved;
 			};
-
+			tc.Disposing += Tc_Disposing;
 			tc.SavingChanges += OnTcOnSavingChanges;
 			tc.ChangesSaved += OnTcOnChangesSaved;
 			tc.SaveChangesError += OnTcOnSaveChangesError;
 			return tc;
+		}
+
+		private void Tc_Disposing(GraphContextBase sender)
+		{
+			_output.WriteLine($"Total RU Consumption {sender.ConsumedRU}");
 		}
 
 		private void OnTcOnSavingChanges(object sender, SaveEventArgs args)

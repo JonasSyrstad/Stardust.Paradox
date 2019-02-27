@@ -369,6 +369,8 @@ namespace Stardust.Paradox.Data
 		public event SavingChangesHandler ChangesSaved;
 
 		public event SavingChangesHandler SaveChangesError;
+
+		public event DisposingDataContextHandler Disposing;
 		public Task<IEnumerable<T>> EAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IEdgeEntity
 		{
 			return EAsync<T>(g.Invoke(new GremlinContext(_connector)));
@@ -515,6 +517,7 @@ namespace Stardust.Paradox.Data
 		{
 			if (disposing)
 			{
+				Disposing?.Invoke(this);
 				_trackedEntities.Clear();
 				_connector.TryDispose();
 			}
