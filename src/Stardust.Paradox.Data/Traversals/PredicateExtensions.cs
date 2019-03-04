@@ -30,7 +30,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
-        public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
+	    public static GremlinQuery And(this GremlinQuery queryBase)
+	    {
+		    return new ComposedGremlinQuery(queryBase, "and()");
+	    }
+
+		public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
             return new LambdaComposedGremlinQuery(queryBase, "or({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }

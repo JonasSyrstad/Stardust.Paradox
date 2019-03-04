@@ -108,7 +108,7 @@ namespace Stardust.Paradox.Data.Internals
 				if (label == null)
 					label = CodeGenerator.EdgeLables[typeof(T)];
 				if(partitioned)
-					return await GetAsync($"{label}{inId}{outId}", outId);
+					return await GetPartitionedAsync($"{label}{inId}{outId}".ToTuple());
 				return await GetAsync($"{label}{inId}{outId}");
 			}
 			var e = await _context.EAsync<T>(g => g.V(inId.EscapeGremlinString()).InE().Where(p => p.__().OtherV().HasId(outId.EscapeGremlinString()))).ConfigureAwait(false);
