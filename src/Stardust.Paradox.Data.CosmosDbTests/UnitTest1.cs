@@ -11,6 +11,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Traversals.Helpers;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -135,7 +136,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				}.RegisterGraphSerializer();
 			};
 			//var tc = new TestContext(new Class1());
-			var tc = new TestContext(new GremlinNetLanguageConnector("jonas-graphtest.gremlin.cosmosdb.azure.com", "graphTest", "services", "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A=="));
+			var tc = new TestContext(new GremlinNetLanguageConnector($"{ConfigurationManagerHelper.GetValueOnKey("cosmosDbAccount")}.gremlin.cosmosdb.azure.com", "graphTest", "services", ConfigurationManagerHelper.GetValueOnKey("cosmosDbKey")));
 			tc.OnDisposing = c =>
 			{
 				c.SaveChangesError -= OnTcOnSaveChangesError;
@@ -250,7 +251,7 @@ namespace Stardust.Paradox.CosmosDbTest
 		[Fact]
 		public async Task GetPerfTest()
 		{
-			using (var tc = TestContext())
+			using (var tc = TestContext()) 
 			{
 				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 			}
@@ -606,6 +607,8 @@ namespace Stardust.Paradox.CosmosDbTest
 		[Fact]
 		public async Task QueryBuilderTest()
 		{
+			var testQuery = G.V().Where(s => s.Out().HasLabel("test").And().Out().HasLabel("test2"));
+			Assert.Equal("g.V().where(out().hasLabel(__p0).and().out().hasLabel(__p1))", testQuery.CompileQuery());
 			var rangeQuery = G.V().Range(1, 1);
 			await PrintResult(rangeQuery, false);
 			var range = await rangeQuery.ExecuteAsync();

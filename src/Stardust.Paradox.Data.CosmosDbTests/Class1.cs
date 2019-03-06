@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Particles;
 
 namespace Stardust.Paradox.CosmosDbTest
 {
@@ -21,8 +22,8 @@ namespace Stardust.Paradox.CosmosDbTest
         {
             if (_client == null)
                 _client = new DocumentClient(
-                    new Uri("https://jonas-graphtest.documents.azure.com:443/"),
-                    "1TKgMc0u6F0MOBQi4jExGm1uAfOMHcXxylcvL55qV7FiCKx5LhTIW0FVXvJ68zdzFnFaS58yPtlxmBLmbDka1A==");
+                    new Uri($"https://{ConfigurationManagerHelper.GetValueOnKey("cosmosDbAccount")}.documents.azure.com:443/"),
+                    ConfigurationManagerHelper.GetValueOnKey("cosmosDbKey"));
         }
 
         //public IEnumerable<TData> Execute<TData>(string query)

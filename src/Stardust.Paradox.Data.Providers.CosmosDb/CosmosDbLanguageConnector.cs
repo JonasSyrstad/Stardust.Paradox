@@ -5,6 +5,7 @@ using Newtonsoft.Json;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,10 +23,10 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			_databaseName = databaseName;
 			_throughput = throughput;
 			_collectionName = collectionName ?? databaseName;
-			if (_client == null)
-				_client = new DocumentClient(
-					new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"),
-					authKeyOrResourceToken);
+			if (_client != null) return;
+			if (_clients.TryGetValue(cosmosDbAccountName.ToLower().Trim(), out _client)) return;
+			_client = new DocumentClient(new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"),authKeyOrResourceToken);
+			_clients.TryAdd(cosmosDbAccountName.ToLower().Trim(), _client);
 		}
 
 		public CosmosDbLanguageConnector(string cosmosDbAccountName, string authKeyOrResourceToken, string databaseName, JsonSerializerSettings serializationSettings, ConnectionPolicy connectionPolicy, ConsistencyLevel consistencyLevel = ConsistencyLevel.Session, string collectionName = null, int throughput = 1000, ILogging logger = null) : base(logger)
@@ -33,14 +34,18 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			_databaseName = databaseName;
 			_collectionName = collectionName ?? databaseName;
 			_throughput = throughput;
-			if (_client == null)
-				_client = new DocumentClient(
-					new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"), authKeyOrResourceToken, serializationSettings, connectionPolicy, consistencyLevel);
+
+			if (_client != null) return;
+			if (_clients.TryGetValue(cosmosDbAccountName.ToLower().Trim(), out _client)) return;
+			_client = new DocumentClient(new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"), authKeyOrResourceToken, serializationSettings, connectionPolicy, consistencyLevel);
+			_clients.TryAdd(cosmosDbAccountName.ToLower().Trim(), _client);
 		}
 
-		private static DocumentClient _client;
+		private static ConcurrentDictionary<string, DocumentClient> _clients = new ConcurrentDictionary<string, DocumentClient>();
+
 		private static ResourceResponse<DocumentCollection> _graph;
-		
+		private DocumentClient _client;
+
 		public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
 			Dictionary<string, object> parametrizedValues)
 		{

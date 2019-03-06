@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>2.0.3</Version>
+    <Version>2.0.4</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
@@ -16,7 +16,8 @@
     <PackageReleaseNotes>Added support for typed Edges.
 Added parameterized queries for connectors that support it, for connectors that doesnt support it input strings are escaped to avoid some injection attacks
 Added support for partitioning (CosmosDB)
-Added missing 'and' over load and fixed get edge partitioning issue.</PackageReleaseNotes>
+Added missing 'and' overload and fixed get edge partitioning issue.
+Added missing 'and' overload</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

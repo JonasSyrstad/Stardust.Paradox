@@ -59,10 +59,10 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				{
 					if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
 					{
-						if ((int)s == 429)
+						if ((long)s == 429)
 						{
-							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as int? ?? 200;
-							await Task.Delay(waitTime);
+							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as long? ?? 200;
+							await Task.Delay((int)waitTime);
 							if (retry > 5)
 							{
 								Log(compileQuery, responseException);
