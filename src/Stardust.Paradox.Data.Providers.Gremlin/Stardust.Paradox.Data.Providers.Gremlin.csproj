@@ -6,7 +6,7 @@
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop
 A database connector based on gremlin.net</Description>
     <Copyright>Copyright Stardust ©  2019</Copyright>
-    <PackageLicenseUrl>https://github.com/JonasSyrstad/Stardust.Paradox/blob/Main/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
     <RepositoryType>GIT</RepositoryType>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
@@ -14,7 +14,7 @@ A database connector based on gremlin.net</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <PackageReleaseNotes />
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.0.2</Version>
+    <Version>2.0.3</Version>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

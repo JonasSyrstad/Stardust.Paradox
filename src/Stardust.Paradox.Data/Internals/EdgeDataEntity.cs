@@ -1,11 +1,9 @@
 ﻿using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.CodeGeneration;
-using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -209,7 +207,7 @@ namespace Stardust.Paradox.Data.Internals
 					_edgeSelector = $"g.E('{_entityKey.EscapeGremlinString()}')";
 				}
 			}
-			IsDirty = false;
+			IsDirty = isNew;
 			IsNew = isNew;
 			IsDeleted = false;
 		}
