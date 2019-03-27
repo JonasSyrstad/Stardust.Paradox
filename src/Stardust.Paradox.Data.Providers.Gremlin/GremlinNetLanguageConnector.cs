@@ -8,17 +8,22 @@ using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Net.WebSockets;
 using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
 	public class GremlinNetLanguageConnector : LanguageConnectorBase, IGremlinLanguageConnector//, IDisposable
 	{
+		public static ConnectionPoolSettings ConnectionPoolSettings { get; set; }
+		public static Action<ClientWebSocketOptions> WebSocketConfiguration { get; set; }
+
 		public static bool IsAspNetCore { get; set; }
 		private readonly GremlinClient _client;
-		private static readonly object lockObject=new object();
-		private static readonly ConcurrentDictionary<string,GremlinClient> gremlinClients =new ConcurrentDictionary<string, GremlinClient>();
-		private string _key;
+		private static readonly object lockObject = new object();
+		private static readonly ConcurrentDictionary<string, GremlinClient> gremlinClients = new ConcurrentDictionary<string, GremlinClient>();
+		private readonly string _key;
+
 
 		/// <summary>
 		/// Connecting to Cosmos DB
@@ -35,7 +40,9 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 			{
 				if (gremlinClients.TryGetValue(_key, out _client)) return;
 				var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
-				_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
+				_client = new GremlinClient(server, new InternalGraphSONReader1(),
+					new GraphSON2Writer(),
+					GremlinClient.GraphSON2MimeType, ConnectionPoolSettings, WebSocketConfiguration);
 				gremlinClients.TryAdd(_key, _client);
 			}
 		}

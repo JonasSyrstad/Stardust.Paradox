@@ -13,7 +13,12 @@
     <RepositoryType>GIT</RepositoryType>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
-    <PackageReleaseNotes>se</PackageReleaseNotes>
+    <PackageReleaseNotes>Added support for typed Edges.
+Added parameterized queries for connectors that support it, for connectors that doesnt support it input strings are escaped to avoid some injection attacks
+Added support for partitioning (CosmosDB)
+Added missing 'and' overload and fixed get edge partitioning issue.
+Added missing 'and' overload
+Bugfix: new TypedEdge is not saved when no properties are updated</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
