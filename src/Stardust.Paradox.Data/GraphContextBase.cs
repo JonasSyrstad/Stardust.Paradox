@@ -24,6 +24,8 @@ namespace Stardust.Paradox.Data
 		internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
 		private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
 
+		public double ConsumedRU => _connector.ConsumedRU;
+
 		private bool Initialized
 		{
 			get
@@ -367,6 +369,8 @@ namespace Stardust.Paradox.Data
 		public event SavingChangesHandler ChangesSaved;
 
 		public event SavingChangesHandler SaveChangesError;
+
+		public event DisposingDataContextHandler Disposing;
 		public Task<IEnumerable<T>> EAsync<T>(Func<GremlinContext, GremlinQuery> g) where T : IEdgeEntity
 		{
 			return EAsync<T>(g.Invoke(new GremlinContext(_connector)));
@@ -513,6 +517,7 @@ namespace Stardust.Paradox.Data
 		{
 			if (disposing)
 			{
+				Disposing?.Invoke(this);
 				_trackedEntities.Clear();
 				_connector.TryDispose();
 			}

@@ -3,12 +3,12 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.0.0</Version>
+    <Version>2.0.3</Version>
     <Authors>Stardust</Authors>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
     <Copyright>Copyright Stardust ©  2019</Copyright>
-    <PackageLicenseUrl>https://github.com/JonasSyrstad/Stardust.Paradox/blob/Main/LICENSE</PackageLicenseUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>

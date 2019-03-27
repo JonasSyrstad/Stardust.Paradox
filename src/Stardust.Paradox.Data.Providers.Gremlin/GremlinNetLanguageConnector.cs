@@ -1,13 +1,13 @@
 ﻿using Gremlin.Net.Driver;
+using Gremlin.Net.Driver.Exceptions;
+using Gremlin.Net.Driver.Messages;
 using Gremlin.Net.Structure.IO.GraphSON;
+using Newtonsoft.Json;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Gremlin.Net.Driver.Exceptions;
-using Gremlin.Net.Driver.Messages;
-using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
@@ -46,19 +46,23 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				try
 				{
 					var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues).ConfigureAwait(false);
-					Log(resp.StatusAttributes.TryGetValue("x-ms-request-charge", out var ru)
-						? $"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})"
-						: $"gremlin: {compileQuery}");
+					if (resp.StatusAttributes.TryGetValue("x-ms-total-request-charge", out var ru))
+					{
+						Log($"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})");
+						ConsumedRU += (double)ru;
+					}
+					else
+						Log($"gremlin: {compileQuery}");
 					return resp;
 				}
 				catch (ResponseException responseException)
 				{
 					if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
 					{
-						if ((int)s == 429)
+						if ((long)s == 429)
 						{
-							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as int? ?? 200;
-							await Task.Delay(waitTime);
+							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as long? ?? 200;
+							await Task.Delay((int)waitTime);
 							if (retry > 5)
 							{
 								Log(compileQuery, responseException);
@@ -82,12 +86,13 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				{
 					Log(compileQuery, ex);
 					throw;
-				} 
+				}
 			}
 			throw new Exception("Should not get there");
 		}
 
 		public bool CanParameterizeQueries => true;
+		public double ConsumedRU { get; private set; }
 
 		protected virtual void Dispose(bool disposing)
 		{
