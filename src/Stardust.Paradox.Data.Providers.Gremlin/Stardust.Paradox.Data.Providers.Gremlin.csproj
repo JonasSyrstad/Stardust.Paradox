@@ -21,7 +21,7 @@ A database connector based on gremlin.net</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Gremlin.Net" Version="3.4.0" />
+    <PackageReference Include="Gremlin.Net" Version="3.4.1" />
   </ItemGroup>
 
   <ItemGroup>

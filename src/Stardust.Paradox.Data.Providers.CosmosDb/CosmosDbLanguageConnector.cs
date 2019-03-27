@@ -54,10 +54,11 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 				var graph = await DocumentCollection().ConfigureAwait(false);
 				var gremlinQ = _client.CreateGremlinQuery(graph, query);
 				var d = await gremlinQ.ExecuteNextAsync().ConfigureAwait(false);
-				Log($"gremlin: {query} (ru cost: {d.RequestCharge })");
+				Log($"gremlin: {query} (ru cost: {d.RequestCharge})");
 				ConsumedRU += d.RequestCharge;
 				return d.AsEnumerable();
 			}
+			
 			catch (Exception ex)
 			{
 				Log(query, ex);

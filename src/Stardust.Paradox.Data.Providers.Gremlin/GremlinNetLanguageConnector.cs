@@ -6,15 +6,19 @@ using Newtonsoft.Json;
 using Stardust.Paradox.Data.Internals;
 using Stardust.Particles;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
-	public class GremlinNetLanguageConnector : LanguageConnectorBase, IGremlinLanguageConnector, IDisposable
+	public class GremlinNetLanguageConnector : LanguageConnectorBase, IGremlinLanguageConnector//, IDisposable
 	{
 		public static bool IsAspNetCore { get; set; }
-		private GremlinClient _client;
+		private readonly GremlinClient _client;
+		private static readonly object lockObject=new object();
+		private static readonly ConcurrentDictionary<string,GremlinClient> gremlinClients =new ConcurrentDictionary<string, GremlinClient>();
+		private string _key;
 
 		/// <summary>
 		/// Connecting to Cosmos DB
@@ -25,16 +29,29 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		/// <param name="accessKey"></param>
 		public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey, ILogging logger = null) : base(logger)
 		{
-			var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
-
-			_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
+			_key = $"{gremlinHostname.ToLower()}.{databaseName.ToLower()}.{graphName.ToLower()}";
+			if (gremlinClients.TryGetValue(_key, out _client)) return;
+			lock (lockObject)
+			{
+				if (gremlinClients.TryGetValue(_key, out _client)) return;
+				var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
+				_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
+				gremlinClients.TryAdd(_key, _client);
+			}
 		}
 
 		public GremlinNetLanguageConnector(string gremlinHostname, string username, string password, int port = 8182, bool enableSsl = true, ILogging logger = null) : base(logger)
 		{
-			var server = new GremlinServer(gremlinHostname, port, enableSsl, username, password);
+			_key = $"{gremlinHostname.ToLower()}.{username.ToLower()}.{port}";
+			if (gremlinClients.TryGetValue(_key, out _client)) return;
+			lock (lockObject)
+			{
+				if (gremlinClients.TryGetValue(_key, out _client)) return;
+				var server = new GremlinServer(gremlinHostname, port, enableSsl, username, password);
+				_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
+				gremlinClients.TryAdd(_key, _client);
+			}
 
-			_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
 		}
 
 		public virtual async Task<IEnumerable<dynamic>> ExecuteAsync(string compileQuery, Dictionary<string, object> parametrizedValues)
@@ -54,6 +71,17 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					else
 						Log($"gremlin: {compileQuery}");
 					return resp;
+				}
+				catch (System.IO.IOException ioException)
+				{
+					Log(ioException);
+					lock (lockObject)
+					{
+						if (gremlinClients.TryRemove(_key, out var c))
+						{
+							c?.Dispose();
+						}
+					}
 				}
 				catch (ResponseException responseException)
 				{
@@ -94,26 +122,26 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		public bool CanParameterizeQueries => true;
 		public double ConsumedRU { get; private set; }
 
-		protected virtual void Dispose(bool disposing)
-		{
-			if (disposing)
-			{
-				try
-				{
-					_client?.Dispose();
-				}
-				catch (Exception ex)
-				{
-					Log(ex);
-				}
+		//protected virtual void Dispose(bool disposing)
+		//{
+		//	if (disposing)
+		//	{
+		//		try
+		//		{
+		//			_client?.Dispose();
+		//		}
+		//		catch (Exception ex)
+		//		{
+		//			Log(ex);
+		//		}
 
-			}
-		}
+		//	}
+		//}
 
-		public void Dispose()
-		{
-			Dispose(true);
-			GC.SuppressFinalize(this);
-		}
+		//public void Dispose()
+		//{
+		//	Dispose(true);
+		//	GC.SuppressFinalize(this);
+		//}
 	}
 }
