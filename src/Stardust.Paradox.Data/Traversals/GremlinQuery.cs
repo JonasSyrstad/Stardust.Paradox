@@ -1,8 +1,8 @@
-﻿using System;
+﻿using Stardust.Paradox.Data.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -59,7 +59,7 @@ namespace Stardust.Paradox.Data.Traversals
 
 		public async Task<IEnumerable<dynamic>> ExecuteAsync()
 		{
-				return await _connector.ExecuteAsync(CompileQuery(), Parameters);
+			return await _connector.ExecuteAsync(CompileQuery(), Parameters);
 		}
 
 		public virtual Dictionary<string, object> Parameters
@@ -81,16 +81,21 @@ namespace Stardust.Paradox.Data.Traversals
 				{
 					return $"'{s.EscapeGremlinString()}'";
 				}
-
 				if (value is DateTime dt)
 					return dt.Ticks.ToString(CultureInfo.InvariantCulture);
 				return value?.ToString().ToLower();
 			}
 			string v;
+			if (value is long || value is decimal)
+			{
+				if ((decimal)value >= int.MaxValue)
+					return value;
+			}
 			lock (Parameters)
 			{
+
 				v = $"__p{Parameters.Count}";
-				Parameters.Add(v, value); 
+				Parameters.Add(v, value);
 			}
 			return v;
 		}

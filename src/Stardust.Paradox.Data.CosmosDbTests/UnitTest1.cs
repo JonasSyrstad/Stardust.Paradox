@@ -4,6 +4,7 @@ using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Providers.Gremlin;
 using Stardust.Paradox.Data.Traversals;
+using Stardust.Paradox.Data.Traversals.Helpers;
 using Stardust.Particles;
 using Stardust.Particles.Collection.Arrays;
 using System;
@@ -11,7 +12,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Traversals.Helpers;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -252,7 +252,7 @@ namespace Stardust.Paradox.CosmosDbTest
 		[Fact]
 		public async Task GetPerfTest()
 		{
-			using (var tc = TestContext()) 
+			using (var tc = TestContext())
 			{
 				var j = await tc.Profiles.GetAsync("Jonas", "Jonas");
 			}
@@ -605,12 +605,23 @@ namespace Stardust.Paradox.CosmosDbTest
 			}
 		}
 
+		public enum VertextType
+		{
+			company
+		}
+
 		[Fact]
 		public async Task QueryBuilderTest()
 		{
 			var testQuery = G.V().Where(s => s.Out().HasLabel("test").And().Out().HasLabel("test2"));
 			Assert.Equal("g.V().where(out().hasLabel(__p0).and().out().hasLabel(__p1))", testQuery.CompileQuery());
 			var rangeQuery = G.V().Range(1, 1);
+			var v = G.V();
+			var z = v.HasId("Jonas").Has("name","Jonas").Has("lastUpdated",p=>p.Gte(636892932759207300));//.Has("lastUpdated", p => p.Gte((decimal)50.3));
+			var J = await z.ExecuteAsync();
+			var t = v.HasLabel(VertextType.company.ToString());
+			var c = await t.Count().ExecuteAsync();
+			var y = await t.ExecuteAsync();
 			await PrintResult(rangeQuery, false);
 			var range = await rangeQuery.ExecuteAsync();
 			Assert.Empty(range);

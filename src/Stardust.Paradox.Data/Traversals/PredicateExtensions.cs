@@ -232,6 +232,7 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
         }
 
+
         public static GremlinQuery Inside(this PredicateGremlinQuery queryBase, int start, int end)
         {
             return new ComposedGremlinQuery(queryBase, $"inside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
