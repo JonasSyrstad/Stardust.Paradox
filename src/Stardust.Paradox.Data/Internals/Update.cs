@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -28,6 +29,8 @@ namespace Stardust.Paradox.Data.Internals
 					var r = $"'{s.EscapeGremlinString()}'";
 					if (r == "'''") return "''";
 					return r;
+				case EpochDateTime time:
+					return $"{time.Epoch}";
 				case DateTime time:
 					return $"{time.Ticks}";
 				case int no:

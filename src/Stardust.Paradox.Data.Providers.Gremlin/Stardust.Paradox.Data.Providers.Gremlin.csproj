@@ -14,7 +14,7 @@ A database connector based on gremlin.net</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <PackageReleaseNotes>Exposing the gremlin.net ConnectionPoolSettings and WebSocketConfiguration to allow tuning of the gremlin driver. Trying to recover from connection issues in WebSocetClient</PackageReleaseNotes>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.0.5</Version>
+    <Version>2.1.0</Version>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -152,6 +153,8 @@ namespace Stardust.Paradox.Data.Internals
 			{
 				case IInlineCollection i:
 					return i.ToTransferData();
+				case EpochDateTime e:
+					return e.Epoch;
 				default:
 					return value;
 			}
