@@ -23,12 +23,12 @@ namespace Stardust.Paradox.Data.Internals
 			if (_logger != null)
 			{
 				_logger.DebugMessage($"Failed query: {query}", LogType.Information, this.GetType().FullName);
-				_logger.Exception(ex, "CosmosDb gremlin connector");
+				_logger.Exception(ex, $"{GetType().FullName}({ex.GetType()})");
 			}
 			else
 			{
 				Logging.DebugMessage($"Failed query: {query}", LogType.Information, this.GetType().FullName);
-				Logging.Exception(ex, this.GetType().FullName);
+				Logging.Exception(ex, $"{GetType().FullName}({ex.GetType()})");
 			}
 
 			Console.WriteLine(query);

@@ -8,6 +8,7 @@ using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
 
@@ -69,17 +70,42 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 			{
 				try
 				{
-					var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues).ConfigureAwait(false);
+					var resp = await _client.SubmitAsync<dynamic>(compileQuery, parametrizedValues)
+						.ConfigureAwait(false);
 					if (resp.StatusAttributes.TryGetValue("x-ms-total-request-charge", out var ru))
 					{
-						Log($"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})");
-						ConsumedRU += (double)ru;
+						Log(
+							$"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})");
+						ConsumedRU += (double) ru;
 					}
 					else
 						Log($"gremlin: {compileQuery}");
+
 					return resp;
 				}
-				catch (System.IO.IOException ioException)
+				catch (AggregateException aggregateException)
+				{
+					if (aggregateException.InnerException is IOException)
+					{
+						Log(aggregateException.InnerException);
+						lock (lockObject)
+						{
+							if (gremlinClients.TryRemove(_key, out var c))
+							{
+								c?.Dispose();
+							}
+						}
+
+						throw;
+					}
+					if (aggregateException.InnerException is ResponseException rex)
+					{
+						await HandleResponseException(compileQuery, rex, retry);
+						retry++;
+					}
+
+				}
+				catch (IOException ioException)
 				{
 					Log(ioException);
 					lock (lockObject)
@@ -89,33 +115,12 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 							c?.Dispose();
 						}
 					}
+					throw;
 				}
 				catch (ResponseException responseException)
 				{
-					if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
-					{
-						if ((long)s == 429)
-						{
-							var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as long? ?? 200;
-							await Task.Delay((int)waitTime);
-							if (retry > 5)
-							{
-								Log(compileQuery, responseException);
-								throw;
-							}
-							retry++;
-						}
-						else
-						{
-							Log(compileQuery, responseException);
-							throw;
-						}
-					}
-					else
-					{
-						Log(compileQuery, responseException);
-						throw;
-					}
+					await HandleResponseException(compileQuery, responseException,retry);
+					retry++;
 				}
 				catch (Exception ex)
 				{
@@ -124,6 +129,35 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 			}
 			throw new Exception("Should not get there");
+		}
+
+		private async Task HandleResponseException(string compileQuery, ResponseException responseException,int retry)
+		{
+			if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
+			{
+				if ((long) s == 429)
+				{
+					var waitTime = responseException.StatusAttributes["x-ms-retry-after-ms"] as long? ?? 200;
+					await Task.Delay((int) waitTime);
+					if (retry > 5)
+					{
+						Log(compileQuery, responseException);
+						throw responseException;
+					}
+
+				}
+				else
+				{
+					Log(compileQuery, responseException);
+					throw responseException;
+				}
+			}
+			else
+			{
+				Log(compileQuery, responseException);
+				throw responseException;
+			}
+
 		}
 
 		public bool CanParameterizeQueries => true;
