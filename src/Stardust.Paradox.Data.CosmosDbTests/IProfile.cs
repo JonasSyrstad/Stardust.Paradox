@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.CosmosDbTest
@@ -78,6 +79,7 @@ namespace Stardust.Paradox.CosmosDbTest
         string Description { get; set; }
         int Number { get; set; }
 	    string Pk { get; set; }
+	    EpochDateTime LastUpdatedEpoch { get; set; }
     }
 
 

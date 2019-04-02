@@ -25,7 +25,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 			_collectionName = collectionName ?? databaseName;
 			if (_client != null) return;
 			if (_clients.TryGetValue(cosmosDbAccountName.ToLower().Trim(), out _client)) return;
-			_client = new DocumentClient(new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"),authKeyOrResourceToken);
+			_client = new DocumentClient(new Uri($"https://{cosmosDbAccountName}.documents.azure.com:443/"), authKeyOrResourceToken);
 			_clients.TryAdd(cosmosDbAccountName.ToLower().Trim(), _client);
 		}
 
@@ -58,10 +58,9 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 				ConsumedRU += d.RequestCharge;
 				return d.AsEnumerable();
 			}
-			
-			catch (Exception ex)
+
+			catch (Exception ex) when (Log(query, ex))
 			{
-				Log(query, ex);
 				throw;
 			}
 		}

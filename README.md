@@ -26,6 +26,8 @@ public interface IPerson : IVertex
     
     string Email { get; set; }
 
+    EpochDateTime Birthday {get;set;}//Wrapper type for DateTime that serializes into unix epoch. Can be used in predicate steps directly.
+
     IEdgeCollection<IPerson> Parents { get; }
 
     IEdgeCollection<IPerson> Children { get; }
@@ -83,7 +85,7 @@ public interface ICountry : IVertex
     {
         string Id { get; }
 
-        DateTime HiredDate { get; set; }
+        EpochDateTime HiredDate { get; set; }
 
         string Manager { get; set; }
     }
@@ -154,7 +156,7 @@ public class DemoController:Controller
         var user=await await _dataContext.Persons.GetAsync(persionId);
         var company=await _dataContext.Companies.GetAsync(companyId);
         var e= _dataContext.Employments.Create(user,company);
-        e.HiredDate=hiredDate;
+        e.HiredDate=hiredDate.ToEpoch();
         e.ManagerName=managerName;
         await _dataContext.SaveChangesAsync();
         //alternative
@@ -166,7 +168,7 @@ public class DemoController:Controller
         var user=await await _dataContext.Persons.GetAsync(persionId);
         var company=await _dataContext.Companies.GetAsync(companyId);
         user.Employers.Add(company,new Dictionary<string,object>{
-            {"hiredDate",hiredDate},
+            {"hiredDate",hiredDate.ToEpoch()},
             {"managerName","managerName"}
         })
         await _dataContext.SaveChangesAsync();

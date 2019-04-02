@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Globalization;
 using System.Linq;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -64,7 +65,13 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
 
-        public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, decimal value)
+
+	    public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Eq(this PredicateGremlinQuery queryBase, decimal value)
         {
             return new ComposedGremlinQuery(queryBase, $"eq({queryBase.ComposeParameter(value)})");
         }
@@ -84,7 +91,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
 
-        public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, decimal value)
+	    public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Neq(this PredicateGremlinQuery queryBase, decimal value)
         {
             return new ComposedGremlinQuery(queryBase, $"neq({queryBase.ComposeParameter(value)})");
         }
@@ -151,7 +163,13 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
-        public static GremlinQuery Has(this GremlinQuery queryBase, string label, string key, string value)
+
+	    public static GremlinQuery Has(this GremlinQuery queryBase, string key, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Has(this GremlinQuery queryBase, string label, string key, string value)
         {
             return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(label)},{queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
@@ -169,11 +187,21 @@ namespace Stardust.Paradox.Data.Traversals
             return queryBase.Params("within", values);
         }
 
-        public static GremlinQuery Without(this PredicateGremlinQuery queryBase, params string[] values)
+	    public static GremlinQuery Within(this PredicateGremlinQuery queryBase, params EpochDateTime[] values)
+	    {
+		    return queryBase.Params("within", values);
+	    }
+
+		public static GremlinQuery Without(this PredicateGremlinQuery queryBase, params string[] values)
         {
             return queryBase.Params("without", values);
         }
-        public static GremlinQuery Without(this PredicateGremlinQuery queryBase, params int[] values)
+
+	    public static GremlinQuery Without(this PredicateGremlinQuery queryBase, params EpochDateTime[] values)
+	    {
+		    return queryBase.Params("without", values);
+	    }
+		public static GremlinQuery Without(this PredicateGremlinQuery queryBase, params int[] values)
         {
             return queryBase.Params("without", values);
         }
@@ -192,7 +220,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"lt({queryBase.ComposeParameter(value)})");
         }
 
-        public static GremlinQuery Lt(this PredicateGremlinQuery queryBase, decimal value)
+	    public static GremlinQuery Lt(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"lt({queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Lt(this PredicateGremlinQuery queryBase, decimal value)
         {
             return new ComposedGremlinQuery(queryBase, $"lt({queryBase.ComposeParameter(value)})");
         }
@@ -202,7 +235,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"lte({value})");
         }
 
-        public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, decimal value)
+	    public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"lte({value})");
+	    }
+
+		public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, decimal value)
         {
             return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
         }
@@ -212,7 +250,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
         }
 
-        public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, int value)
+	    public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Gt(this PredicateGremlinQuery queryBase, int value)
         {
             return new ComposedGremlinQuery(queryBase, $"gt({queryBase.ComposeParameter(value)})");
         }
@@ -227,7 +270,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
         }
 
-        public static GremlinQuery Gte(this PredicateGremlinQuery queryBase, decimal value)
+	    public static GremlinQuery Gte(this PredicateGremlinQuery queryBase, EpochDateTime value)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
+	    }
+
+		public static GremlinQuery Gte(this PredicateGremlinQuery queryBase, decimal value)
         {
             return new ComposedGremlinQuery(queryBase, $"gte({queryBase.ComposeParameter(value)})");
         }
@@ -243,12 +291,22 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"inside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
-        public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, int start, int end)
+	    public static GremlinQuery Inside(this PredicateGremlinQuery queryBase, EpochDateTime start, EpochDateTime end)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"inside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
+	    }
+
+		public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, int start, int end)
         {
             return new ComposedGremlinQuery(queryBase, $"outside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
-        public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, decimal start, decimal end)
+	    public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, EpochDateTime start, EpochDateTime end)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"outside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
+	    }
+
+		public static GremlinQuery Outside(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
             return new ComposedGremlinQuery(queryBase, $"outside({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
@@ -258,7 +316,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
 
-        public static GremlinQuery Between(this PredicateGremlinQuery queryBase, decimal start, decimal end)
+	    public static GremlinQuery Between(this PredicateGremlinQuery queryBase, EpochDateTime start, EpochDateTime end)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
+	    }
+
+		public static GremlinQuery Between(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
             return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }

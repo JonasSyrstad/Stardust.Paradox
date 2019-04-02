@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>2.0.6</Version>
+    <Version>2.1.1</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
@@ -19,7 +19,9 @@ Added support for partitioning (CosmosDB)
 Added missing 'and' overload and fixed get edge partitioning issue.
 Added missing 'and' overload
 Bugfix: new TypedEdge is not saved when no properties are updated
-Bugfix: Parameterization of numbers larger than int.MaxValue fails when calling cosmosDB</PackageReleaseNotes>
+Bugfix: Parameterization of numbers larger than int.MaxValue fails when calling cosmosDB
+Enhancement: Added EpochDateTime type to handle datetime values better.
+Enhancement: Added support for EpochDateTime in the appropriate predicate steps</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>

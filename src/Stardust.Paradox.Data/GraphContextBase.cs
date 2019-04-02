@@ -13,6 +13,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data
 {
@@ -435,6 +436,20 @@ namespace Stardust.Paradox.Data
 						action.Invoke(item, d);
 					else
 						action.Invoke(item, value == null ? (DateTime?)null : new DateTime(long.Parse(value?.ToString())));
+				}
+				else if (prop.PropertyType == typeof(EpochDateTime))
+				{
+					if (value is EpochDateTime d)
+						action.Invoke(item, d);
+					else
+						action.Invoke(item, new EpochDateTime{Epoch = int.Parse(value.ToString()) });
+				}
+				else if (prop.PropertyType == typeof(EpochDateTime?))
+				{
+					if (value is EpochDateTime d)
+						action.Invoke(item, d);
+					else
+						action.Invoke(item, value == null ? (EpochDateTime?)null : new EpochDateTime { Epoch = int.Parse(value.ToString())});
 				}
 				else if (prop.PropertyType == typeof(int))
 					action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));

@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -355,6 +356,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				var jonas = await tc.VAsync<IProfile>("Jonas");
 				Assert.NotNull(jonas);
 				jonas.LastUpdated = DateTime.Now;
+				jonas.LastUpdatedEpoch = (EpochDateTime)DateTime.Now;
 				jonas.FirstName = "Jonas";
 				jonas.LastName = "Syrstad";
 				jonas.Email = "jonas.syrstad@dnvgl.com";
@@ -617,7 +619,8 @@ namespace Stardust.Paradox.CosmosDbTest
 			Assert.Equal("g.V().where(out().hasLabel(__p0).and().out().hasLabel(__p1))", testQuery.CompileQuery());
 			var rangeQuery = G.V().Range(1, 1);
 			var v = G.V();
-			var z = v.HasId("Jonas").Has("name","Jonas").Has("lastUpdated",p=>p.Gte(636892932759207300));//.Has("lastUpdated", p => p.Gte((decimal)50.3));
+			var val= DateTime.Now.AddDays(-100).ToEpoch();
+			var z = v.HasId("Jonas").Has("name","Jonas").Has("lastUpdatedEpoch",p=>p.Gte(val));//.Has("lastUpdated", p => p.Gte((decimal)50.3));
 			var J = await z.ExecuteAsync();
 			var t = v.HasLabel(VertextType.company.ToString());
 			var c = await t.Count().ExecuteAsync();

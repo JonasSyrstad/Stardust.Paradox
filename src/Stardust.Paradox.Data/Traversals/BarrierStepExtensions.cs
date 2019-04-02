@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Linq;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.Data.Traversals
@@ -30,7 +31,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"{queryBase.ComposeParameter(s)}"))})");
         }
 
-        internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params int[] values)
+	    internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params EpochDateTime[] values)
+	    {
+		    return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => $"{queryBase.ComposeParameter(s)}"))})");
+	    }
+
+		internal static GremlinQuery Params(this GremlinQuery queryBase, string name, params int[] values)
         {
             return new ComposedGremlinQuery(queryBase, $".{name}({string.Join(",", values.Select(s => queryBase.ComposeParameter(s)))})");
         }

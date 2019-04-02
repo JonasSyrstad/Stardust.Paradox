@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -81,6 +82,9 @@ namespace Stardust.Paradox.Data.Traversals
 				{
 					return $"'{s.EscapeGremlinString()}'";
 				}
+
+				if (value is EpochDateTime epoch)
+					return epoch.Epoch.ToString(CultureInfo.InvariantCulture);
 				if (value is DateTime dt)
 					return dt.Ticks.ToString(CultureInfo.InvariantCulture);
 				return value?.ToString().ToLower();
@@ -95,7 +99,9 @@ namespace Stardust.Paradox.Data.Traversals
 			{
 
 				v = $"__p{Parameters.Count}";
-				Parameters.Add(v, value);
+				if(value is EpochDateTime epoch)
+					Parameters.Add(v,epoch.Epoch);
+				else Parameters.Add(v, value);
 			}
 			return v;
 		}

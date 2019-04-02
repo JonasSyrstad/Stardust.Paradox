@@ -1,7 +1,5 @@
 ﻿using Stardust.Particles;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -17,9 +15,9 @@ namespace Stardust.Paradox.Data.Internals
 
 		public bool OutputAllQueries { get; set; }
 
-		protected void Log(string query, Exception ex)
+		protected bool Log(string query, Exception ex)
 		{
-			if (!OutputDebugLog) return;
+			if (!OutputDebugLog) return false;
 			if (_logger != null)
 			{
 				_logger.DebugMessage($"Failed query: {query}", LogType.Information, this.GetType().FullName);
@@ -32,6 +30,7 @@ namespace Stardust.Paradox.Data.Internals
 			}
 
 			Console.WriteLine(query);
+			return false;
 		}
 
 		protected void Log(Exception ex)
