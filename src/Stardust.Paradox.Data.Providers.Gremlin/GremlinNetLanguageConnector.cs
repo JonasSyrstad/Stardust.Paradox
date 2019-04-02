@@ -85,17 +85,9 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (AggregateException aggregateException)
 				{
-					if (aggregateException.InnerException is IOException)
+					if (aggregateException.InnerException is IOException || aggregateException.InnerException is ServerUnavailableException)
 					{
-						Log(aggregateException.InnerException);
-						lock (lockObject)
-						{
-							if (gremlinClients.TryRemove(_key, out var c))
-							{
-								c?.Dispose();
-							}
-						}
-
+						HandleConnectionException(aggregateException.InnerException);
 						throw;
 					}
 					if (aggregateException.InnerException is ResponseException rex)
@@ -107,14 +99,12 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (IOException ioException)
 				{
-					Log(ioException);
-					lock (lockObject)
-					{
-						if (gremlinClients.TryRemove(_key, out var c))
-						{
-							c?.Dispose();
-						}
-					}
+					HandleConnectionException(ioException);
+					throw ;
+				}
+				catch(ServerUnavailableException ioException)
+				{
+					HandleConnectionException(ioException);
 					throw;
 				}
 				catch (ResponseException responseException)
@@ -129,6 +119,20 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 			}
 			throw new Exception("Should not get there");
+		}
+
+		private void HandleConnectionException(Exception ioException)
+		{
+			Log($"A connection error has occured, trying to reset the GremlinClient: {ioException.Message}");
+			Log(ioException);
+			lock (lockObject)
+			{
+				if (gremlinClients.TryRemove(_key, out var c))
+				{
+					c?.Dispose();
+				}
+			}
+
 		}
 
 		private async Task HandleResponseException(string compileQuery, ResponseException responseException,int retry)
