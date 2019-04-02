@@ -1,6 +1,5 @@
 ﻿using Gremlin.Net.Driver;
 using Gremlin.Net.Driver.Exceptions;
-using Gremlin.Net.Driver.Messages;
 using Gremlin.Net.Structure.IO.GraphSON;
 using Newtonsoft.Json;
 using Stardust.Paradox.Data.Internals;
@@ -20,10 +19,11 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		public static Action<ClientWebSocketOptions> WebSocketConfiguration { get; set; }
 
 		public static bool IsAspNetCore { get; set; }
-		private readonly GremlinClient _client;
+		private GremlinClient _client;
 		private static readonly object lockObject = new object();
 		private static readonly ConcurrentDictionary<string, GremlinClient> gremlinClients = new ConcurrentDictionary<string, GremlinClient>();
 		private readonly string _key;
+		private GremlinServer _server;
 
 
 		/// <summary>
@@ -36,12 +36,17 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey, ILogging logger = null) : base(logger)
 		{
 			_key = $"{gremlinHostname.ToLower()}.{databaseName.ToLower()}.{graphName.ToLower()}";
+			_server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
+			InitializeClient();
+		}
+
+		private void InitializeClient()
+		{
 			if (gremlinClients.TryGetValue(_key, out _client)) return;
 			lock (lockObject)
 			{
 				if (gremlinClients.TryGetValue(_key, out _client)) return;
-				var server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
-				_client = new GremlinClient(server, new InternalGraphSONReader1(),
+				_client = new GremlinClient(_server, new InternalGraphSONReader1(),
 					new GraphSON2Writer(),
 					GremlinClient.GraphSON2MimeType, ConnectionPoolSettings, WebSocketConfiguration);
 				gremlinClients.TryAdd(_key, _client);
@@ -51,14 +56,8 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		public GremlinNetLanguageConnector(string gremlinHostname, string username, string password, int port = 8182, bool enableSsl = true, ILogging logger = null) : base(logger)
 		{
 			_key = $"{gremlinHostname.ToLower()}.{username.ToLower()}.{port}";
-			if (gremlinClients.TryGetValue(_key, out _client)) return;
-			lock (lockObject)
-			{
-				if (gremlinClients.TryGetValue(_key, out _client)) return;
-				var server = new GremlinServer(gremlinHostname, port, enableSsl, username, password);
-				_client = new GremlinClient(server, new InternalGraphSONReader1(), new GraphSON2Writer(), GremlinClient.GraphSON2MimeType);
-				gremlinClients.TryAdd(_key, _client);
-			}
+			_server = new GremlinServer(gremlinHostname, port, enableSsl, username, password);
+			InitializeClient();
 
 		}
 
@@ -85,43 +84,41 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (AggregateException aggregateException)
 				{
-					if (aggregateException.InnerException is IOException || aggregateException.InnerException is ServerUnavailableException)
+					if (aggregateException.InnerException is IOException || aggregateException.InnerException is ServerUnavailableException || aggregateException.InnerException is NoConnectionAvailableException)
 					{
-						HandleConnectionException(aggregateException.InnerException);
-						throw;
+						await HandleConnectionException(aggregateException.InnerException);
+						retry++;
 					}
 					if (aggregateException.InnerException is ResponseException rex)
 					{
 						await HandleResponseException(compileQuery, rex, retry);
 						retry++;
 					}
-
 				}
 				catch (IOException ioException)
 				{
-					HandleConnectionException(ioException);
-					throw ;
+					await HandleConnectionException(ioException);
+					retry++;
 				}
-				catch(ServerUnavailableException ioException)
+				catch(NoConnectionAvailableException ioException)
 				{
-					HandleConnectionException(ioException);
-					throw;
+					await HandleConnectionException(ioException);
+					retry++;
 				}
 				catch (ResponseException responseException)
 				{
 					await HandleResponseException(compileQuery, responseException,retry);
 					retry++;
 				}
-				catch (Exception ex)
+				catch (Exception ex) when(Log(compileQuery, ex))
 				{
-					Log(compileQuery, ex);
 					throw;
 				}
 			}
 			throw new Exception("Should not get there");
 		}
 
-		private void HandleConnectionException(Exception ioException)
+		private async Task HandleConnectionException(Exception ioException)
 		{
 			Log($"A connection error has occured, trying to reset the GremlinClient: {ioException.Message}");
 			Log(ioException);
@@ -132,7 +129,9 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					c?.Dispose();
 				}
 			}
-
+			//Waiting a bit to let the connection close and release resources.
+			await Task.Delay(10);
+			InitializeClient();
 		}
 
 		private async Task HandleResponseException(string compileQuery, ResponseException responseException,int retry)
