@@ -325,5 +325,35 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
         }
+
+        public static GremlinQuery StartingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"startingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotStartingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notStartingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery EndingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"endingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotEndingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notEndingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery Containing(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"containing({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotContaining(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notContaining({queryBase.ComposeParameter(value)})");
+        }
     }
 }
