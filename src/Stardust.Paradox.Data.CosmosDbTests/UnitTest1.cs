@@ -414,7 +414,12 @@ namespace Stardust.Paradox.CosmosDbTest
 				await tc.SaveChangesAsync().ConfigureAwait(false);
 				tc.Clear();
 				var test2 = await tc.VAsync<IProfile>("test.item", "test.item");
-				var j = await tc.VAsync<IProfile>("Jonas");
+                test2.Email = "test2.@dnvgl.com";
+                await tc.SaveChangesAsync();
+                var test4= await tc.VAsync<IProfile>("test.item", "test.item");
+                Assert.Equal(test2.Email,test4.Email);
+                Assert.Equal(test2,test4);
+                var j = await tc.VAsync<IProfile>("Jonas");
 				test2.Parents.Add(j);
 				await tc.SaveChangesAsync();
 				Assert.NotNull(test2);

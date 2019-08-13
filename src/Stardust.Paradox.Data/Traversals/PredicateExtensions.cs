@@ -232,12 +232,12 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"lte({value})");
+            return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
         }
 
 	    public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, EpochDateTime value)
 	    {
-		    return new ComposedGremlinQuery(queryBase, $"lte({value})");
+		    return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
 	    }
 
 		public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, decimal value)

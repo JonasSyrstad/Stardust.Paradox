@@ -100,8 +100,6 @@ namespace Stardust.Paradox.Data
 
 		public T CreateEntity<T>(string id) where T : IGraphEntity
 		{
-
-
 			var item = Create<T>();
 			var i = item as IGraphEntityInternal;
 			i.EntityKey = id;
