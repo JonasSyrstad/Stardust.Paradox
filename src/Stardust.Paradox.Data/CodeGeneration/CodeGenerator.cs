@@ -74,7 +74,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     AssemblyBuilderAccess.Run);
             if (_moduleBuilder == null)
                 _moduleBuilder = _builder.DefineDynamicModule("Data.Contracts.Implementations");
-            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Edges" + entity.Name.Remove(0, 1),
+            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Edges." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
                baseType,
                 new[] { dataContract }
@@ -107,7 +107,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 //    if (eager != null)
                 //        eagerProperties.Add(prop.Name);
                 //}
-                else if (prop.SetMethod != null)
+                else
                     AddValueProperty(typeBuilder, prop,baseType);
             }
             if (eagerProperties.ContainsElements())
@@ -125,7 +125,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     AssemblyBuilderAccess.Run);
             if (_moduleBuilder == null)
                 _moduleBuilder = _builder.DefineDynamicModule("Data.Contracts.Implementations");
-            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Vertices" + entity.Name.Remove(0, 1),
+            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Vertices." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
                 baseType,
                 new[] { dataContract }
@@ -158,7 +158,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     if (eager != null)
                         eagerProperties.Add(prop.Name);
                 }
-                else if (prop.SetMethod != null)
+                else
                     AddValueProperty(typeBuilder, prop,baseType);
             }
             if (eagerProperties.ContainsElements())
