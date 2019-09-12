@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>2.1.4</Version>
+    <Version>2.1.5</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
@@ -22,7 +22,8 @@ Bugfix: new TypedEdge is not saved when no properties are updated
 Bugfix: Parameterization of numbers larger than int.MaxValue fails when calling cosmosDB
 Enhancement: Added EpochDateTime type to handle datetime values better.
 Enhancement: Added support for EpochDateTime in the appropriate predicate steps
-Enhancement: Added support for text predicates</PackageReleaseNotes>
+Enhancement: Added support for text predicates
+Enhancement: Removing restrictions requiring vertex and edge properties to have a setter (thanx @bittola)</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
