@@ -15,4 +15,9 @@ namespace Stardust.Paradox.Data.Annotations
         void AddRange(IEnumerable<T> items);
 
     }
+
+    public interface IComplexProperty
+    {
+        
+    }
 }

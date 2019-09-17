@@ -232,12 +232,12 @@ namespace Stardust.Paradox.Data.Traversals
 
         public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, int value)
         {
-            return new ComposedGremlinQuery(queryBase, $"lte({value})");
+            return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
         }
 
 	    public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, EpochDateTime value)
 	    {
-		    return new ComposedGremlinQuery(queryBase, $"lte({value})");
+		    return new ComposedGremlinQuery(queryBase, $"lte({queryBase.ComposeParameter(value)})");
 	    }
 
 		public static GremlinQuery Lte(this PredicateGremlinQuery queryBase, decimal value)
@@ -324,6 +324,36 @@ namespace Stardust.Paradox.Data.Traversals
 		public static GremlinQuery Between(this PredicateGremlinQuery queryBase, decimal start, decimal end)
         {
             return new ComposedGremlinQuery(queryBase, $"between({queryBase.ComposeParameter(start)},{queryBase.ComposeParameter(end)})");
+        }
+
+        public static GremlinQuery StartingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"startingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotStartingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notStartingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery EndingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"endingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotEndingWith(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notEndingWith({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery Containing(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"containing({queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery NotContaining(this PredicateGremlinQuery queryBase, string value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"notContaining({queryBase.ComposeParameter(value)})");
         }
     }
 }

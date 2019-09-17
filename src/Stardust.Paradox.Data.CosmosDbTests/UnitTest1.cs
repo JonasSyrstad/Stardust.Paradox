@@ -414,7 +414,12 @@ namespace Stardust.Paradox.CosmosDbTest
 				await tc.SaveChangesAsync().ConfigureAwait(false);
 				tc.Clear();
 				var test2 = await tc.VAsync<IProfile>("test.item", "test.item");
-				var j = await tc.VAsync<IProfile>("Jonas");
+                test2.Email = "test2.@dnvgl.com";
+                await tc.SaveChangesAsync();
+                var test4= await tc.VAsync<IProfile>("test.item", "test.item");
+                Assert.Equal(test2.Email,test4.Email);
+                Assert.Equal(test2,test4);
+                var j = await tc.VAsync<IProfile>("Jonas");
 				test2.Parents.Add(j);
 				await tc.SaveChangesAsync();
 				Assert.NotNull(test2);
@@ -615,7 +620,9 @@ namespace Stardust.Paradox.CosmosDbTest
 		[Fact]
 		public async Task QueryBuilderTest()
 		{
-			var testQuery = G.V().Where(s => s.Out().HasLabel("test").And().Out().HasLabel("test2"));
+            var staringWith = G.V().Has("name", p => p.StartingWith("sa"));
+            var notStaringWith = G.V().Has("name", p => p.NotStartingWith("sa"));
+            var testQuery = G.V().Where(s => s.Out().HasLabel("test").And().Out().HasLabel("test2"));
 			Assert.Equal("g.V().where(out().hasLabel(__p0).and().out().hasLabel(__p1))", testQuery.CompileQuery());
 			var rangeQuery = G.V().Range(1, 1);
 			var v = G.V();
@@ -673,13 +680,13 @@ namespace Stardust.Paradox.CosmosDbTest
 			Assert.Equal("g.V().has(__p0,__p1).as(__p2).in(__p3).out(__p4).where(without(__p6)).dedup().values(__p5)", siblings.ToString());
 			await PrintResult(siblings);
 			await PrintResult(siblings.Count());
+            
+            //var matchTest = G.V().Match(p => p.__().As("a").Out("parent").As("b"),
+            //    p=>p.__().As("b").Has("name","Jonas")
+            //    );
+            //await PrintResult(matchTest);
 
-			//var matchTest = G.V().Match(p => p.__().As("a").Out("parent").As("b"),
-			//    p=>p.__().As("b").Has("name","Jonas")
-			//    );
-			//await PrintResult(matchTest);
-
-		}
+        }
 
 		private async Task PrintResult(GremlinQuery q1, bool outputResult = true, bool execute = true)
 		{

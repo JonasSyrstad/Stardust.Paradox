@@ -90,12 +90,17 @@ namespace Stardust.Paradox.Data.Traversals
 				return value?.ToString().ToLower();
 			}
 			string v;
-			if (value is long || value is decimal)
+			if ( value is decimal o)
 			{
-				if ((decimal)value >= int.MaxValue)
-					return value;
+				if (o >= int.MaxValue)
+					return o;
 			}
-			lock (Parameters)
+            if (value is long l )
+            {
+                if (l >= int.MaxValue)
+                    return l;
+            }
+            lock (Parameters)
 			{
 
 				v = $"__p{Parameters.Count}";
