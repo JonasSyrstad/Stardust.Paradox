@@ -26,12 +26,18 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new LambdaComposedGremlinQuery(queryBase, "not({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
+        
         public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
         {
             return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
-	    public static GremlinQuery And(this GremlinQuery queryBase)
+        public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        {
+            return new LambdaComposedGremlinQuery(queryBase, "and({0},{1})", query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(), query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+        }
+
+        public static GremlinQuery And(this GremlinQuery queryBase)
 	    {
 		    return new ComposedGremlinQuery(queryBase, "and()");
 	    }
@@ -41,7 +47,12 @@ namespace Stardust.Paradox.Data.Traversals
             return new LambdaComposedGremlinQuery(queryBase, "or({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
 
-	    public static GremlinQuery Or(this GremlinQuery queryBase)
+        public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        {
+            return new LambdaComposedGremlinQuery(queryBase, "or({0},{1})", query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(), query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+        }
+
+        public static GremlinQuery Or(this GremlinQuery queryBase)
 	    {
 		    return new ComposedGremlinQuery(queryBase, "or()");
 	    }
