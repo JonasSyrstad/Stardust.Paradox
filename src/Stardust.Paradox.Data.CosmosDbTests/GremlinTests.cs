@@ -348,23 +348,33 @@ namespace Stardust.Paradox.CosmosDbTest
 
 		}
 
-		[Fact]
-		public async Task DataContextReadWriteTestAsync()
-		{
-			using (var tc = TestContext())
-			{
-				var jonas = await tc.VAsync<IProfile>("Jonas");
-				Assert.NotNull(jonas);
-				jonas.LastUpdated = DateTime.Now;
-				jonas.LastUpdatedEpoch = (EpochDateTime)DateTime.Now;
-				jonas.FirstName = "Jonas";
-				jonas.LastName = "Syrstad";
-				jonas.Email = "jonas.syrstad@dnvgl.com";
-				await tc.SaveChangesAsync();
-			}
-		}
+        [Fact]
+        public async Task DataContextReadWriteTestAsync()
+        {
+            using (var tc = TestContext())
+            {
+                var jonas = await tc.VAsync<IProfile>("Jonas");
+                Assert.NotNull(jonas);
+                jonas.LastUpdated = DateTime.Now;
+                jonas.LastUpdatedEpoch = (EpochDateTime) DateTime.Now;
+                jonas.FirstName = "Jonas";
+                jonas.LastName = null;
+                jonas.Email = "jonas.syrstad@dnvgl.com";
+                Assert.Null(jonas.LastName);
+                await tc.SaveChangesAsync();
+            }
 
-		[Fact]
+            using (var tc = TestContext())
+            {
+                var jonas = await tc.VAsync<IProfile>("Jonas");
+                Assert.NotNull(jonas);
+                Assert.Null(jonas.LastName);
+                jonas.LastName = "Syrstad";
+                await tc.SaveChangesAsync();
+            }
+        }
+
+        [Fact]
 		public async Task GraphSetTests()
 		{
 			IEnumerable<IProfile> jonas2;

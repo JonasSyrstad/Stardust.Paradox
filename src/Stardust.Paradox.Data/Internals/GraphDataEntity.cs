@@ -76,6 +76,13 @@ namespace Stardust.Paradox.Data.Internals
 
 				IsDirty = true;
 			}
+            else
+            {
+                UpdateChain.Add(propertyName.ToCamelCase(),new Update
+                {
+                    Parameterless = $".property('{propertyName.ToCamelCase()}',null)"
+                });
+            }
 		}
 		internal object GetValue(object value)
 		{
