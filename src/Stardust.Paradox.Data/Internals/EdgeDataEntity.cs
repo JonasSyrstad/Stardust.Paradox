@@ -10,12 +10,17 @@ using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Internals
 {
+    internal interface IDynamicEntity
+    {
+        IDictionary<string, object> _dynamicProperties { get; }
+    }
 
-	public abstract class EdgeDataEntity<TIn, TOut> : IGraphEntityInternal, IEdgeEntityInternal, IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
+
+    public abstract class EdgeDataEntity<TIn, TOut> : IGraphEntityInternal, IEdgeEntityInternal, IEdge<TIn, TOut>, IDynamicGraphEntity, IDynamicEntity where TIn : IVertex where TOut : IVertex
 	{
-
-		//private string gremlinUpdateStatement = "";
-		private Dictionary<string, Update> UpdateChain = new Dictionary<string, Update>();
+        public IDictionary<string, object> _dynamicProperties { get; } = new Dictionary<string, object>();
+        //private string gremlinUpdateStatement = "";
+        private Dictionary<string, Update> UpdateChain = new Dictionary<string, Update>();
 		private readonly ConcurrentDictionary<string, IInlineCollection> _inlineCollections = new ConcurrentDictionary<string, IInlineCollection>();
 		public string EntityKey
 		{
@@ -238,5 +243,46 @@ namespace Stardust.Paradox.Data.Internals
 			}
 			return p;
 		}
-	}
+
+        public object GetProperty(string propertyName)
+        {
+            if (_dynamicProperties.TryGetValue(propertyName, out var v)) return v;
+            return null;
+        }
+
+        public void SetProperty(string propertyName, object value)
+        {
+            if (GetProperty(propertyName) == value)
+                return;
+            if (_isLoading) return;
+            if (IsDeleted)
+                throw new EntityDeletedException(
+                    $"Entitiy {GetType().GetInterfaces().First().Name}.{_entityKey} is marked as deleted.");
+
+            if (value != null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
+                //gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
+                if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
+                    update.Value = GetValue(value);
+                else UpdateChain.Add(propertyName.ToCamelCase(), new Update { PropertyName = propertyName.ToCamelCase(), Value = GetValue(value) });
+                if (_dynamicProperties.ContainsKey(propertyName))
+                    _dynamicProperties[propertyName] = value;
+                else _dynamicProperties.Add(propertyName, value);
+                IsDirty = true;
+            }
+            else
+            {
+                UpdateChain.Add(propertyName.ToCamelCase(), new Update
+                {
+                    Parameterless = $".property('{propertyName.ToCamelCase()}',null)"
+                });
+                if (_dynamicProperties.ContainsKey(propertyName))
+                    _dynamicProperties.Remove(propertyName);
+                IsDirty = true;
+            }
+        }
+
+        public string[] DynamicPropertyNames => _dynamicProperties.Keys.ToArray();
+    }
 }

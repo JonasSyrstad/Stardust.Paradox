@@ -11,7 +11,7 @@ using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Internals
 {
-	public abstract class GraphDataEntity : IGraphEntityInternal, IVertex
+	public abstract class GraphDataEntity : IGraphEntityInternal, IVertex, IDynamicGraphEntity,IDynamicEntity
 	{
 		public event PropertyChangedHandler PropertyChanged;
 		public event PropertyChangingHandler PropertyChanging;
@@ -27,8 +27,8 @@ namespace Stardust.Paradox.Data.Internals
 		internal static ConcurrentDictionary<string, List<string>> _eagerLodedProperties = new ConcurrentDictionary<string, List<string>>();
 		internal bool _eagerLoding;
 		private bool _isLoading = true;
-
-		protected IEdgeCollection<TOut> GetEdgeCollection<TOut>(string edgeLabel, string reverseLabel, string gremlinQuery) where TOut : IVertex
+        public IDictionary<string, object> _dynamicProperties { get; } = new Dictionary<string, object>();
+        protected IEdgeCollection<TOut> GetEdgeCollection<TOut>(string edgeLabel, string reverseLabel, string gremlinQuery) where TOut : IVertex
 		{
 			if (reverseLabel == "") reverseLabel = null;
 			if (edgeLabel == "") edgeLabel = null;
@@ -82,6 +82,7 @@ namespace Stardust.Paradox.Data.Internals
                 {
                     Parameterless = $".property('{propertyName.ToCamelCase()}',null)"
                 });
+                IsDirty = true;
             }
 		}
 		internal object GetValue(object value)
@@ -256,5 +257,47 @@ namespace Stardust.Paradox.Data.Internals
 				return dt.Ticks;
 			return v.Value.Value;
 		}
-	}
+
+        public object GetProperty(string propertyName)
+        {
+            if (_dynamicProperties.TryGetValue(propertyName, out var v)) return v;
+            return null;
+        }
+
+        public void SetProperty(string propertyName, object value)
+        {
+            if (GetProperty(propertyName) == value)
+                return;
+            if (_isLoading) return;
+            if (IsDeleted)
+                throw new EntityDeletedException(
+                    $"Entitiy {GetType().GetInterfaces().First().Name}.{_entityKey} is marked as deleted.");
+            if (vertexSelector.IsNullOrWhiteSpace()) return;
+
+            if (value != null)
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
+                //gremlinUpdateStatement += $".property('{propertyName.ToCamelCase()}',{GetValue(value)})";
+                if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
+                    update.Value = GetValue(value);
+                else UpdateChain.Add(propertyName.ToCamelCase(), new Update { PropertyName = propertyName.ToCamelCase(), Value = GetValue(value) });
+                if (_dynamicProperties.ContainsKey(propertyName))
+                    _dynamicProperties[propertyName] = value;
+                else _dynamicProperties.Add(propertyName,value);
+                IsDirty = true;
+            }
+            else
+            {
+                UpdateChain.Add(propertyName.ToCamelCase(), new Update
+                {
+                    Parameterless = $".property('{propertyName.ToCamelCase()}',null)"
+                });
+                if (_dynamicProperties.ContainsKey(propertyName))
+                    _dynamicProperties.Remove(propertyName);
+                IsDirty = true;
+            }
+        }
+
+        public string[] DynamicPropertyNames => _dynamicProperties.Keys.ToArray();
+    }
 }

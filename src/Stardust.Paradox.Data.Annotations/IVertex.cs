@@ -8,11 +8,20 @@ namespace Stardust.Paradox.Data.Annotations
         event PropertyChangedHandler PropertyChanged;
         event PropertyChangingHandler PropertyChanging;
     }
-   
+     
 
     public interface IVertex : IGraphEntity
     {
 
+    }
+
+    public interface IDynamicGraphEntity 
+    {
+        object GetProperty(string propertyName);
+
+        void SetProperty(string propertyName, object value);
+
+        string[] DynamicPropertyNames { get; }
     }
 
     //public interface IEdge: IGraphEntity
