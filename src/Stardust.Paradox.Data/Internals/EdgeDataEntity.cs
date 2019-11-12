@@ -136,7 +136,7 @@ namespace Stardust.Paradox.Data.Internals
 			if (IsDeleted)
 				throw new EntityDeletedException(
 					$"Entitiy {GetType().GetInterfaces().First().Name}.{_entityKey} is marked as deleted.");
-			if (value != null)
+			//if (value != null)
 			{
 				PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
 				if (UpdateChain.TryGetValue(propertyName.ToCamelCase(), out var update))
