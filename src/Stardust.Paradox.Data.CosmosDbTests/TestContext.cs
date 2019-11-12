@@ -45,7 +45,7 @@ namespace Stardust.Paradox.CosmosDbTest
     }
 
     [EdgeLabel("employer")]
-    public interface IEmployment : IEdge<IProfile, ICompany>
+    public interface IEmployment : IEdge<IProfile, ICompany>,IDynamicGraphEntity
     {
         string Id { get; }
 

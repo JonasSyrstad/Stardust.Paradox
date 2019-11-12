@@ -360,6 +360,7 @@ namespace Stardust.Paradox.CosmosDbTest
                 jonas.FirstName = "Jonas";
                 jonas.LastName = null;
                 jonas.Email = "jonas.syrstad@dnvgl.com";
+                jonas.SetProperty("someRandomProp",$"test+:{DateTime.UtcNow.Ticks}");
                 Assert.Null(jonas.LastName);
                 await tc.SaveChangesAsync();
             }
@@ -367,9 +368,11 @@ namespace Stardust.Paradox.CosmosDbTest
             using (var tc = TestContext())
             {
                 var jonas = await tc.VAsync<IProfile>("Jonas");
+                Assert.NotNull(jonas.GetProperty("someRandomProp"));
                 Assert.NotNull(jonas);
                 Assert.Null(jonas.LastName);
                 jonas.LastName = "Syrstad";
+                Assert.NotEmpty(jonas.DynamicPropertyNames);
                 await tc.SaveChangesAsync();
             }
         }

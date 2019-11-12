@@ -178,5 +178,71 @@ public class DemoController:Controller
 }
 
 ```
+## Dynamic graph entities
 
+In many cases we cannot model our graph as strong typed entities. Paradox supports hybrid entities by adding IDynamicGraphEntity to your edge or vertex definition you can model the well known peroperties on your entities, but at the same time assign and manipulate arbitary properties. These properties enjoy the same treatment as the typed properties with regards to parameterization and change tracking.
+
+
+```CS
+[VertexLabel("person")]
+    public interface IProfile : IVertex, IDynamicGraphEntity
+    {
+        string Id { get; }
+
+        string FirstName { get; set; }
+
+        string LastName { get; set; }
+
+        string Email { get; set; }
+
+        bool VerifiedEmail { get; set; }
+
+        string Name { get; set; }
+
+        string Ocupation { get; set; }
+
+        DateTime LastUpdated { get; set; }
+
+        //[EdgeLabel("parent")]
+        IEdgeCollection<IProfile> Parents { get; }
+
+        //[ReverseEdgeLabel("parent")]
+        IEdgeCollection<IProfile> Children { get; }
+
+        [ToWayEdgeLabel("spouce")]
+        IEdgeReference<IProfile> Spouce { get; }
+
+        [Eager]
+        [EdgeLabel("employer")]
+        ICollection<ICompany> Employers { get; }
+
+
+        [GremlinQuery("g.V('{id}').as('s').in('parent').out('parent').where(without('s')).dedup()")]
+        IEdgeCollection<IProfile> Siblings { get; }
+
+        [InlineSerialization(SerializationType.ClearText)]
+        ICollection<string> ProgramingLanguages { get; }
+
+        IEdgeCollection<IProfile> AllSiblings { get; set; }
+
+        bool Adult { get; set; }
+        
+        string Description { get; set; }
+        
+        int Number { get; set; }
+	    
+        string Pk { get; set; }
+	    
+        EpochDateTime LastUpdatedEpoch { get; set; }
+    }
+```
+
+### usage
+
+```CS
+ var profile = await tc.VAsync<IProfile>("myId");
+ profile.SetProperty("someRandomProp",$"test+:{DateTime.UtcNow.Ticks}");
+ Console.WriteLine(profile.GetProperty("someRandomProp"));
+ Console.WriteLine(string.Join(",",profile.DynamicPropertyNames))
+```
 

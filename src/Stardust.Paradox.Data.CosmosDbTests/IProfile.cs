@@ -35,7 +35,7 @@ namespace Stardust.Paradox.CosmosDbTest
 	}
 
     [VertexLabel("person")]
-    public interface IProfile : IVertex
+    public interface IProfile : IVertex,IDynamicGraphEntity
     {
         string Id { get; }
 
