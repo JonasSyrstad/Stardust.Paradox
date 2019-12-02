@@ -34,7 +34,7 @@ public interface IPerson : IVertex
 
     IEdgeCollection<IPerson> Siblings { get; }
 
-    [EdgeLabel("city")] //pointing to the Residents property in ICity
+    [InLabel("city")] //pointing to the Residents property in ICity
     IEdgeReference<ICity> HomeCity { get; }//use IEdgeReference to enable task-async operations
 
     IEdgeCollection<ICompany> Employers { get; }
@@ -50,7 +50,7 @@ public interface ICity : IVertex
     string ZipCode { get; set; }
     
 
-   [ReverseEdgeLabel("city")] //pointing to the HomCity property in IPerson
+   [OutLabel("city")] //pointing to the HomCity property in IPerson
     IEdgeCollection<Iperson> Residents { get; } //use IEdgeCollection to enable task-async operations on the collection
 
     IEdgeReference<ICountry> Country { get; }
@@ -115,12 +115,12 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
     {
         //Added some fluent configuration of the edges
         configuration.ConfigureCollection<IPerson>()
-                .AddEdge(t => t.Children, "children").Reverse<IPerson>(t => t.Parents)
+                .AddInEdge(t => t.Parents, "parent").Out<IProfile>(t => t.Children)
             .ConfigureCollection<ICity>()
             .ConfigureCollection<ICountry>()
                 .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddEdge(t => t.Employees, "employees").Reverse<IPerson>(t => t.Employers)
+                .AddOutEdge(t=>t.Employees, "employer").In<IProfile>(t=>t.Employers)
                 .ConfigureCollection<IEmployment>();;
         return true;
     }

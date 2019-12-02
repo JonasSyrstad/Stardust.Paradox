@@ -14,13 +14,13 @@ namespace Stardust.Paradox.CosmosDbTest
 
         string Name { get; set; }
 
-        [ReverseEdgeLabel("division")]
+        [OutLabel("division")]
         IEdgeReference<ICompany> Parent { get; }
 
-        [EdgeLabel("division")]
+        [InLabel("division")]
         IEdgeCollection<ICompany> Divisions { get; }
 
-        [ReverseEdgeLabel("employer")]
+        //[ReverseEdgeLabel("employer")]
         IEdgeCollection<IProfile> Employees { get; }
 
         [GremlinQuery("g.V('{id}').out('division').tail(1)")]
@@ -63,7 +63,7 @@ namespace Stardust.Paradox.CosmosDbTest
         IEdgeReference<IProfile> Spouce { get; }
 
         [Eager]
-        [EdgeLabel("employer")]
+        //[EdgeLabel("employer")]
         ICollection<ICompany> Employers { get; }
 
 
