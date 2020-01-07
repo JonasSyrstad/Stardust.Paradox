@@ -465,6 +465,8 @@ namespace Stardust.Paradox.Data
                     action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));
                 else if (prop.PropertyType == typeof(int?))
                     action.Invoke(item, value == null ? (int?)null : int.Parse(value?.ToString()));
+                else if (prop.PropertyType.IsEnum)
+                    action.Invoke(item, value == null ? default : Enum.Parse(prop.PropertyType, (string)value));
                 else
                     action.Invoke(item, value);
             }
