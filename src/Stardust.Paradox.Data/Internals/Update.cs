@@ -47,6 +47,11 @@ namespace Stardust.Paradox.Data.Internals
 					return yn.ToString(CultureInfo.InvariantCulture).ToLower();
 				case IInlineCollection i:
 					return $"'{i.ToTransferData()}'";
+				case Enum enm:
+					// EscapeGremlinString shouldn't be necessary but just to be sure.
+					var r2 = $"'{enm.ToString().EscapeGremlinString()}'";
+					if (r2 == "'''") return "''";
+					return r2;
 			}
 			throw new ArgumentException("Unknown type", nameof(value));
 		}
