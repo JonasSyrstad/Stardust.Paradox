@@ -34,7 +34,8 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 		/// <param name="graphName"></param>
 		/// <param name="accessKey"></param>
 		public GremlinNetLanguageConnector(string gremlinHostname, string databaseName, string graphName, string accessKey, ILogging logger = null) : base(logger)
-		{
+        {
+            CanParameterizeQueries = true;
 			_key = $"{gremlinHostname.ToLower()}.{databaseName.ToLower()}.{graphName.ToLower()}";
 			_server = new GremlinServer(gremlinHostname, 443, true, $"/dbs/{databaseName}/colls/{graphName}", accessKey);
 			InitializeClient();
@@ -163,8 +164,13 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 
 		}
 
-		public bool CanParameterizeQueries => true;
-		public double ConsumedRU { get; private set; }
+		public bool CanParameterizeQueries
+        {
+            get;
+            set;
+        }
+
+        public double ConsumedRU { get; private set; }
 
 		//protected virtual void Dispose(bool disposing)
 		//{

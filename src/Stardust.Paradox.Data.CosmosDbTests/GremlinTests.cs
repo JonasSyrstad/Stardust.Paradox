@@ -13,6 +13,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations.DataTypes;
+using Stardust.Paradox.Data.Traversals.Typed;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -454,7 +455,13 @@ namespace Stardust.Paradox.CosmosDbTest
 				result = await tc.VAsync<IProfile>(SiblingQuery);
 				Assert.Equal(3, result.Count());
 				_output.WriteLine(JsonConvert.SerializeObject(result));
-			}
+               //var v= await tc.Profiles.GetTypedAsync(g => g.V().Has(t=>t.Name,"Jonas"));
+               //var v2 = await tc.Profiles.GetTypedAsync(g => g.V("Jonas").Out(t=>t.Children).In(t=>t.Parents).Dedup());
+               var eq = await tc.Profiles.GetTypedAsync(g => g.V().Has(t => t.Name, "Sanne").As("s").In(t=>t.Parents).Out(t=>t.Children).Where(p => p.Without("s")).Dedup());
+               var emp = await tc.Employments.GetTypedAsync(g =>
+                   g.V<IEmployment, IProfile>().InE(t => t.Employers).AsTypedEdge<IEmployment>());
+                Assert.NotEmpty(eq);
+            }
 		}
 
 		public static GremlinQuery SiblingQuery(GremlinContext g)

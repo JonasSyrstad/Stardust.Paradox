@@ -64,7 +64,7 @@ namespace Stardust.Paradox.CosmosDbTest
 
         [Eager]
         //[EdgeLabel("employer")]
-        ICollection<ICompany> Employers { get; }
+        IEdgeCollection<ICompany> Employers { get; }
 
 
         [GremlinQuery("g.V('{id}').as('s').in('parent').out('parent').where(without('s')).dedup()")]

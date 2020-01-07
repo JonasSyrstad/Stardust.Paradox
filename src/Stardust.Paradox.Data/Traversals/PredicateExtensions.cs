@@ -136,6 +136,8 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"P.");
         }
 
+        
+
         /// <summary>
         /// Is the incoming object equal to the provided object?
         /// </summary>

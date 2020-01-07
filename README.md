@@ -115,12 +115,12 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
     {
         //Added some fluent configuration of the edges
         configuration.ConfigureCollection<IPerson>()
-                .AddInEdge(t => t.Parents, "parent").Out<IProfile>(t => t.Children)
+                .In(t => t.Parents, "parent").Out(t => t.Children)
             .ConfigureCollection<ICity>()
             .ConfigureCollection<ICountry>()
                 .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddOutEdge(t=>t.Employees, "employer").In<IProfile>(t=>t.Employers)
+                .Out(t=>t.Employees, "employer").In(t=>t.Employers)
                 .ConfigureCollection<IEmployment>();;
         return true;
     }

@@ -20,7 +20,7 @@ namespace Stardust.Paradox.Data
     public abstract class GraphContextBase : IGraphContext, IDisposable
     {
 
-        private readonly IGremlinLanguageConnector _connector;
+        internal readonly IGremlinLanguageConnector _connector;
         protected readonly IServiceProvider ServiceProvider;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
