@@ -13,6 +13,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data
@@ -24,6 +25,8 @@ namespace Stardust.Paradox.Data
         protected readonly IServiceProvider ServiceProvider;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
+
+        protected internal static string PartitionKeyName { get; set; }
 
         public double ConsumedRU => _connector.ConsumedRU;
 
@@ -401,7 +404,7 @@ namespace Stardust.Paradox.Data
             var key = propertyName.ToPascalCase();
             try
             {
-                
+
                 if (!propertyInfos.TryGetValue(item.GetType() + "." + key, out var prop))
                 {
                     prop = item.GetType().GetProperty(key,
@@ -467,6 +470,10 @@ namespace Stardust.Paradox.Data
                     action.Invoke(item, value == null ? (int?)null : int.Parse(value?.ToString()));
                 else if (prop.PropertyType.IsEnum)
                     action.Invoke(item, value == null ? default : Enum.Parse(prop.PropertyType, (string)value));
+                else if (typeof(IComplexProperty).IsAssignableFrom(prop.PropertyType))
+                {
+                    action.Invoke(item, value == null ? null : JsonConvert.DeserializeObject(value.ToString(), prop.PropertyType));
+                }
                 else
                     action.Invoke(item, value);
             }

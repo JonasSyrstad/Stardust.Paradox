@@ -10,7 +10,9 @@ using Stardust.Particles.Collection.Arrays;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations.DataTypes;
 using Xunit;
@@ -145,7 +147,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				c.SavingChanges -= OnTcOnSavingChanges;
 				c.ChangesSaved -= OnTcOnChangesSaved;
 			};
-			tc.Disposing += Tc_Disposing;
+            tc.Disposing += Tc_Disposing;
 			tc.SavingChanges += OnTcOnSavingChanges;
 			tc.ChangesSaved += OnTcOnChangesSaved;
 			tc.SaveChangesError += OnTcOnSaveChangesError;
@@ -344,34 +346,38 @@ namespace Stardust.Paradox.CosmosDbTest
 				jonas = await tc.GetTreeAsync<IProfile>("Jonas", t => t.Parents, true);
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
 			}
-
-
 		}
 
         [Fact]
         public async Task DataContextReadWriteTestAsync()
         {
+            var time = DateTime.UtcNow;
             using (var tc = TestContext())
             {
-                var jonas = await tc.VAsync<IProfile>("Jonas");
+                var jonas = await tc.VAsync<IProfile>("Jonas".ToTuple());
                 Assert.NotNull(jonas);
                 jonas.LastUpdated = DateTime.Now;
+                jonas.SomeEnum = GenderTypes.Other;
                 jonas.LastUpdatedEpoch = (EpochDateTime) DateTime.Now;
                 jonas.FirstName = "Jonas";
                 jonas.LastName = null;
                 jonas.Email = "jonas.syrstad@dnvgl.com";
                 jonas.SetProperty("someRandomProp",$"test+:{DateTime.UtcNow.Ticks}");
+                jonas.SomeProperty = new MyProp {TimeStamp = time};
                 Assert.Null(jonas.LastName);
                 await tc.SaveChangesAsync();
             }
 
             using (var tc = TestContext())
             {
-                var jonas = await tc.VAsync<IProfile>("Jonas");
+                var jonas = await tc.VAsync<IProfile>("Jonas".ToTuple());
                 Assert.NotNull(jonas.GetProperty("someRandomProp"));
                 Assert.NotNull(jonas);
+                jonas.SomeEnum = GenderTypes.Male;
                 Assert.Null(jonas.LastName);
                 jonas.LastName = "Syrstad";
+                Assert.NotNull(jonas.SomeProperty);
+                Assert.Equal(time,jonas.SomeProperty.TimeStamp);
                 Assert.NotEmpty(jonas.DynamicPropertyNames);
                 await tc.SaveChangesAsync();
             }
@@ -723,4 +729,20 @@ namespace Stardust.Paradox.CosmosDbTest
 			_scope.TryDispose();
 		}
 	}
+
+    public enum GenderTypes
+    {
+        Male,
+        Female,
+        Other
+    }
+
+    public class MyProp:IComplexProperty
+    {
+        public DateTime TimeStamp { get; set; }
+        public override string ToString()
+        {
+            return TimeStamp.ToString(CultureInfo.InvariantCulture);
+        }
+    }
 }

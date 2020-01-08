@@ -13,7 +13,10 @@ namespace Stardust.Paradox.CosmosDbTest
         public TestContext(IGremlinLanguageConnector connector) : base(connector, Resolver.CreateScopedResolver())
         {
         }
-
+        static TestContext()
+        {
+            PartitionKeyName = "pk";
+        }
         protected override void Dispose(bool disposing)
         {
 			OnDisposing?.Invoke(this);

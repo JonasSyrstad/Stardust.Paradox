@@ -160,7 +160,11 @@ namespace Stardust.Paradox.Data.Internals
 					return i.ToTransferData();
 				case EpochDateTime e:
 					return e.Epoch;
-				default:
+                case IComplexProperty p:
+                    return JsonConvert.SerializeObject(value);
+                case Enum e:
+                    return e.ToString();
+                default:
 					return value;
 			}
 		}

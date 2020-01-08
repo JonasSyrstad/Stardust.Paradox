@@ -80,6 +80,8 @@ namespace Stardust.Paradox.CosmosDbTest
         int Number { get; set; }
 	    string Pk { get; set; }
 	    EpochDateTime LastUpdatedEpoch { get; set; }
+        MyProp SomeProperty { get; set; }
+        GenderTypes SomeEnum { get; set; }
     }
 
 
