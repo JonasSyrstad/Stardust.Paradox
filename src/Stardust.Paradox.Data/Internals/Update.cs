@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Annotations.DataTypes;
 
@@ -47,6 +48,13 @@ namespace Stardust.Paradox.Data.Internals
 					return yn.ToString(CultureInfo.InvariantCulture).ToLower();
 				case IInlineCollection i:
 					return $"'{i.ToTransferData()}'";
+				case Enum enm:
+					// EscapeGremlinString shouldn't be necessary but just to be sure.
+					var r2 = $"'{enm.ToString().EscapeGremlinString()}'";
+					if (r2 == "'''") return "''";
+					return r2;
+                case IComplexProperty p:
+                    return JsonConvert.SerializeObject(p);
 			}
 			throw new ArgumentException("Unknown type", nameof(value));
 		}

@@ -4,12 +4,16 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Annotations
 {
-	public interface IEdgeCollection
+    public interface IEdgeNavigation<T> where T : IVertex
+    { }
+
+
+    public interface IEdgeCollection
 	{
 		Task LoadAsync();
 		Task SaveChangesAsync();
 	}
-	public interface IEdgeCollection<TTout> : IEdgeCollection, ICollection<IEdge<TTout>>, ICollection<TTout> where TTout : IVertex
+	public interface IEdgeCollection<TTout> : IEdgeCollection, ICollection<IEdge<TTout>>, ICollection<TTout>,IEdgeNavigation<TTout> where TTout : IVertex
 	{
 		Task<IEnumerable<TTout>> ToVerticesAsync();
 

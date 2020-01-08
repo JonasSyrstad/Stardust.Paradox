@@ -21,23 +21,50 @@ namespace Stardust.Paradox.Data
             _collectionLabel = collectionLabel;
         }
 
-        public IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda)
+        public IOutEdgeConfiguration<T> AddOutEdge(Expression<Func<T, object>> outPropertyLambda)
+        {
+            var prop = outPropertyLambda.Body as MemberExpression;
+            return AddOutEdge(outPropertyLambda, prop.Member.Name.ToCamelCase());
+        }
+
+        public IOutEdgeConfiguration<T> AddOutEdge(Expression<Func<T, object>> outPropertyLambda, string label)
+        {
+            
+            
+            var prop = outPropertyLambda.Body as MemberExpression;
+            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out Dictionary<MemberInfo, FluentConfig> t))
+            {
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(T), t);
+            }
+
+            if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(outPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
+            {
+                ReverseEdgeLabel = label
+            });
+            return new GraphConfiguration<T>(_context, label, _collectionLabel);
+        }
+
+        
+
+        public IInEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda)
         {
             return AddEdge(inPropertyLambda, false);
         }
 
-        public IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, bool eagerLoading)
+        public IInEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, bool eagerLoading)
         {
             var prop = inPropertyLambda.Body as MemberExpression;
             return AddEdge(inPropertyLambda, prop.Member.Name.ToCamelCase(), eagerLoading);
         }
 
-        public IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label)
+        public IInEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label)
         {
             return AddEdge(inPropertyLambda, label, false);
         }
 
-        public IEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label, bool eagerLoading)
+        public IInEdgeConfiguration<T> AddEdge(Expression<Func<T, object>> inPropertyLambda, string label, bool eagerLoading)
         {
             var prop = inPropertyLambda.Body as MemberExpression;
             if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out Dictionary<MemberInfo, FluentConfig> t))
@@ -45,7 +72,6 @@ namespace Stardust.Paradox.Data
                 t = new Dictionary<MemberInfo, FluentConfig>();
                 CodeGenerator._FluentConfig.Add(typeof(T), t);
             }
-
             if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
             t.Add(prop.Member, new FluentConfig
             {
@@ -56,9 +82,78 @@ namespace Stardust.Paradox.Data
             return new GraphConfiguration<T>(_context, label, _collectionLabel);
         }
 
+        public IInEdgeConfiguration<T> AddInEdge(Expression<Func<T, object>> inPropertyLambda)
+        {
+            return AddEdge(inPropertyLambda);
+        }
+
+        public InReverse<TReverse, T> In<TReverse>(Expression<Func<T, IEdgeNavigation<TReverse>>> inPropertyLambda) where TReverse : IVertex
+        {
+            var prop = inPropertyLambda.Body as MemberExpression;
+            return In(inPropertyLambda, prop.Member.Name.ToCamelCase());
+        }
+
+        public InReverse<TReverse,T> In<TReverse>(Expression<Func<T, IEdgeNavigation<TReverse>>> inPropertyLambda,string label) where TReverse : IVertex
+        {
+            var prop = inPropertyLambda.Body as MemberExpression;
+            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out Dictionary<MemberInfo, FluentConfig> t))
+            {
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(T), t);
+            }
+            if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
+            {
+                EdgeLabel = label
+
+            });
+            var c= new GraphConfiguration<T>(_context, label, _collectionLabel);
+            return new InReverse<TReverse,T>(c,label);
+        }
+
+        public OutReverse<TReverse, T> Out<TReverse>(Expression<Func<T, IEdgeNavigation<TReverse>>> inPropertyLambda) where TReverse : IVertex
+        {
+            var prop = inPropertyLambda.Body as MemberExpression;
+            return Out(inPropertyLambda, prop.Member.Name.ToCamelCase());
+        }
+
+        public OutReverse<TReverse, T> Out<TReverse>(Expression<Func<T, IEdgeNavigation<TReverse>>> inPropertyLambda, string label) where TReverse : IVertex
+        {
+            var prop = inPropertyLambda.Body as MemberExpression;
+            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out Dictionary<MemberInfo, FluentConfig> t))
+            {
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(T), t);
+            }
+            if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
+            {
+                ReverseEdgeLabel = label
+
+            });
+            var c = new GraphConfiguration<T>(_context, label, _collectionLabel);
+            return new OutReverse<TReverse, T>(c, label);
+        }
+
+        public IInEdgeConfiguration<T> AddInEdge(Expression<Func<T, object>> inPropertyLambda, bool eagerLoading)
+        {
+            return AddEdge(inPropertyLambda,  eagerLoading);
+        }
+
+        public IInEdgeConfiguration<T> AddInEdge(Expression<Func<T, object>> inPropertyLambda, string label)
+        {
+            return AddEdge(inPropertyLambda, label);
+        }
+
+        public IInEdgeConfiguration<T> AddInEdge(Expression<Func<T, object>> inPropertyLambda, string label, bool eagerLoading)
+        {
+            return AddEdge(inPropertyLambda, label, eagerLoading);
+        }
+
         public IGraphConfiguration<T> AddInline(Expression<Func<T, object>> inPropertyLambda,
              SerializationType serialization)
         {
+            
             var prop = inPropertyLambda.Body as MemberExpression;
             if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
             {
@@ -120,6 +215,25 @@ namespace Stardust.Paradox.Data
             return new GraphConfiguration<T>(_context, null, _collectionLabel);
         }
 
+        public IGraphConfiguration<T> In<TReverse>(Expression<Func<TReverse, object>> inPropertyLambda)
+        {
+            if (_label.IsNullOrWhiteSpace()) throw new NullReferenceException("No edge label is defined");
+            var prop = inPropertyLambda.Body as MemberExpression;
+            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(TReverse), out Dictionary<MemberInfo, FluentConfig> t))
+            {
+                t = new Dictionary<MemberInfo, FluentConfig>();
+                CodeGenerator._FluentConfig.Add(typeof(TReverse), t);
+            }
+
+            if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
+            t.Add(prop.Member, new FluentConfig
+            {
+                EdgeLabel = _label
+
+            });
+            return new GraphConfiguration<T>(_context, null, _collectionLabel);
+        }
+
         public override IGraphConfiguration<T1> ConfigureCollection<T1>(string label)
         {
             AddEntity(label, typeof(T1));
@@ -136,10 +250,24 @@ namespace Stardust.Paradox.Data
             return ConfigureCollection<T1>(label);
         }
 
+        public IGraphConfiguration<T> Out<TReverse>(Expression<Func<TReverse, object>> inPropertyLambda)
+        {
+            return Reverse<TReverse>(inPropertyLambda);
+        }
+
+        public IGraphConfiguration<T> Out<TReverse>(Expression<Func<TReverse, object>> inPropertyLambda, bool eagerLoading)
+        {
+            return Reverse<TReverse>(inPropertyLambda,eagerLoading);
+        }
+
         public IGraphConfiguration<T> Reverse<TReverse>(Expression<Func<TReverse, object>> inPropertyLambda)
         {
             return Reverse(inPropertyLambda, false);
         }
+    }
+
+    internal interface IIn<T>
+    {
     }
 
     internal abstract class GraphConfigurationBase : IGraphConfiguration

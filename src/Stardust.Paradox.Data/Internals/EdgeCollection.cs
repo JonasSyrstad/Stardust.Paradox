@@ -114,6 +114,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
+                if(_isLoaded) return;
                 IsDirty = false;
                 _addedCollection.Clear();
                 _deletedCollection.Clear();
@@ -222,31 +223,37 @@ namespace Stardust.Paradox.Data.Internals
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQuery()
         {
             _referenceType = "out";
-            return g => g.V(_parent._entityKey).In(_edgeLabel);//.OutV();
+            return g => GetSeletor(g).In(_edgeLabel);//.OutV();
         }
 
         private Func<GremlinContext, GremlinQuery> EdgeLabelQuery()
         {
             _referenceType = "both";
-            return g => g.V(_parent._entityKey).As("i").BothE(_edgeLabel).BothV().Where(p => p.P.Not(q => q.Eq("i")));
+            return g => GetSeletor(g).As("i").BothE(_edgeLabel).BothV().Where(p => p.P.Not(q => q.Eq("i")));
         }
 
         private Func<GremlinContext, GremlinQuery> ReverseLabelQuery()
         {
             _referenceType = "in";
-            return g => g.V(_parent._entityKey).Out(_reverseLabel);//.InV();
+            return g => GetSeletor(g).Out(_reverseLabel);//.InV();
         }
 
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQueryEdgeOnly()
         {
             _referenceType = "out";
-            return g => g.V(_parent._entityKey).InE(_edgeLabel);
+            return g => GetSeletor(g).InE(_edgeLabel);
         }
 
         private Func<GremlinContext, GremlinQuery> EdgeLabelQueryEdgeOnly()
         {
             _referenceType = "both";
-            return g => g.V(_parent._entityKey).As("i").BothE(_edgeLabel).As("e").BothV().Where(p => p.P.Not(q => q.Eq("i")));
+
+            return g => GetSeletor(g).As("i").BothE(_edgeLabel).As("e").BothV().Where(p => p.P.Not(q => q.Eq("i")));
+        }
+
+        private GremlinQuery GetSeletor(GremlinContext g)
+        {
+            return _parent._partitionKey.ContainsCharacters() ? g.V(_parent.EntityKey, _parent._partitionKey) : g.V(_parent._entityKey);
         }
 
         private Func<GremlinContext, GremlinQuery> ReverseLabelQueryEdgeOnly()
