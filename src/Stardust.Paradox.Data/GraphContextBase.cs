@@ -476,6 +476,12 @@ namespace Stardust.Paradox.Data
                 }
                 else
                     action.Invoke(item, value);
+
+                if (value is IComplexProperty notifiable)
+                {
+                    var entity = item as IGraphEntityInternal;
+                    entity.RegisterNotifiable(prop.Name,notifiable);
+                }
             }
             catch (Exception ex)
             {

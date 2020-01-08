@@ -5,6 +5,7 @@ using Stardust.Particles;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations.DataTypes;
@@ -105,6 +106,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
         {
+            RegisterNotifiable(newValue, oldValue, propertyName);
             if (GraphContextBase.PartitionKeyName.ContainsCharacters() &&
                 propertyName.Equals(GraphContextBase.PartitionKeyName, StringComparison.InvariantCultureIgnoreCase))
                 _partitionKey = newValue.ToString();
@@ -116,6 +118,27 @@ namespace Stardust.Paradox.Data.Internals
             }
             return false;
         }
+        private void RegisterNotifiable(object newValue, object oldValue, string propertyName)
+        {
+            if (newValue != oldValue)
+            {
+                if (newValue is IComplexProperty newNotifiable)
+                {
+                    RegisterNotifiable(propertyName, newNotifiable);
+#pragma warning disable 618
+                    newNotifiable.StartNotifications();
+#pragma warning restore 618
+                }
+
+                if (oldValue is IComplexProperty oldNotifiable)
+                {
+#pragma warning disable 618
+                    oldNotifiable.EndNotifications();
+#pragma warning restore 618
+                }
+            }
+        }
+
         private Dictionary<string, object> selectorParameters = new Dictionary<string, object>();
         private bool _parametrized;
         internal string _partitionKey;
@@ -150,7 +173,7 @@ namespace Stardust.Paradox.Data.Internals
         private string Selector()
         {
             if (GraphContextBase.PartitionKeyName.ContainsCharacters())
-                return $"g.V(['{_partitionKey}','{_entityKey}'])";
+                return $"g.V([{Update.GetValue(_partitionKey)},{Update.GetValue(_entityKey)}])";
             return $"g.V('{_entityKey}')";
         }
 
@@ -263,6 +286,19 @@ namespace Stardust.Paradox.Data.Internals
                 p.Add(selectorParameter.Key, selectorParameter.Value);
             }
             return p;
+        }
+
+        public void RegisterNotifiable(string propName, IComplexProperty notifiable)
+        {
+            notifiable.PropertyChanged += (o, args) => Notifiable_PropertyChanged(o, args,propName);
+#pragma warning disable 618
+            notifiable.StartNotifications();
+#pragma warning restore 618
+        }
+
+        private void Notifiable_PropertyChanged(object sender, PropertyChangedEventArgs e, string propName)
+        {
+           OnPropertyChanged(sender,propName);
         }
 
         private static object GetValue(KeyValuePair<string, Update> v)

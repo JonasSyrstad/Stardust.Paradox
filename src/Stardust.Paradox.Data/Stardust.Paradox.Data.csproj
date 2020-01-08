@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <Version>2.3.2</Version>
+    <Version>2.3.3</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
@@ -25,7 +25,9 @@ Enhancement: Added support for EpochDateTime in the appropriate predicate steps
 Enhancement: Added support for text predicates
 Enhancement: Removing restrictions requiring vertex and edge properties to have a setter (thanx @bittola)
 Enhancement: added support for enums (thanx @adelzu)
-Performance fixes</PackageReleaseNotes>
+Performance fixes
+Enhancement: added support filter expressions on ToVerticesAsync  (thanx @adelzu)
+Enhancement: support for complex properties with change tracking.</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
