@@ -4,6 +4,7 @@ using Stardust.Paradox.Data.Traversals;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Particles;
 #pragma warning disable 168
 #pragma warning disable 693
 #pragma warning disable 67
@@ -51,7 +52,21 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(ToId).As("s").V(FromId).As("t").AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").To("s").From("t");
+
+                GremlinQuery expression;
+
+                if (ToPk.ContainsCharacters())
+                    expression = g.V(ToId, ToPk).As("s");
+                else
+                    expression = g.V(ToId).As("s");
+
+                if (FromPk.ContainsCharacters())
+                    expression = expression.V(FromId, FromPk).As("t");
+                else
+                    expression = expression.V(FromId).As("t");
+
+                expression = expression.AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").To("s").From("t");
+
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);
@@ -61,7 +76,7 @@ namespace Stardust.Paradox.Data.Internals
             }
             catch (System.Exception ex)
             {
-				
+
                 throw;
             }
         }
@@ -70,7 +85,20 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
-                var expression = g.V(FromId).As("t").V(ToId).As("s").AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").From("s").To("t");
+                GremlinQuery expression;
+
+                if (FromPk.ContainsCharacters())
+                    expression = g.V(FromId, FromPk).As("t");
+                else
+                    expression = g.V(FromId).As("t");
+
+                if (ToPk.ContainsCharacters())
+                    expression = expression.V(ToId, ToPk).As("s");
+                else
+                    expression = expression.V(ToId).As("s");
+
+                expression = expression.AddE(label).Property("id", $"{Guid.NewGuid().ToString()}").From("s").To("t");
+
                 foreach (var property in properties)
                 {
                     expression = expression.Property(property.Key, property.Value);
@@ -85,8 +113,11 @@ namespace Stardust.Paradox.Data.Internals
         }
 
         private string FromId => _parent._entityKey;
+        private string FromPk => _parent._partitionKey;
 
         private string ToId => (Vertex as GraphDataEntity)._entityKey;
+        private string ToPk => (Vertex as GraphDataEntity)._partitionKey;
+
         internal bool AddReverse { get; set; }
         internal string ReverseLabel { get; set; }
 
