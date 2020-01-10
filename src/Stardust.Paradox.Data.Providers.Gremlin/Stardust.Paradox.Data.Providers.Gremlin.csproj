@@ -23,7 +23,7 @@ Added retry on connection issues</PackageReleaseNotes>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Gremlin.Net" Version="3.4.1" />
+    <PackageReference Include="Gremlin.Net" Version="3.4.4" />
   </ItemGroup>
 
   <ItemGroup>
