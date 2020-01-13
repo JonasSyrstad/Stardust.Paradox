@@ -3,14 +3,14 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.3.1</Version>
+    <Version>2.3.2</Version>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
     <Description>Annotation for the 'Stardust.Paradox.Data' Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop.
 Added EpochDateTime type</Description>
     <Authors>Stardust</Authors>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
-    <Copyright>Copyright Stardust © 2019</Copyright>
+    <Copyright>Copyright Stardust © 2020</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog%3A_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>

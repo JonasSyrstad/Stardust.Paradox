@@ -3,16 +3,17 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Version>2.3.0</Version>
+    <Version>2.3.1</Version>
     <Authors>Stardust</Authors>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
-    <Copyright>Copyright Stardust ©  2019</Copyright>
+    <Copyright>Copyright Stardust ©  2020</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
-    <Description>Connector for CosmosDb using the document client</Description>
+    <Description>[This package will be deprecated in V 3.0, consider moving to 'Stardust.Paradox.Data.Providers.Gremlin']
+Connector for CosmosDb using the document client</Description>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <IncludeSource>True</IncludeSource>
