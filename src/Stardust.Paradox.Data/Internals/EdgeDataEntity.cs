@@ -4,6 +4,7 @@ using Stardust.Paradox.Data.CodeGeneration;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations.DataTypes;
@@ -160,7 +161,11 @@ namespace Stardust.Paradox.Data.Internals
 					return i.ToTransferData();
 				case EpochDateTime e:
 					return e.Epoch;
-				default:
+                case IComplexProperty p:
+                    return JsonConvert.SerializeObject(value);
+                case Enum e:
+                    return e.ToString();
+                default:
 					return value;
 			}
 		}
@@ -180,7 +185,8 @@ namespace Stardust.Paradox.Data.Internals
 
 		public bool OnPropertyChanging(object newValue, object oldValue, string propertyName = null)
 		{
-			if (_isLoading) return true;
+            RegisterNotifiable(newValue, oldValue, propertyName);
+            if (_isLoading) return true;
 			if ((IsNew && newValue != null) || newValue?.ToString() != oldValue?.ToString())
 			{
 				PropertyChanging?.Invoke(this, new PropertyChangingHandlerArgs(newValue, oldValue, propertyName));
@@ -189,7 +195,28 @@ namespace Stardust.Paradox.Data.Internals
 			return false;
 		}
 
-		public bool IsNew { get; private set; }
+        private void RegisterNotifiable(object newValue, object oldValue, string propertyName)
+        {
+            if (newValue != oldValue)
+            {
+                if (newValue is IComplexProperty newNotifiable)
+                {
+                    RegisterNotifiable(propertyName, newNotifiable);
+#pragma warning disable 618
+                    newNotifiable.StartNotifications();
+#pragma warning restore 618
+                }
+
+                if (oldValue is IComplexProperty oldNotifiable)
+                {
+#pragma warning disable 618
+                    oldNotifiable.EndNotifications();
+#pragma warning restore 618
+                }
+            }
+        }
+
+        public bool IsNew { get; private set; }
 
 		public void Reset(bool isNew)
 		{
@@ -243,6 +270,19 @@ namespace Stardust.Paradox.Data.Internals
 			}
 			return p;
 		}
+
+        public void RegisterNotifiable(string propName, IComplexProperty notifiable)
+        {
+            notifiable.PropertyChanged += (o, args) => Notifiable_PropertyChanged(o, args, propName);
+#pragma warning disable 618
+            notifiable.StartNotifications();
+#pragma warning restore 618
+        }
+
+        private void Notifiable_PropertyChanged(object sender, PropertyChangedEventArgs e, string propName)
+        {
+            OnPropertyChanged(sender, propName);
+        }
 
         public object GetProperty(string propertyName)
         {

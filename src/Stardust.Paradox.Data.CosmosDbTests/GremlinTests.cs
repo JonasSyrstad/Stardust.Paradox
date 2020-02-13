@@ -10,10 +10,13 @@ using Stardust.Particles.Collection.Arrays;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations.DataTypes;
 using Stardust.Paradox.Data.Traversals.Typed;
+using Stardust.Paradox.Data.Internals;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -146,7 +149,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				c.SavingChanges -= OnTcOnSavingChanges;
 				c.ChangesSaved -= OnTcOnChangesSaved;
 			};
-			tc.Disposing += Tc_Disposing;
+            tc.Disposing += Tc_Disposing;
 			tc.SavingChanges += OnTcOnSavingChanges;
 			tc.ChangesSaved += OnTcOnChangesSaved;
 			tc.SaveChangesError += OnTcOnSaveChangesError;
@@ -328,7 +331,24 @@ namespace Stardust.Paradox.CosmosDbTest
 			}
 		}
 
-		[Fact]
+        [Fact]
+        public async Task DataContextToVerticesFilteredAsync()
+        {
+            IProfile jonas;
+            using (var tc = TestContext())
+            {
+                jonas = await tc.VAsync<IProfile>("Jonas", "Jonas");
+
+                _output.WriteLine("Me");
+                _output.WriteLine(JsonConvert.SerializeObject(jonas));
+                Assert.NotNull(jonas);
+                var filterd =await jonas.Children.ToVerticesAsync(profile => profile.Name, "Marena");
+                Assert.Equal(1,filterd.Count());
+                _output.WriteLine(JsonConvert.SerializeObject(filterd.First()));
+            }
+        }
+
+        [Fact]
 		public async Task GetTreeTest()
 		{
 			IVertexTreeRoot<IProfile> jonas;
@@ -345,34 +365,41 @@ namespace Stardust.Paradox.CosmosDbTest
 				jonas = await tc.GetTreeAsync<IProfile>("Jonas", t => t.Parents, true);
 				_output.WriteLine(JsonConvert.SerializeObject(jonas));
 			}
-
-
 		}
 
         [Fact]
         public async Task DataContextReadWriteTestAsync()
         {
+            var time = DateTime.UtcNow;
             using (var tc = TestContext())
             {
-                var jonas = await tc.VAsync<IProfile>("Jonas");
+                var jonas = await tc.VAsync<IProfile>("Jonas".ToTuple());
                 Assert.NotNull(jonas);
                 jonas.LastUpdated = DateTime.Now;
+                jonas.SomeEnum = GenderTypes.Other;
                 jonas.LastUpdatedEpoch = (EpochDateTime) DateTime.Now;
                 jonas.FirstName = "Jonas";
                 jonas.LastName = null;
                 jonas.Email = "jonas.syrstad@dnvgl.com";
                 jonas.SetProperty("someRandomProp",$"test+:{DateTime.UtcNow.Ticks}");
+                jonas.SomeProperty = new MyProp {TimeStamp = time};
                 Assert.Null(jonas.LastName);
                 await tc.SaveChangesAsync();
             }
 
             using (var tc = TestContext())
             {
-                var jonas = await tc.VAsync<IProfile>("Jonas");
+                var jonas = await tc.VAsync<IProfile>("Jonas".ToTuple());
                 Assert.NotNull(jonas.GetProperty("someRandomProp"));
                 Assert.NotNull(jonas);
                 Assert.Null(jonas.LastName);
+                Assert.NotNull(jonas.SomeProperty);
+                Assert.Equal(time,jonas.SomeProperty.TimeStamp);
+                jonas.SomeProperty.TimeStamp=DateTime.UtcNow;
+                var g = jonas as GraphDataEntity;
+                Assert.True(g.IsDirty);
                 jonas.LastName = "Syrstad";
+                jonas.SomeEnum = GenderTypes.Male;
                 Assert.NotEmpty(jonas.DynamicPropertyNames);
                 await tc.SaveChangesAsync();
             }
@@ -730,4 +757,27 @@ namespace Stardust.Paradox.CosmosDbTest
 			_scope.TryDispose();
 		}
 	}
+
+    public enum GenderTypes
+    {
+        Male,
+        Female,
+        Other
+    }
+
+    public class MyProp:IComplexProperty
+    {
+        private DateTime _timeStamp;
+
+        public DateTime TimeStamp
+        {
+            get => _timeStamp;
+            set
+            {
+                if (value.Equals(_timeStamp)) return;
+                _timeStamp = value;
+                OnPropertyChanged();
+            }
+        }
+    }
 }

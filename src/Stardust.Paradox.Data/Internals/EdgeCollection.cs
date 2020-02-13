@@ -1,16 +1,21 @@
 ﻿using Newtonsoft.Json.Linq;
 using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.CodeGeneration;
+using Stardust.Paradox.Data.Extensions;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Particles;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
-	internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
+    internal class EdgeCollection<TTout> : IEdgeCollection<TTout> where TTout : IVertex
     {
         private readonly string _edgeLabel;
         private readonly string _gremlinQuery;
@@ -73,6 +78,16 @@ namespace Stardust.Paradox.Data.Internals
             return _collection?.Select(e => e.Vertex) ?? new List<TTout>();
         }
 
+        public async Task<IEnumerable<TTout>> ToVerticesAsync([Optional] Expression<Func<TTout, object>> filterSelector, [Optional]object value,
+                                                              [Optional] Expression<Func<TTout, object>> orderSelector, [Optional]bool isDesc,
+                                                              [Optional] int pageNumber, [Optional] int pageSize)
+        {
+            await LoadAsync(filterSelector, value, 
+                            orderSelector, isDesc,
+                            pageNumber, pageSize).ConfigureAwait(false);
+            return _collection?.Select(e => e.Vertex) ?? new List<TTout>();
+        }
+
         public async Task<IEnumerable<IEdge<TTout>>> ToEdgesAsync()
         {
             await LoadEdges().ConfigureAwait(false);
@@ -102,7 +117,7 @@ namespace Stardust.Paradox.Data.Internals
         {
             if (GraphConfiguration.UseSafeAsync)
             {
-                Task.Run(async ()=>await LoadAsync().ConfigureAwait(false))
+                Task.Run(async () => await LoadAsync().ConfigureAwait(false))
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
@@ -114,10 +129,43 @@ namespace Stardust.Paradox.Data.Internals
         {
             try
             {
+                if (_isLoaded) return;
                 IsDirty = false;
                 _addedCollection.Clear();
                 _deletedCollection.Clear();
                 var v = await GetEdgeContent().ConfigureAwait(false);
+                _collection.Clear();
+                if (v != null)
+                    foreach (var tout in from i in v where i != null select i)
+                    {
+                        _collection.Add(new Edge<TTout>((tout as GraphDataEntity)._entityKey, tout, _parent, _context) { EdgeType = _referenceType });
+                    }
+                _isLoaded = true;
+            }
+            catch (Exception ex)
+            {
+                ex.Log();
+                throw;
+            }
+
+        }
+
+        public async Task LoadAsync(Expression<Func<TTout, object>> filterSelector, object value, Expression<Func<TTout, object>> orderSelector, bool isDesc, int pageNumber, int pageSize)
+        {
+
+            // Needs Refactoring to avoid duplicated Code.
+            try
+            {
+                var filterProp = filterSelector?.Body?.ExtractMemberExpression()?.Member?.Name;
+                var orderProp = orderSelector?.Body?.ExtractMemberExpression()?.Member?.Name;
+
+                //var filterProp = ((MemberExpression)filterSelector?.Body)?.Member?.Name;
+                //var orderProp = ((MemberExpression)orderSelector?.Body)?.Member?.Name;
+                if (_isLoaded) return;
+                IsDirty = false;
+                _addedCollection.Clear();
+                _deletedCollection.Clear();
+                var v = await GetEdgeContent(filterProp, value, orderProp, isDesc, pageNumber, pageSize).ConfigureAwait(false);
                 _collection.Clear();
                 if (v != null)
                     foreach (var tout in from i in v where i != null select i)
@@ -166,16 +214,59 @@ namespace Stardust.Paradox.Data.Internals
         }
 
 
-        private async Task<IEnumerable<TTout>> GetEdgeContent()
+
+
+        private async Task<IEnumerable<TTout>> GetEdgeContent(string filterProperty = null, object value = null,
+                                                              string orderProperty = null, bool isDesc = false,
+                                                              int pageNumber = 0, int pageSize = 0)
         {
             try
             {
-                if (_gremlinQuery.ContainsCharacters()) return await _context.VAsync<TTout>(g => new GremlinQuery(g._connector, _gremlinQuery.Replace("{id}", _parent._entityKey))).ConfigureAwait(false);
+
+                if (_gremlinQuery.ContainsCharacters())
+                {
+                    IEnumerable<TTout> enumerable = await _context.VAsync<TTout>(g =>
+                    {
+                        string queryText = $"{_gremlinQuery.Replace("{id}", _parent._entityKey)}";
+                        if (filterProperty != null)
+                        {
+                            queryText += $".has('{filterProperty.ToCamelCase()}', '{Update.GetValue(value).Trim('\'')}')";
+                        }
+
+                        if (orderProperty != null)
+                        {
+                            string sortOrder = isDesc ? "desc" : "asc";
+                            queryText += $".order().by('{orderProperty.ToCamelCase()}', { sortOrder })";
+                        }
+
+                        if (pageNumber != 0 && pageSize !=0)
+                        {
+                            queryText += $".SkipTake({pageNumber * pageSize}, {pageSize})";
+                        }
+
+                        return new GremlinQuery(g._connector, queryText);
+                    }).ConfigureAwait(false);
+                    return enumerable;
+
+                }
+
                 if (_reverseLabel != null && _reverseLabel != _edgeLabel)
-                    return await _context.VAsync<TTout>(ReverseLabelQuery()).ConfigureAwait(false);
+                {
+                    return await _context.VAsync<TTout>(ReverseLabelQuery(filterProperty, value, 
+                                                                          orderProperty, isDesc ? OrderingTypes.Decr : OrderingTypes.Incr,
+                                                                          pageNumber, pageSize)).ConfigureAwait(false);
+                }
+
                 if (_reverseLabel != null && _reverseLabel == _edgeLabel)
-                    return await _context.VAsync<TTout>(EdgeLabelQuery()).ConfigureAwait(false);
-                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery()).ConfigureAwait(false);
+                {
+                    return await _context.VAsync<TTout>(EdgeLabelQuery(filterProperty, value, 
+                                                                       orderProperty, isDesc ? OrderingTypes.Decr : OrderingTypes.Incr,
+                                                                       pageNumber, pageSize)).ConfigureAwait(false);
+                }
+
+                return await _context.VAsync<TTout>(SimpleEdgeLabelQuery(filterProperty, value, 
+                                                                         orderProperty, isDesc ? OrderingTypes.Decr : OrderingTypes.Incr,
+                                                                         pageNumber, pageSize)).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -183,6 +274,7 @@ namespace Stardust.Paradox.Data.Internals
                 throw;
             }
         }
+
         private async Task<IEnumerable<dynamic>> GetEdgeonly()
         {
             try
@@ -219,34 +311,113 @@ namespace Stardust.Paradox.Data.Internals
             }
         }
 
-        private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQuery()
+        private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQuery(string filterProperty = null, object value = null,
+                                                                        string orderProperty = null, OrderingTypes orderType = OrderingTypes.Incr,
+                                                                        int pageNumber = 0, int pageSize = 0)
         {
             _referenceType = "out";
-            return g => g.V(_parent._entityKey).In(_edgeLabel);//.OutV();
+
+            return g =>
+            {
+                var gQuery = GetSeletor(g).In(_edgeLabel);
+
+                if (filterProperty != null)
+                {
+                    gQuery = gQuery.Has($"{filterProperty.ToCamelCase()}", Update.GetValue(value));
+                }
+
+                if (orderProperty != null)
+                {
+                    gQuery = gQuery.Order().By(orderProperty.ToCamelCase(), orderType);
+                }
+
+                if (pageNumber != 0 && pageSize != 0)
+                {
+                    gQuery = gQuery.SkipTake(pageNumber * pageSize, pageSize);
+                }
+                return gQuery;
+
+
+            };//.OutV();
         }
 
-        private Func<GremlinContext, GremlinQuery> EdgeLabelQuery()
+        private Func<GremlinContext, GremlinQuery> EdgeLabelQuery(string filterProperty = null, object value = null,
+                                                                  string orderProperty = null, OrderingTypes orderType = OrderingTypes.Incr,
+                                                                  int pageNumber = 0, int pageSize = 0)
         {
             _referenceType = "both";
-            return g => g.V(_parent._entityKey).As("i").BothE(_edgeLabel).BothV().Where(p => p.P.Not(q => q.Eq("i")));
+            return g =>
+            {
+                var gQuery = GetSeletor(g).As("i").BothE(_edgeLabel).BothV();
+
+                if (filterProperty != null)
+                {
+
+                    gQuery = gQuery.Has($"{filterProperty.ToCamelCase()}", Update.GetValue(value).Trim('\''));
+                }
+
+                if (orderProperty != null)
+                {
+                    gQuery = gQuery.Order().By(orderProperty.ToCamelCase(), orderType);
+                }
+
+                if (pageNumber != 0 && pageSize != 0)
+                {
+                    gQuery = gQuery.SkipTake(pageNumber * pageSize, pageSize);
+                }
+
+                gQuery = gQuery.Where(p => p.P.Not(q => q.Eq("i")));
+                return gQuery;
+
+
+            };
         }
 
-        private Func<GremlinContext, GremlinQuery> ReverseLabelQuery()
+        private Func<GremlinContext, GremlinQuery> ReverseLabelQuery(string filterProperty = null, object value = null,
+                                                                     string orderProperty = null, OrderingTypes orderType = OrderingTypes.Incr,
+                                                                     int pageNumber = 0, int pageSize = 0)
         {
             _referenceType = "in";
-            return g => g.V(_parent._entityKey).Out(_reverseLabel);//.InV();
+            return g =>
+            {
+                var gQuery = GetSeletor(g).Out(_reverseLabel);
+
+                if (filterProperty != null)
+                {
+
+                    gQuery = gQuery.Has($"{filterProperty.ToCamelCase()}", Update.GetValue(value).Trim('\''));
+                }
+
+                if (orderProperty != null)
+                {
+                    gQuery = gQuery.Order().By(orderProperty.ToCamelCase(), orderType);
+                }
+                
+                if (pageSize != 0)
+                {
+                    gQuery = gQuery.SkipTake(pageNumber * pageSize, pageSize);
+                }
+
+                return gQuery;
+
+            };//.InV();
         }
 
         private Func<GremlinContext, GremlinQuery> SimpleEdgeLabelQueryEdgeOnly()
         {
             _referenceType = "out";
-            return g => g.V(_parent._entityKey).InE(_edgeLabel);
+            return g => GetSeletor(g).InE(_edgeLabel);
         }
 
         private Func<GremlinContext, GremlinQuery> EdgeLabelQueryEdgeOnly()
         {
             _referenceType = "both";
-            return g => g.V(_parent._entityKey).As("i").BothE(_edgeLabel).As("e").BothV().Where(p => p.P.Not(q => q.Eq("i")));
+            return g => GetSeletor(g).As("i").BothE(_edgeLabel).As("e").BothV().Where(p => p.P.Not(q => q.Eq("i")));
+        }
+
+        private GremlinQuery GetSeletor(GremlinContext g)
+        {
+            return _parent._partitionKey.ContainsCharacters() ? g.V(_parent.EntityKey, _parent._partitionKey) : g.V(_parent._entityKey);
         }
 
         private Func<GremlinContext, GremlinQuery> ReverseLabelQueryEdgeOnly()

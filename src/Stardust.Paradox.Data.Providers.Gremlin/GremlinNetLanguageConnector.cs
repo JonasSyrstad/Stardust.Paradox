@@ -75,7 +75,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					if (resp.StatusAttributes.TryGetValue("x-ms-total-request-charge", out var ru))
 					{
 						Log(
-							$"gremlin: {compileQuery} {JsonConvert.SerializeObject(parametrizedValues)} (ru cost: {ru})");
+							$"gremlin: {compileQuery}{Environment.NewLine}{JsonConvert.SerializeObject(parametrizedValues, Formatting.Indented)} (ru cost: {ru})");
 						ConsumedRU += (double) ru;
 					}
 					else

@@ -35,6 +35,11 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $".V()");
         }
 
+        public static GremlinQuery V(this GremlinQuery queryBase, string id, string partitionKey)
+        {
+            return new ComposedGremlinQuery(queryBase, $".V([{queryBase.ComposeParameter(partitionKey)},{queryBase.ComposeParameter(id)}])");
+        }
+
         public static GremlinQuery Constant(this GremlinQuery queryBase, string value)
         {
             return new ComposedGremlinQuery(queryBase, $".constant({queryBase.ComposeParameter(value)})");

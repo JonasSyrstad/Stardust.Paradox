@@ -57,14 +57,14 @@ namespace Stardust.Paradox.Data
 	    public GremlinQuery V(string id,string partitionKey)
 	    {
 			var q = new GremlinQuery(_connector, "");
-		    q._query = $"g.V([{q.ComposeParameter(id)},{q.ComposeParameter(partitionKey)}])";
+		    q._query = $"g.V([{q.ComposeParameter(partitionKey)},{q.ComposeParameter(id)}])";
 		    return q;
 		}
 
 	    public GremlinQuery V((string, string) idAndPartitionKey)
 	    {
 		    var q = new GremlinQuery(_connector, "");
-		    q._query = $"g.V([{q.ComposeParameter(idAndPartitionKey.Item1)},{q.ComposeParameter(idAndPartitionKey.Item2)}])";
+		    q._query = $"g.V([{q.ComposeParameter(idAndPartitionKey.Item2)},{q.ComposeParameter(idAndPartitionKey.Item1)}])";
 		    return q;
 	    }
 

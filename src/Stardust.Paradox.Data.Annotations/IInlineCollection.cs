@@ -16,8 +16,4 @@ namespace Stardust.Paradox.Data.Annotations
 
     }
 
-    public interface IComplexProperty
-    {
-        
-    }
 }
