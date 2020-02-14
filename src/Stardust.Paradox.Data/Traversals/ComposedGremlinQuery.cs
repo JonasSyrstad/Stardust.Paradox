@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
+using Stardust.Paradox.Data.Traversals.Typed;
 
 namespace Stardust.Paradox.Data.Traversals
 {
+    
+
     public class ComposedGremlinQuery : GremlinQuery
     {
         protected readonly GremlinQuery _queryBase;
@@ -21,10 +24,10 @@ namespace Stardust.Paradox.Data.Traversals
 
         public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
 
-	    //internal override object ComposeParameter(object value)
-	    //{
-		   // return _queryBase.ComposeParameter(value);
-	    //}
-	   
-	}
+        //internal override object ComposeParameter(object value)
+        //{
+        // return _queryBase.ComposeParameter(value);
+        //}
+
+    }
 }
