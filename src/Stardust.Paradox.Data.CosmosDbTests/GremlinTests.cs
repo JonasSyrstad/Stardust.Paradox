@@ -488,9 +488,10 @@ namespace Stardust.Paradox.CosmosDbTest
                var emp = await tc.Employments.GetTypedAsync(g =>
                    g.V<IEmployment, IProfile>().InE(t => t.Employers).AsTypedEdge<IEmployment>());
                var another = await tc.Profiles.GetTypedAsync(g => g.V().Where(t => t.__().Has(y => y.Name, "Jonas")));
-               var j = await tc.Profiles.GetTypedAsync(g => g.V("Jonas".ToTuple()));
+               var j = await tc.Profiles.GetAsync(g => g.V<ICompany>().Out(e=>e.Employees));
 			   Assert.NotEmpty(another);
                Assert.NotEmpty(j);
+               _output.WriteLine(JsonConvert.SerializeObject(j));
 				Assert.NotEmpty(eq);
             }
 		}
