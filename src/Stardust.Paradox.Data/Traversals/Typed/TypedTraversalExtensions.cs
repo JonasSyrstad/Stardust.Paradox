@@ -58,6 +58,12 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})").HasLabel(label));
         }
 
+        public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery, (string, string) idAndPartitionKey)
+        {
+            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, $"g.V({baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)})").HasLabel(label));
+        }
+
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);

@@ -15,6 +15,7 @@ namespace Stardust.Paradox.Data
         T CreateEntity<T>(string id) where T : IGraphEntity;
         GremlinQuery V<T>() where T : IVertex;
         GremlinQuery V<T>(string id) where T : IVertex;
+
         Task<T> VAsync<T>(string id) where T : IVertex;
 
 	    Task<T> VAsync<T>(string id,string partitionKey) where T : IVertex;

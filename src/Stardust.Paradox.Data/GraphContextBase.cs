@@ -122,7 +122,7 @@ namespace Stardust.Paradox.Data
             Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
             return GremlinFactory.G.V(id).HasLabel(_dataSetLabelMapping[typeof(T)]);
         }
-
+        
         public async Task<T> VAsync<T>(string id) where T : IVertex
         {
             Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
