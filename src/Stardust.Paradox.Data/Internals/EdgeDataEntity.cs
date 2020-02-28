@@ -117,11 +117,12 @@ namespace Stardust.Paradox.Data.Internals
 			return _edgeSelector;
 		}
 
-		void IEdgeEntityInternal.SetOutVertex(IVertex vertex)
+		void IEdgeEntityInternal.SetOutVertex([NotNull]IVertex vertex)
 		{
 			var old = _inV as GraphDataEntity;
 			var newV = vertex as GraphDataEntity;
 			if (old?._entityKey == newV?._entityKey) return;
+            if (newV == null) throw new GraphValidationException("New out Vertex is null");
 			_outV = (TOut)vertex;
 			OutVertextId = newV.EntityKey;
 			IsDirty = true;
