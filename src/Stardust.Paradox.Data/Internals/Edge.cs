@@ -126,9 +126,11 @@ namespace Stardust.Paradox.Data.Internals
             await _context.ExecuteAsync<T>(g => g.V(FromId).BothE().HasLabel(label).Where(p => p.OtherV().HasId(ToId)).Drop()).ConfigureAwait(false);
         }
 
+        private string _label;
         public string Label
         {
-            get { return Label ?? ReverseLabel; }
+            get => _label ?? ReverseLabel;
+            internal set => _label = value;
         }
 
         public event PropertyChangedHandler PropertyChanged;
