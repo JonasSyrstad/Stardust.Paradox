@@ -54,7 +54,9 @@ namespace Stardust.Paradox.Data.Traversals
 		}
 
 		protected internal virtual string CompileQuery()
-		{
+        {
+            if (_query == null)
+                return _queryBase.CompileQuery();
 			return _query;
 		}
 

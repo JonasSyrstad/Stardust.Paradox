@@ -11,7 +11,7 @@ namespace Stardust.Paradox.Data.Internals
 {
 	internal class EdgeGraphSet<T> : IEdgeGraphSet<T> where T : IEdgeEntity
 	{
-		private readonly IGraphContext _context;
+        internal readonly IGraphContext _context;
 		private readonly bool _useVerticesIdsAsEdgeId;
 		private string label;
 

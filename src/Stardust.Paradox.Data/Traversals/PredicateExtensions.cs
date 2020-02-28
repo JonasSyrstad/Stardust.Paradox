@@ -1,5 +1,6 @@
 ﻿using System;
 using Stardust.Paradox.Data.Annotations.DataTypes;
+using Stardust.Paradox.Data.Traversals.Typed;
 
 namespace Stardust.Paradox.Data.Traversals
 {
@@ -131,10 +132,21 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"__.");
         }
 
+        public static GremlinQuery<T> __<T>(this PredicateGremlinQuery<T> queryBase)
+        {
+            return new ComposedGremlinQuery<T>(queryBase, $"__.");
+        }
+
         public static GremlinQuery P(this PredicateGremlinQuery queryBase)
         {
             return new ComposedGremlinQuery(queryBase, $"P.");
         }
+
+        public static GremlinQuery<T> P<T>(this PredicateGremlinQuery<T> queryBase)
+        {
+            return new ComposedGremlinQuery<T>(queryBase, $"P.");
+        }
+
 
         /// <summary>
         /// Is the incoming object equal to the provided object?

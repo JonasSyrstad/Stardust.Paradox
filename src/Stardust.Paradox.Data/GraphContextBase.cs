@@ -21,7 +21,7 @@ namespace Stardust.Paradox.Data
     public abstract class GraphContextBase : IGraphContext, IDisposable
     {
 
-        private readonly IGremlinLanguageConnector _connector;
+        internal readonly IGremlinLanguageConnector _connector;
         protected readonly IServiceProvider ServiceProvider;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
@@ -122,7 +122,7 @@ namespace Stardust.Paradox.Data
             Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
             return GremlinFactory.G.V(id).HasLabel(_dataSetLabelMapping[typeof(T)]);
         }
-
+        
         public async Task<T> VAsync<T>(string id) where T : IVertex
         {
             Logging.DebugMessage($"looking for entity {id}({typeof(T).FullName})");
@@ -476,6 +476,12 @@ namespace Stardust.Paradox.Data
                 }
                 else
                     action.Invoke(item, value);
+
+                if (value is IComplexProperty notifiable)
+                {
+                    var entity = item as IGraphEntityInternal;
+                    entity.RegisterNotifiable(prop.Name,notifiable);
+                }
             }
             catch (Exception ex)
             {

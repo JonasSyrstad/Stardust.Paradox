@@ -97,6 +97,11 @@ public interface ICountry : IVertex
 ```cs
 public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
 {
+
+    static MyEntityContext()
+    {
+        PartitionKeyName = "pk";//used with partitioned cosmosDb to make sure that ToVerticesAsync uses partitionKey when executing
+    }
     public IGraphSet<IPerson> Persons => GraphSet<IPerson>();
 
     public IGraphSet<ICity> Cities => GraphSet<ICity>();
@@ -115,12 +120,12 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
     {
         //Added some fluent configuration of the edges
         configuration.ConfigureCollection<IPerson>()
-                .AddInEdge(t => t.Parents, "parent").Out<IProfile>(t => t.Children)
+                .In(t => t.Parents, "parent").Out(t => t.Children)
             .ConfigureCollection<ICity>()
             .ConfigureCollection<ICountry>()
                 .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddOutEdge(t=>t.Employees, "employer").In<IProfile>(t=>t.Employers)
+                .Out(t=>t.Employees, "employer").In(t=>t.Employers)
                 .ConfigureCollection<IEmployment>();;
         return true;
     }
@@ -246,3 +251,24 @@ In many cases we cannot model our graph as strong typed entities. Paradox suppor
  Console.WriteLine(string.Join(",",profile.DynamicPropertyNames))
 ```
 
+## Complex properties
+
+Version 2.3.3 introduces the cocept of complex properties. Gremlin in it self does not support this. Complex properties are serialized to json and needs to be implemented using the IComplexProperty abstract class. For the framework to pick up on changes to the object all properties needs to raise a notification about the change (resharper will help with the implementation of these)
+
+```CS
+public class MyProp:IComplexProperty
+    {
+        private DateTime _timeStamp;
+
+        public DateTime TimeStamp
+        {
+            get => _timeStamp;
+            set
+            {
+                if (value.Equals(_timeStamp)) return;
+                _timeStamp = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+```

@@ -52,17 +52,23 @@ namespace Stardust.Paradox.Data.CodeGeneration
             return new InlineSerializationAttribute(def.Serialization.Value);
         }
 
-        private static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
+        internal static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
         {
             FluentConfig def = null;
-            if (_FluentConfig.TryGetValue(entityType, out Dictionary<MemberInfo, FluentConfig> t))
+            if (GetBinding(entityType, out var t))
             {
                 t.TryGetValue(member, out def);
             }
 
             return def;
         }
-		internal static ConcurrentDictionary<Type,string> EdgeLables=new ConcurrentDictionary<Type, string>();
+
+        internal static bool GetBinding(Type entityType, out Dictionary<MemberInfo, FluentConfig> t)
+        {
+            return _FluentConfig.TryGetValue(entityType, out t);
+        }
+        internal static ConcurrentDictionary<Type,string> typeLables=new ConcurrentDictionary<Type, string>();
+        internal static ConcurrentDictionary<Type,string> EdgeLables=new ConcurrentDictionary<Type, string>();
         public static Type MakeEdgeDataEntity(Type entity, string label)
         {
 	        EdgeLables.TryAdd(entity, label);
@@ -79,6 +85,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                baseType,
                 new[] { dataContract }
             );
+            typeLables.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
             AddIdProperty(typeBuilder,baseType);
             var eagerProperties = new List<string>();
@@ -130,6 +137,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 baseType,
                 new[] { dataContract }
             );
+            typeLables.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
             AddIdProperty(typeBuilder, baseType);
             var eagerProperties = new List<string>();

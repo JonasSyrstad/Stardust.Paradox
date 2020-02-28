@@ -1,8 +1,26 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Traversals;
+using Stardust.Paradox.Data.Traversals.Typed;
 
 namespace Stardust.Paradox.Data
 {
+    public class GremlinContext<T>: GremlinContext
+    {
+        internal GremlinContext(IGraphContext connector) : base(connector)
+        {
+        }
+
+        public new GremlinQuery<T> G() => new GremlinQuery<T>(_connector, "g");
+
+        //public IEnumerable<T> ExecuteAsync<T>(GremlinQuery<T> invoke) where T : IVertex
+        //{
+        //    return base.V(invoke.CompileQuery());
+        //}
+    }
+
     public class GremlinContext
     {
         internal readonly IGremlinLanguageConnector _connector;
@@ -12,9 +30,22 @@ namespace Stardust.Paradox.Data
             _connector = connector;
         }
 
+        protected GremlinContext(IGraphContext connector)
+        {
+            var c = connector as GraphContextBase;
+            _connector = c._connector;
+
+        }
+
         public static bool ParallelSaveExecution { get; set; }
 
         public GremlinQuery V()=>new GremlinQuery(_connector,"g.V()");
+
+        public GremlinQuery<T> V<T>()
+        {
+            CodeGeneration.CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            return new GremlinQuery<T>(new GremlinQuery(_connector, $"g.V()").HasLabel(label));
+        }
 
         public GremlinQuery V(string id)
 	    {
@@ -26,14 +57,14 @@ namespace Stardust.Paradox.Data
 	    public GremlinQuery V(string id,string partitionKey)
 	    {
 			var q = new GremlinQuery(_connector, "");
-		    q._query = $"g.V([{q.ComposeParameter(id)},{q.ComposeParameter(partitionKey)}])";
+		    q._query = $"g.V([{q.ComposeParameter(partitionKey)},{q.ComposeParameter(id)}])";
 		    return q;
 		}
 
 	    public GremlinQuery V((string, string) idAndPartitionKey)
 	    {
 		    var q = new GremlinQuery(_connector, "");
-		    q._query = $"g.V([{q.ComposeParameter(idAndPartitionKey.Item1)},{q.ComposeParameter(idAndPartitionKey.Item2)}])";
+		    q._query = $"g.V([{q.ComposeParameter(idAndPartitionKey.Item2)},{q.ComposeParameter(idAndPartitionKey.Item1)}])";
 		    return q;
 	    }
 
