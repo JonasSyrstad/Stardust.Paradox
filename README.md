@@ -4,6 +4,7 @@ Entity framework'ish tool for developing .net applications using gremlin graph q
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=security_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=ncloc)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 
 # Usage (asp.net core)
 
