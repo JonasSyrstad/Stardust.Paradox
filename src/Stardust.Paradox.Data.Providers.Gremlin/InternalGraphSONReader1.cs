@@ -1,13 +1,10 @@
-﻿using System.Collections.Generic;
-using Gremlin.Net.Structure.IO.GraphSON;
+﻿using Gremlin.Net.Structure.IO.GraphSON;
 using Newtonsoft.Json.Linq;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
     public class InternalGraphSONReader1 : GraphSONReader
     {
-        
-
         //public InternalGraphSONReader1()
         //{
         //    //_internal=new GraphSON2Reader();

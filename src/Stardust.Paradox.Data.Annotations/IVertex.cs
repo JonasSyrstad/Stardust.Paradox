@@ -1,27 +1,23 @@
-﻿using System.Collections;
-
-namespace Stardust.Paradox.Data.Annotations
+﻿namespace Stardust.Paradox.Data.Annotations
 {
     public interface IGraphEntity
     {
-        string Label { get;  }
+        string Label { get; }
         event PropertyChangedHandler PropertyChanged;
         event PropertyChangingHandler PropertyChanging;
     }
-     
+
 
     public interface IVertex : IGraphEntity
     {
-
     }
 
-    public interface IDynamicGraphEntity 
+    public interface IDynamicGraphEntity
     {
+        string[] DynamicPropertyNames { get; }
         object GetProperty(string propertyName);
 
         void SetProperty(string propertyName, object value);
-
-        string[] DynamicPropertyNames { get; }
     }
 
     //public interface IEdge: IGraphEntity

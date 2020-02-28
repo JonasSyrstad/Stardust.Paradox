@@ -4,7 +4,7 @@
     {
         public static GremlinQuery PageRank(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"pageRank()");
+            return new ComposedGremlinQuery(queryBase, "pageRank()");
         }
 
         public static GremlinQuery E(this GremlinQuery queryBase, string edgeLabel)
@@ -14,7 +14,7 @@
 
         public static GremlinQuery E(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"E()");
+            return new ComposedGremlinQuery(queryBase, "E()");
         }
 
         public static GremlinQuery Out(this GremlinQuery queryBase, params string[] names)
@@ -26,6 +26,7 @@
         {
             return queryBase.Params("in", names);
         }
+
         public static GremlinQuery Both(this GremlinQuery queryBase, params string[] names)
         {
             return queryBase.Params("both", names);
@@ -35,7 +36,7 @@
         {
             return queryBase.Params("outE", names);
         }
-        
+
         public static GremlinQuery InE(this GremlinQuery queryBase, params string[] names)
         {
             return queryBase.Params("inE", names);
@@ -48,25 +49,25 @@
 
         public static GremlinQuery InV(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"inV()");
+            return new ComposedGremlinQuery(queryBase, "inV()");
         }
-        
+
         public static GremlinQuery OutV(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"outV()");
+            return new ComposedGremlinQuery(queryBase, "outV()");
         }
 
         public static GremlinQuery BothV(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"bothV()");
+            return new ComposedGremlinQuery(queryBase, "bothV()");
         }
 
         public static GremlinQuery OtherV(this GremlinQuery queryBase)
         {
-            return new ComposedGremlinQuery(queryBase, $"otherV()");
+            return new ComposedGremlinQuery(queryBase, "otherV()");
         }
 
-        public static GremlinQuery SubGraph(this GremlinQuery queryBase,string graphLabel)
+        public static GremlinQuery SubGraph(this GremlinQuery queryBase, string graphLabel)
         {
             return new ComposedGremlinQuery(queryBase, $"subgraph({queryBase.ComposeParameter(graphLabel)})");
         }

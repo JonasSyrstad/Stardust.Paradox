@@ -1,149 +1,156 @@
-﻿using Newtonsoft.Json;
-using Stardust.Paradox.Data.Annotations;
-using Stardust.Particles;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Text;
+using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Internals
 {
+    internal class InlineCollection<T> : IInlineCollection<T>
+    {
+        private static readonly ConcurrentDictionary<string, SerializationType> _serializationTypes =
+            new ConcurrentDictionary<string, SerializationType>();
 
-	internal class InlineCollection<T> : IInlineCollection<T>
-	{
-		internal static void SetSerializationType(string name, SerializationType type)
-		{
-			_serializationTypes.TryAdd(name, type);
-		}
+        private readonly string _name;
+        private readonly IGraphEntityInternal _parent;
+        private List<T> _internal;
 
-		private static ConcurrentDictionary<string, SerializationType> _serializationTypes = new ConcurrentDictionary<string, SerializationType>();
-		private readonly IGraphEntityInternal _parent;
-		private readonly string _name;
-		private List<T> _internal;
-		public InlineCollection()
-		{
-			_internal = new List<T>();
-		}
+        public InlineCollection()
+        {
+            _internal = new List<T>();
+        }
 
-		public InlineCollection(IGraphEntityInternal parent, string name) : this()
-		{
-			_parent = parent;
-			_name = name;
-		}
-		public InlineCollection(string inlineString, GraphDataEntity parent, string name) : this(parent, name)
-		{
-			_internal = JsonConvert.DeserializeObject<List<T>>(inlineString);
-		}
-		public IEnumerator<T> GetEnumerator()
-		{
-			return _internal.GetEnumerator();
-		}
+        public InlineCollection(IGraphEntityInternal parent, string name) : this()
+        {
+            _parent = parent;
+            _name = name;
+        }
 
-		IEnumerator IEnumerable.GetEnumerator()
-		{
-			return GetEnumerator();
-		}
+        public InlineCollection(string inlineString, GraphDataEntity parent, string name) : this(parent, name)
+        {
+            _internal = JsonConvert.DeserializeObject<List<T>>(inlineString);
+        }
 
-		public void Add(T item)
-		{
-			_internal.Add(item);
-			WriteUpdateStatement();
-		}
+        private SerializationType Serialization =>
+            !_serializationTypes.TryGetValue($"{_parent.GetType().FullName}.{_name}", out var i)
+                ? SerializationType.ClearText
+                : i;
 
-		private void WriteUpdateStatement()
-		{
-			_parent.OnPropertyChanged(this, _name);
-		}
+        public IEnumerator<T> GetEnumerator()
+        {
+            return _internal.GetEnumerator();
+        }
 
-		public void Clear()
-		{
-			_internal.Clear();
-			_parent.OnPropertyChanged(this, _name);
-		}
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
 
-		public bool Contains(T item)
-		{
-			return _internal.Contains(item);
-		}
+        public void Add(T item)
+        {
+            _internal.Add(item);
+            WriteUpdateStatement();
+        }
 
-		public void CopyTo(T[] array, int arrayIndex)
-		{
-			_internal.CopyTo(array, arrayIndex);
-		}
+        public void Clear()
+        {
+            _internal.Clear();
+            _parent.OnPropertyChanged(this, _name);
+        }
 
-		public bool Remove(T item)
-		{
-			var result = _internal.Remove(item);
-			if (result)
-				_parent.OnPropertyChanged(this, _name);
-			return result;
-		}
+        public bool Contains(T item)
+        {
+            return _internal.Contains(item);
+        }
 
-		public int Count => _internal.Count;
-		public bool IsReadOnly => false;
+        public void CopyTo(T[] array, int arrayIndex)
+        {
+            _internal.CopyTo(array, arrayIndex);
+        }
 
-		public void AddRange(IEnumerable<T> items)
-		{
-			_internal.AddRange(items);
-			_parent.OnPropertyChanged(this, _name);
-		}
+        public bool Remove(T item)
+        {
+            var result = _internal.Remove(item);
+            if (result)
+                _parent.OnPropertyChanged(this, _name);
+            return result;
+        }
 
-		private SerializationType Serialization => !_serializationTypes.TryGetValue($"{_parent.GetType().FullName}.{_name}", out var i) ? SerializationType.ClearText : i;
+        public int Count => _internal.Count;
+        public bool IsReadOnly => false;
 
-		public override string ToString()
-		{
-			switch (Serialization)
-			{
-				case SerializationType.ClearText:
-					return JsonConvert.SerializeObject(this);
-				case SerializationType.Base64:
-					return Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this)));
-				case SerializationType.Compressed:
-				default:
-					return Convert.ToBase64String(Compress(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this))));
-			}
-		}
+        public void AddRange(IEnumerable<T> items)
+        {
+            _internal.AddRange(items);
+            _parent.OnPropertyChanged(this, _name);
+        }
 
-		private static byte[] Compress(byte[] data)
-		{
-			using (var compressedStream = new MemoryStream())
-			using (var zipStream = new GZipStream(compressedStream, CompressionMode.Compress))
-			{
-				zipStream.Write(data, 0, data.Length);
-				zipStream.Close();
-				return compressedStream.ToArray();
-			}
-		}
+        string IInlineCollection.ToTransferData()
+        {
+            return ToString();
+        }
 
-		private static byte[] Decompress(byte[] data)
-		{
-			using (var compressedStream = new MemoryStream(data))
-			using (var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
-			using (var resultStream = new MemoryStream())
-			{
-				zipStream.CopyTo(resultStream);
-				return resultStream.ToArray();
-			}
-		}
+        IInlineCollection IInlineCollection.LoadFromTransferData(string data)
+        {
+            if (data.IsNullOrWhiteSpace()) return this;
+            if (Serialization == SerializationType.Base64)
+                data = Encoding.UTF8.GetString(Convert.FromBase64String(data));
+            if (Serialization == SerializationType.Compressed)
+                data = Encoding.UTF8.GetString(Decompress(Convert.FromBase64String(data)));
+            if (data.IsNullOrWhiteSpace()) return this;
+            _internal = JsonConvert.DeserializeObject<List<T>>(data);
+            return this;
+        }
 
-		string IInlineCollection.ToTransferData()
-		{
-			return ToString();
-		}
+        internal static void SetSerializationType(string name, SerializationType type)
+        {
+            _serializationTypes.TryAdd(name, type);
+        }
 
-		IInlineCollection IInlineCollection.LoadFromTransferData(string data)
-		{
-			if (data.IsNullOrWhiteSpace()) return this;
-			if (Serialization == SerializationType.Base64)
-				data = Encoding.UTF8.GetString(Convert.FromBase64String(data));
-			if(Serialization==SerializationType.Compressed)
-				data = Encoding.UTF8.GetString(Decompress(Convert.FromBase64String(data)));
-			if (data.IsNullOrWhiteSpace()) return this;
-			_internal = JsonConvert.DeserializeObject<List<T>>(data);
-			return this;
-		}
-	}
+        private void WriteUpdateStatement()
+        {
+            _parent.OnPropertyChanged(this, _name);
+        }
+
+        public override string ToString()
+        {
+            switch (Serialization)
+            {
+                case SerializationType.ClearText:
+                    return JsonConvert.SerializeObject(this);
+                case SerializationType.Base64:
+                    return Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this)));
+                case SerializationType.Compressed:
+                default:
+                    return Convert.ToBase64String(Compress(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(this))));
+            }
+        }
+
+        private static byte[] Compress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream())
+            using (var zipStream = new GZipStream(compressedStream, CompressionMode.Compress))
+            {
+                zipStream.Write(data, 0, data.Length);
+                zipStream.Close();
+                return compressedStream.ToArray();
+            }
+        }
+
+        private static byte[] Decompress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream(data))
+            using (var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+            using (var resultStream = new MemoryStream())
+            {
+                zipStream.CopyTo(resultStream);
+                return resultStream.ToArray();
+            }
+        }
+    }
 }

@@ -1,6 +1,6 @@
 ﻿namespace Stardust.Paradox.Data.Traversals.Typed
 {
-    public class GremlinQuery<T>:GremlinQuery
+    public class GremlinQuery<T> : GremlinQuery
     {
         internal GremlinQuery(IGremlinLanguageConnector connector, string query) : base(connector, query)
         {
@@ -21,7 +21,5 @@
         public GremlinQuery(GremlinQuery baseQuery) : base(baseQuery, null)
         {
         }
-
-       
     }
 }

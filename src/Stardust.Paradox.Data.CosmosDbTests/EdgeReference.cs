@@ -1,6 +1,6 @@
 namespace Stardust.Paradox.CosmosDbTest
 {
-     class EdgeReference1
+    internal class EdgeReference1
     {
         public string EdgeName { get; set; }
 

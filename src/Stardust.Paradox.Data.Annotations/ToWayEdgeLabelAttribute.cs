@@ -9,6 +9,7 @@ namespace Stardust.Paradox.Data.Annotations
         {
             Label = label;
         }
+
         public string Label { get; set; }
     }
 }

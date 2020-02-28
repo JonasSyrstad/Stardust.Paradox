@@ -15,61 +15,66 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             _queryBase = queryBase;
         }
 
+        public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
+
         protected internal override string CompileQuery()
         {
             var query = _query.StartsWith(".") ? _query.Remove(0, 1) : _query;
             var baseQ = _queryBase.CompileQuery();
-            if ((!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith("."))) query = $".{query}";
+            if (!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith(".")) query = $".{query}";
             return baseQ + query;
         }
-
-        public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
 
         //internal override object ComposeParameter(object value)
         //{
         // return _queryBase.ComposeParameter(value);
         //}
-
     }
+
     public static partial class TypedTraversalExtensions
     {
-        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func, string value) where T : IVertex
+        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func, string value)
+            where T : IVertex
         {
             var prop = func.Body as MemberExpression;
             var f = g.Has(prop.Member.Name.ToCamelCase(), value);
             return new GremlinQuery<T>(f);
-
-        }
-        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func, bool value) where T : IVertex
-        {
-            var prop = func.Body as MemberExpression;
-            var f = g.Has(prop.Member.Name.ToCamelCase(), value);
-            return new GremlinQuery<T>(f);
-
         }
 
-        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func, EpochDateTime value) where T : IVertex
+        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func, bool value)
+            where T : IVertex
         {
             var prop = func.Body as MemberExpression;
             var f = g.Has(prop.Member.Name.ToCamelCase(), value);
             return new GremlinQuery<T>(f);
+        }
 
+        public static GremlinQuery<T> Has<T>(this GremlinQuery<T> g, Expression<Func<T, object>> func,
+            EpochDateTime value) where T : IVertex
+        {
+            var prop = func.Body as MemberExpression;
+            var f = g.Has(prop.Member.Name.ToCamelCase(), value);
+            return new GremlinQuery<T>(f);
         }
 
         public static GremlinQuery<T> Without<T>(this PredicateGremlinQuery<T> queryBase, string name)
         {
-            return new GremlinQuery<T>(((PredicateGremlinQuery)queryBase).Without(name));
+            return new GremlinQuery<T>(((PredicateGremlinQuery) queryBase).Without(name));
         }
 
-        public static GremlinQuery<T> Where<T>(this GremlinQuery<T> queryBase, string name, Func<PredicateGremlinQuery<T>, GremlinQuery<T>> expression)
+        public static GremlinQuery<T> Where<T>(this GremlinQuery<T> queryBase, string name,
+            Func<PredicateGremlinQuery<T>, GremlinQuery<T>> expression)
         {
-            return new GremlinQuery<T>(new LambdaComposedGremlinQuery(queryBase, $".where('{name.EscapeGremlinString()}',{{0}})", query => expression.Invoke(new PredicateGremlinQuery<T>(new GremlinQuery<T>(query))).CompileQuery()));
+            return new GremlinQuery<T>(new LambdaComposedGremlinQuery(queryBase,
+                $".where('{name.EscapeGremlinString()}',{{0}})",
+                query => expression.Invoke(new PredicateGremlinQuery<T>(new GremlinQuery<T>(query))).CompileQuery()));
         }
 
-        public static GremlinQuery<T> Where<T>(this GremlinQuery<T> queryBase, Func<PredicateGremlinQuery<T>, GremlinQuery<T>> expression)
+        public static GremlinQuery<T> Where<T>(this GremlinQuery<T> queryBase,
+            Func<PredicateGremlinQuery<T>, GremlinQuery<T>> expression)
         {
-            return new GremlinQuery<T>(new LambdaComposedGremlinQuery(queryBase, $".where({{0}})", query => expression.Invoke(new PredicateGremlinQuery<T>(new GremlinQuery<T>(query))).CompileQuery()));
+            return new GremlinQuery<T>(new LambdaComposedGremlinQuery(queryBase, ".where({0})",
+                query => expression.Invoke(new PredicateGremlinQuery<T>(new GremlinQuery<T>(query))).CompileQuery()));
         }
-
     }
 }

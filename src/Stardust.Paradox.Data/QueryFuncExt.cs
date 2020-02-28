@@ -2,6 +2,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Particles;
 
@@ -14,31 +15,26 @@ namespace Stardust.Paradox.Data
         {
             return context => queryExtention.Invoke(query.Invoke(context));
         }
+
         public static string GetInfo<T>(Expression<Func<T, object>> action)
         {
             var expression = GetMemberInfo(action);
-            string name = expression.Member.Name;
+            var name = expression.Member.Name;
             return name;
-
         }
 
         private static MemberExpression GetMemberInfo(Expression method)
         {
-            LambdaExpression lambda = method as LambdaExpression;
+            var lambda = method as LambdaExpression;
             if (lambda == null)
                 throw new ArgumentNullException("method");
 
             MemberExpression memberExpr = null;
 
             if (lambda.Body.NodeType == ExpressionType.Convert)
-            {
                 memberExpr =
-                    ((UnaryExpression)lambda.Body).Operand as MemberExpression;
-            }
-            else if (lambda.Body.NodeType == ExpressionType.MemberAccess)
-            {
-                memberExpr = lambda.Body as MemberExpression;
-            }
+                    ((UnaryExpression) lambda.Body).Operand as MemberExpression;
+            else if (lambda.Body.NodeType == ExpressionType.MemberAccess) memberExpr = lambda.Body as MemberExpression;
 
             if (memberExpr == null)
                 throw new ArgumentException("method");
@@ -46,13 +42,14 @@ namespace Stardust.Paradox.Data
             return memberExpr;
         }
 
-        internal static string GetEdgeLabel<T>(Expression<Func<T, object>> action) where T:IVertex
+        internal static string GetEdgeLabel<T>(Expression<Func<T, object>> action) where T : IVertex
         {
             var expression = GetMemberInfo(action);
-	        var name = CodeGeneration.CodeGenerator.EdgeLabel(expression.Member.DeclaringType, expression.Member) ??
-	                CodeGeneration.CodeGenerator.EdgeReverseLabel(expression.Member.DeclaringType, expression.Member);
-	        if (name.ContainsCharacters()) return name;
-			name = expression.Member.GetCustomAttribute<EdgeLabelAttribute>()?.Label?? expression.Member.GetCustomAttribute<ReverseEdgeLabelAttribute>() ?.ReverseLabel;
+            var name = CodeGenerator.EdgeLabel(expression.Member.DeclaringType, expression.Member) ??
+                       CodeGenerator.EdgeReverseLabel(expression.Member.DeclaringType, expression.Member);
+            if (name.ContainsCharacters()) return name;
+            name = expression.Member.GetCustomAttribute<EdgeLabelAttribute>()?.Label ??
+                   expression.Member.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             return name;
         }
     }

@@ -10,10 +10,8 @@ namespace Stardust.Paradox.Data.Annotations
         IInlineCollection LoadFromTransferData(string data);
     }
 
-    public interface IInlineCollection<T> : IEnumerable<T>, IInlineCollection,ICollection<T>
+    public interface IInlineCollection<T> : IEnumerable<T>, IInlineCollection, ICollection<T>
     {
         void AddRange(IEnumerable<T> items);
-
     }
-
 }
