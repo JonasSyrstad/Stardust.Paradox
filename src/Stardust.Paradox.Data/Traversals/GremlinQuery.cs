@@ -17,8 +17,8 @@ namespace Stardust.Paradox.Data.Traversals
 		protected internal readonly IGremlinLanguageConnector _connector;
 
 		private readonly GremlinQuery _queryBase;
-		public string _query;
-		protected Dictionary<string, object> _parameters;
+        public string _query { get; protected internal set; }
+        protected Dictionary<string, object> _parameters;
 
 		public virtual bool IsUpdatableGremlinQuery => false;
 
