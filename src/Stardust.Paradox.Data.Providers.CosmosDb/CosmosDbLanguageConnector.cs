@@ -78,7 +78,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
         private async Task<DocumentCollection> DocumentCollection()
         {
             if (_graph != null) return _graph;
-            Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database {Id = _databaseName})
+            await _client.CreateDatabaseIfNotExistsAsync(new Database {Id = _databaseName})
                 .ConfigureAwait(false);
             _graph = await _client.CreateDocumentCollectionIfNotExistsAsync(
                 UriFactory.CreateDatabaseUri(_databaseName),

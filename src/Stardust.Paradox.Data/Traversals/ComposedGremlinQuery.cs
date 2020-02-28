@@ -18,10 +18,5 @@
             if (!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith(".")) query = $".{query}";
             return baseQ + query;
         }
-
-        //internal override object ComposeParameter(object value)
-        //{
-        // return _queryBase.ComposeParameter(value);
-        //}
     }
 }

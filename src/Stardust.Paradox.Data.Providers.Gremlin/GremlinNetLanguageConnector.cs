@@ -127,7 +127,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
             lock (lockObject)
             {
                 if (gremlinClients.TryGetValue(_key, out _client)) return;
-                _client = new GremlinClient(_server, new InternalGraphSONReader1(),
+                _client = new GremlinClient(_server, new InternalGraphSonReader1(),
                     new GraphSON2Writer(),
                     GremlinClient.GraphSON2MimeType, ConnectionPoolSettings, WebSocketConfiguration);
                 gremlinClients.TryAdd(_key, _client);
