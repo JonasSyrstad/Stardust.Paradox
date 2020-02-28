@@ -21,6 +21,7 @@ namespace Stardust.Paradox.Data.Annotations
     public interface IEdgeCollection<TTout> : IEdgeCollection, ICollection<IEdge<TTout>>, ICollection<TTout>,
         IEdgeNavigation<TTout> where TTout : IVertex
     {
+
         Task<IEnumerable<TTout>> ToVerticesAsync();
 
         Task<IEnumerable<TTout>> ToVerticesAsync([Optional] Expression<Func<TTout, object>> filterSelector,

@@ -85,10 +85,10 @@ namespace Stardust.Paradox.Data
         public IGraphConfiguration<TParent> Out(Expression<Func<T, object>> func)
         {
             var prop = func.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -115,10 +115,10 @@ namespace Stardust.Paradox.Data
         public IGraphConfiguration<TParent> In(Expression<Func<T, object>> func)
         {
             var prop = func.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))

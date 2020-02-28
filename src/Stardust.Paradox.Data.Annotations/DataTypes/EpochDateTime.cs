@@ -151,5 +151,25 @@ namespace Stardust.Paradox.Data.Annotations.DataTypes
                 _dateTime = epoch.AddSeconds(value);
             }
         }
+        public static bool operator ==(EpochDateTime left, EpochDateTime right)
+        {
+            if (object.ReferenceEquals(left, null))
+            {
+                return object.ReferenceEquals(right, null);
+            }
+            return left.Equals(right);
+        }
+        public static bool operator >(EpochDateTime left, EpochDateTime right)
+        {
+            return left.Epoch > right.Epoch;
+        }
+        public static bool operator <(EpochDateTime left, EpochDateTime right)
+        {
+            return left.Epoch < right.Epoch;
+        }
+        public static bool operator !=(EpochDateTime left, EpochDateTime right)
+        {
+            return !(left == right);
+        }
     }
 }

@@ -27,10 +27,10 @@ namespace Stardust.Paradox.Data
         {
             if (_label.IsNullOrWhiteSpace()) throw new NullReferenceException("No edge label is defined");
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(TReverse), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(TReverse), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(TReverse), t);
+                CodeGenerator.FluentConfig.Add(typeof(TReverse), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -47,10 +47,10 @@ namespace Stardust.Paradox.Data
         {
             if (_label.IsNullOrWhiteSpace()) throw new NullReferenceException("No edge label is defined");
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(TReverse), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(TReverse), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(TReverse), t);
+                CodeGenerator.FluentConfig.Add(typeof(TReverse), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -87,10 +87,10 @@ namespace Stardust.Paradox.Data
         public IOutEdgeConfiguration<T> AddOutEdge(Expression<Func<T, object>> outPropertyLambda, string label)
         {
             var prop = outPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -123,10 +123,10 @@ namespace Stardust.Paradox.Data
             bool eagerLoading)
         {
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -155,10 +155,10 @@ namespace Stardust.Paradox.Data
             string label) where TReverse : IVertex
         {
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -182,10 +182,10 @@ namespace Stardust.Paradox.Data
             string label) where TReverse : IVertex
         {
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -218,10 +218,10 @@ namespace Stardust.Paradox.Data
             SerializationType serialization)
         {
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))
@@ -237,10 +237,10 @@ namespace Stardust.Paradox.Data
         public IGraphConfiguration<T> AddQuery(Expression<Func<T, object>> inPropertyLambda, string gremlinQuery)
         {
             var prop = inPropertyLambda.Body as MemberExpression;
-            if (!CodeGenerator._FluentConfig.TryGetValue(typeof(T), out var t))
+            if (!CodeGenerator.FluentConfig.TryGetValue(typeof(T), out var t))
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
-                CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator.FluentConfig.Add(typeof(T), t);
             }
 
             if (t.TryGetValue(prop.Member, out var def))

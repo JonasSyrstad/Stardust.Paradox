@@ -19,7 +19,4 @@
 
         void SetProperty(string propertyName, object value);
     }
-
-    //public interface IEdge: IGraphEntity
-    //{ }
 }

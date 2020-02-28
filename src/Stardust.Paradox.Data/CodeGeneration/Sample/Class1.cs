@@ -8,7 +8,7 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
 {
     public class Class1 : GraphDataEntity, IClass1
     {
-        private readonly string _test;
+        private string _test;
         private long _age;
         private string _email;
 
@@ -26,7 +26,7 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
         public string Test
         {
             get => _test;
-            set { }
+            set => _test = value;
         }
 
         public string Name

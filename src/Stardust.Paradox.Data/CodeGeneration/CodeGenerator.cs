@@ -13,15 +13,23 @@ using Stardust.Particles.Collection;
 
 namespace Stardust.Paradox.Data.CodeGeneration
 {
-    public class CodeGenerator
+    public sealed class CodeGenerator
     {
-        internal static Dictionary<Type, Dictionary<MemberInfo, FluentConfig>> _FluentConfig =
+        internal static readonly Dictionary<Type, Dictionary<MemberInfo, FluentConfig>> FluentConfig =
             new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
 
         private static AssemblyBuilder _builder;
         private static ModuleBuilder _moduleBuilder;
-        internal static ConcurrentDictionary<Type, string> typeLables = new ConcurrentDictionary<Type, string>();
-        internal static ConcurrentDictionary<Type, string> EdgeLables = new ConcurrentDictionary<Type, string>();
+
+        internal static readonly ConcurrentDictionary<Type, string> TypeLabels =
+            new ConcurrentDictionary<Type, string>();
+
+        internal static readonly ConcurrentDictionary<Type, string> EdgeLabels =
+            new ConcurrentDictionary<Type, string>();
+
+        private CodeGenerator()
+        {
+        }
 
         internal static string EdgeLabel(Type entityType, MemberInfo member)
         {
@@ -65,12 +73,12 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         internal static bool GetBinding(Type entityType, out Dictionary<MemberInfo, FluentConfig> t)
         {
-            return _FluentConfig.TryGetValue(entityType, out t);
+            return FluentConfig.TryGetValue(entityType, out t);
         }
 
         public static Type MakeEdgeDataEntity(Type entity, string label)
         {
-            EdgeLables.TryAdd(entity, label);
+            EdgeLabels.TryAdd(entity, label);
             var dataContract = entity;
             var generics = entity.GetInterfaces().Single(c => c.GenericTypeArguments.Length == 2).GenericTypeArguments;
             var baseType = typeof(EdgeDataEntity<,>).MakeGenericType(generics);
@@ -83,15 +91,23 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 "Data.Contracts.Implementations.Edges." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
                 baseType,
-                new[] {dataContract}
+                new[] { dataContract }
             );
-            typeLables.TryAdd(entity, label);
+            TypeLabels.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
             AddIdProperty(typeBuilder, baseType);
             var eagerProperties = new List<string>();
+            MakeEdgeProperties(entity, dataContract, typeBuilder, baseType);
+
+            if (eagerProperties.ContainsElements())
+                GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
+            return typeBuilder.CreateTypeInfo();
+        }
+
+        private static void MakeEdgeProperties(Type entity, Type dataContract, TypeBuilder typeBuilder, Type baseType)
+        {
             foreach (var prop in dataContract.GetProperties())
             {
-                var eager = EagerLoading(entity, prop) ?? prop.GetCustomAttribute<EagerAttribute>();
                 var serialization = Serialization(entity, prop) ??
                                     prop.GetCustomAttribute<InlineSerializationAttribute>();
                 if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
@@ -102,29 +118,12 @@ namespace Stardust.Paradox.Data.CodeGeneration
                         InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}",
                             serialization?.Type ?? SerializationType.ClearText);
                     }
-
-                    //else
-                    //{
-                    //    AddEdge(entity, prop, typeBuilder);
-                    //    if (eager != null)
-                    //        eagerProperties.Add(prop.Name);
-                    //}
                 }
-                //else if (typeof(IEdgeReference).IsAssignableFrom(prop.PropertyType))
-                //{
-                //    AddEdgeRef(prop, typeBuilder, entity);
-                //    if (eager != null)
-                //        eagerProperties.Add(prop.Name);
-                //}
                 else
                 {
                     AddValueProperty(typeBuilder, prop, baseType);
                 }
             }
-
-            if (eagerProperties.ContainsElements())
-                GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
-            return typeBuilder.CreateTypeInfo();
         }
 
 
@@ -141,12 +140,21 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 "Data.Contracts.Implementations.Vertices." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
                 baseType,
-                new[] {dataContract}
+                new[] { dataContract }
             );
-            typeLables.TryAdd(entity, label);
+            TypeLabels.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
             AddIdProperty(typeBuilder, baseType);
             var eagerProperties = new List<string>();
+            MakeProperties(entity, dataContract, typeBuilder, baseType, eagerProperties);
+            if (eagerProperties.ContainsElements())
+                GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
+            return typeBuilder.CreateTypeInfo();
+        }
+
+        private static void MakeProperties(Type entity, Type dataContract, TypeBuilder typeBuilder, Type baseType,
+            ICollection<string> eagerProperties)
+        {
             foreach (var prop in dataContract.GetProperties())
             {
                 var eager = EagerLoading(entity, prop) ?? prop.GetCustomAttribute<EagerAttribute>();
@@ -178,10 +186,6 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     AddValueProperty(typeBuilder, prop, baseType);
                 }
             }
-
-            if (eagerProperties.ContainsElements())
-                GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
-            return typeBuilder.CreateTypeInfo();
         }
 
         private static void AddValueProperty(TypeBuilder typeBuilder, PropertyInfo prop, Type baseType)
@@ -194,9 +198,9 @@ namespace Stardust.Paradox.Data.CodeGeneration
             property.SetGetMethod(get);
             property.SetSetMethod(set);
             property.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {prop.Name.ToCamelCase()},
+                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { prop.Name.ToCamelCase() },
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] {DefaultValueHandling.Include}));
+                new object[] { DefaultValueHandling.Include }));
         }
 
         private static void AddEdge(Type entity, PropertyInfo prop, TypeBuilder typeBuilder, Type baseType)
@@ -214,18 +218,18 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop));
             edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
                 new object[] { }));
             if (reverseEdgeLabel != null)
                 edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
-                    new object[] {reverseEdgeLabel}));
+                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] { typeof(string) }),
+                    new object[] { reverseEdgeLabel }));
             if (edgeLabel != null)
                 edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                    typeof(EdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
-                    new object[] {edgeLabel}));
+                    typeof(EdgeLabelAttribute).GetConstructor(new[] { typeof(string) }),
+                    new object[] { edgeLabel }));
         }
 
         private static void AddInline(PropertyInfo prop, TypeBuilder typeBuilder,
@@ -243,14 +247,14 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop));
             edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {prop.Name.ToCamelCase()},
+                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { prop.Name.ToCamelCase() },
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] {DefaultValueHandling.Include}));
+                new object[] { DefaultValueHandling.Include }));
             edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(InlineSerializationAttribute).GetConstructor(new[] {typeof(SerializationType)}),
-                new object[] {serialization.Type}));
+                typeof(InlineSerializationAttribute).GetConstructor(new[] { typeof(SerializationType) }),
+                new object[] { serialization.Type }));
         }
 
         private static void AddEdgeRef(PropertyInfo prop, TypeBuilder typeBuilder, Type entity, Type baseType)
@@ -268,18 +272,18 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop));
             edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
                 typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
                 new object[] { }));
             if (reverseEdgeLabel != null)
                 edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
-                    new object[] {reverseEdgeLabel}));
+                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] { typeof(string) }),
+                    new object[] { reverseEdgeLabel }));
             if (edgeLabel != null)
                 edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                    typeof(EdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
-                    new object[] {edgeLabel}));
+                    typeof(EdgeLabelAttribute).GetConstructor(new[] { typeof(string) }),
+                    new object[] { edgeLabel }));
         }
 
         private static void AddIdProperty(TypeBuilder typeBuilder, Type baseType)
@@ -291,9 +295,9 @@ namespace Stardust.Paradox.Data.CodeGeneration
             idProperty.SetGetMethod(idget);
             idProperty.SetSetMethod(idSet);
             idProperty.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {"id"},
+                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { "id" },
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] {DefaultValueHandling.Include}));
+                new object[] { DefaultValueHandling.Include }));
         }
 
         private static MethodBuilder BuildMethodset_Id(TypeBuilder typeBuilder, Type baseType)
@@ -312,7 +316,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 typeof(string)
             );
             // Parameter value
-            var value = method.DefineParameter(1, ParameterAttributes.None, "value");
+            method.DefineParameter(1, ParameterAttributes.None, "value");
             var gen = method.GetILGenerator();
             // Writing body
             gen.Emit(OpCodes.Nop);
@@ -324,7 +328,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             return method;
         }
 
-        private static MethodBuilder BuildMethodset(TypeBuilder typeBuilder, PropertyInfo prop, Type baseType)
+        private static MethodBuilder BuildMethodset(TypeBuilder typeBuilder, PropertyInfo prop)
         {
             var methodAttributes =
                 MethodAttributes.Public
@@ -358,9 +362,9 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 typeof(string), null);
             labelProperty.SetGetMethod(labelGet);
             labelProperty.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {"label"},
+                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { "label" },
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] {DefaultValueHandling.Include}));
+                new object[] { DefaultValueHandling.Include }));
         }
 
 
@@ -382,7 +386,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Adding parameters
             var gen = method.GetILGenerator();
             // Preparing locals
-            var str = gen.DeclareLocal(i.PropertyType);
+            gen.DeclareLocal(i.PropertyType);
             // Preparing labels
             var label10 = gen.DefineLabel();
             // Writing body
@@ -427,7 +431,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Adding parameters
             var gen = method.GetILGenerator();
             // Preparing locals
-            var str = gen.DeclareLocal(typeof(string));
+            gen.DeclareLocal(typeof(string));
             // Preparing labels
             var label10 = gen.DefineLabel();
             // Writing body
@@ -444,8 +448,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
         }
 
 
-        private static MethodBuilder BuildMethodset(TypeBuilder type, PropertyInfo i, FieldBuilder field1,
-            Type baseType)
+        private static MethodBuilder BuildMethodset(TypeBuilder type, PropertyInfo i, FieldBuilder field1, Type baseType)
         {
             // Method attributes
             var methodAttributes =
@@ -487,7 +490,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 i.PropertyType
             );
             // Parameter value
-            var value = method.DefineParameter(1, ParameterAttributes.None, "value");
+            method.DefineParameter(1, ParameterAttributes.None, "value");
             var gen = method.GetILGenerator();
             // Preparing locals
             var flag = gen.DeclareLocal(typeof(bool));
@@ -524,68 +527,6 @@ namespace Stardust.Paradox.Data.CodeGeneration
             gen.Emit(OpCodes.Ret);
             // finished
             return method;
-
-
-            //// Declaring method builder
-            //// Method attributes
-            //MethodAttributes methodAttributes =
-            //      MethodAttributes.Public
-            //    | MethodAttributes.Virtual
-            //    | MethodAttributes.Final
-            //    | MethodAttributes.HideBySig
-            //    | MethodAttributes.NewSlot;
-            //MethodBuilder method = type.DefineMethod("set_" + i.Name, methodAttributes);
-            //// Preparing Reflection instances
-            ////FieldInfo field1 = typeof(Class1).GetField("_age", BindingFlags.Public | BindingFlags.NonPublic);
-            //MethodInfo method2 = typeof(GraphDataEntity).GetMethod(
-            //    "OnPropertyChanged",
-            //    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-            //    null,
-            //    new Type[]{
-            //typeof(Object),
-            //typeof(String)
-            //        },
-            //    null
-            //    );
-            //// Setting return type
-            //method.SetReturnType(typeof(void));
-            //// Adding parameters
-            //method.SetParameters(
-            //    i.PropertyType
-            //    );
-            //// Parameter value
-            //ParameterBuilder value = method.DefineParameter(1, ParameterAttributes.None, "value");
-            //ILGenerator gen = method.GetILGenerator();
-            //// Preparing locals
-            //LocalBuilder flag = gen.DeclareLocal(typeof(Boolean));
-            //// Preparing labels
-            //Label label44 = gen.DefineLabel();
-            //// Writing body
-            //gen.Emit(OpCodes.Nop);
-            //gen.Emit(OpCodes.Ldarg_0);
-            //gen.Emit(OpCodes.Ldfld, field1);
-            //gen.Emit(OpCodes.Ldarg_1);
-            //gen.Emit(OpCodes.Ceq);
-            //gen.Emit(OpCodes.Ldc_I4_0);
-            //gen.Emit(OpCodes.Ceq);
-            //gen.Emit(OpCodes.Stloc_0);
-            //gen.Emit(OpCodes.Ldloc_0);
-            //gen.Emit(OpCodes.Brfalse_S, label44);
-            //gen.Emit(OpCodes.Nop);
-            //gen.Emit(OpCodes.Ldarg_0);
-            //gen.Emit(OpCodes.Ldarg_1);
-            //gen.Emit(OpCodes.Stfld, field1);
-            //gen.Emit(OpCodes.Ldarg_0);
-            //gen.Emit(OpCodes.Ldarg_1);
-            //gen.Emit(OpCodes.Box, i.PropertyType);
-            //gen.Emit(OpCodes.Ldstr, i.Name);
-            //gen.Emit(OpCodes.Callvirt, method2);
-            //gen.Emit(OpCodes.Nop);
-            //gen.Emit(OpCodes.Nop);
-            //gen.MarkLabel(label44);
-            //gen.Emit(OpCodes.Ret);
-            //// finished
-            //return method;
         }
 
         private static MethodBuilder BuildMethodget_Parent(TypeBuilder type, PropertyInfo prop, string label,
@@ -619,7 +560,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Adding parameters
             var gen = method.GetILGenerator();
             // Preparing locals
-            var edges = gen.DeclareLocal(prop.PropertyType);
+            gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
             var label15 = gen.DefineLabel();
             // Writing body
@@ -667,7 +608,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Adding parameters
             var gen = method.GetILGenerator();
             // Preparing locals
-            var edges = gen.DeclareLocal(prop.PropertyType);
+            gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
             var label15 = gen.DefineLabel();
             // Writing body
@@ -715,7 +656,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Adding parameters
             var gen = method.GetILGenerator();
             // Preparing locals
-            var edges = gen.DeclareLocal(prop.PropertyType);
+            gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
             var label15 = gen.DefineLabel();
             // Writing body

@@ -45,20 +45,20 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, "g.V()").HasLabel(label));
         }
 
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery, string id)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(
                 new GremlinQuery<T>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})").HasLabel(label));
         }
 
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery, (string, string) idAndPartitionKey)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery,
                     $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])")
                 .HasLabel(label));
@@ -66,14 +66,14 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T2), out var label);
             return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})")
                 .HasLabel(label));
         }
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, (string, string) idAndPartitionKey)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T2), out var label);
             return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery,
                     $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])")
                 .HasLabel(label));
@@ -81,26 +81,26 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id, string partitionKey)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T2), out var label);
             return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery,
                 $"g.V([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)}])").HasLabel(label));
         }
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T2), out var label);
             return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, "g.V()").HasLabel(label));
         }
 
         public static GremlinQuery<T> E<T>(this GremlinQuery<T> baseQuery)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, "g.E()").HasLabel(label));
         }
 
         public static GremlinQuery<T> E<T>(this GremlinQuery<T> baseQuery, string id)
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(
                 new GremlinQuery<T>(baseQuery, $"g.E({baseQuery.ComposeParameter(id)})").HasLabel(label));
         }
@@ -115,13 +115,13 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
         {
             var eLabel = GetEdgeLabel(navExpression);
-            CodeGenerator.typeLables.TryGetValue(typeof(T1), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T1), out var label);
             return new GremlinQuery<T1>(g.Out(eLabel).HasLabel(label));
         }
 
         public static GremlinQuery<T> In<T>(this GremlinQuery g) where T : IVertex
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(g.In());
         }
 
@@ -130,7 +130,7 @@ namespace Stardust.Paradox.Data.Traversals.Typed
         {
             var eLabel = GetEdgeLabel(navExpression);
 
-            CodeGenerator.typeLables.TryGetValue(typeof(T1), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T1), out var label);
             return new GremlinQuery<T1>(g.In(eLabel).HasLabel(label));
         }
 
@@ -139,7 +139,7 @@ namespace Stardust.Paradox.Data.Traversals.Typed
         {
             var prop = navExpression.Body as MemberExpression;
             FluentConfig edgeLabel = null;
-            if (CodeGenerator._FluentConfig.TryGetValue(typeof(T2), out var t))
+            if (CodeGenerator.FluentConfig.TryGetValue(typeof(T2), out var t))
                 t.TryGetValue(prop.Member, out edgeLabel);
             if (edgeLabel == null)
                 throw new InvalidDataContractException(

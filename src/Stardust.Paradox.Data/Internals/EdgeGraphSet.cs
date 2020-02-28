@@ -106,7 +106,7 @@ namespace Stardust.Paradox.Data.Internals
             var inV = inVertex as IGraphEntityInternal;
             var outV = outVertex as IGraphEntityInternal;
             if (label == null)
-                label = CodeGenerator.EdgeLables[typeof(T)];
+                label = CodeGenerator.EdgeLabels[typeof(T)];
             var entity = _context.CreateEntity<T>(_useVerticesIdsAsEdgeId
                 ? $"{label}{inV.EntityKey}{outV.EntityKey}"
                 : Guid.NewGuid().ToString());
@@ -123,7 +123,7 @@ namespace Stardust.Paradox.Data.Internals
             if (_useVerticesIdsAsEdgeId)
             {
                 if (label == null)
-                    label = CodeGenerator.EdgeLables[typeof(T)];
+                    label = CodeGenerator.EdgeLabels[typeof(T)];
                 if (partitioned)
                     return await GetPartitionedAsync($"{label}{inId}{outId}".ToTuple());
                 return await GetAsync($"{label}{inId}{outId}");

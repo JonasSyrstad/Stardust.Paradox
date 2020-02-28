@@ -45,7 +45,7 @@ namespace Stardust.Paradox.Data
 
         public GremlinQuery<T> V<T>()
         {
-            CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
+            CodeGenerator.TypeLabels.TryGetValue(typeof(T), out var label);
             return new GremlinQuery<T>(new GremlinQuery(_connector, "g.V()").HasLabel(label));
         }
 
