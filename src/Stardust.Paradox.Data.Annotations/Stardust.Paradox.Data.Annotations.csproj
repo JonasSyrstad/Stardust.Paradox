@@ -6,8 +6,10 @@
     <Version>3.0.0-rc01</Version>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
-    <Description>Annotation for the 'Stardust.Paradox.Data' Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop.
-Added EpochDateTime type</Description>
+    <Description>
+      Annotation for the 'Stardust.Paradox.Data' Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop.
+      Added EpochDateTime type
+    </Description>
     <Authors>Stardust</Authors>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <Copyright>Copyright Stardust © 2020</Copyright>

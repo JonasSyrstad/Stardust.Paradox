@@ -1,8 +1,8 @@
-﻿using Newtonsoft.Json;
+﻿using System.Linq;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Particles;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
 {
@@ -10,9 +10,12 @@ namespace Stardust.Paradox.Data.Internals
     {
         private readonly EdgeCollection<T> _innerCollection;
 
-        public async Task LoadAsync()
+        internal EdgeReference(string edgeLabel, IGraphContext context, GraphDataEntity parent, string reverseLabel,
+            string gremlinQuery)
         {
-            await _innerCollection.LoadAsync();
+            _innerCollection = gremlinQuery.ContainsCharacters()
+                ? new EdgeCollection<T>(gremlinQuery, context, parent)
+                : new EdgeCollection<T>(edgeLabel, context, parent, reverseLabel);
         }
 
         public async Task SaveChangesAsync()
@@ -20,9 +23,13 @@ namespace Stardust.Paradox.Data.Internals
             await _innerCollection.SaveChangesAsync();
         }
 
+        public async Task LoadAsync()
+        {
+            await _innerCollection.LoadAsync();
+        }
+
         public async Task<T> ToVertexAsync()
         {
-
             return (await _innerCollection.ToVerticesAsync()).SingleOrDefault();
         }
 
@@ -65,12 +72,5 @@ namespace Stardust.Paradox.Data.Internals
         }
 
         public bool HasValue => Edge != null;
-
-        internal EdgeReference(string edgeLabel, IGraphContext context, GraphDataEntity parent, string reverseLabel, string gremlinQuery)
-        {
-            _innerCollection = gremlinQuery.ContainsCharacters()
-                ? new EdgeCollection<T>(gremlinQuery, context, parent)
-                : new EdgeCollection<T>(edgeLabel, context, parent, reverseLabel);
-        }
     }
 }

@@ -1,5 +1,3 @@
-
-
 using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Annotations

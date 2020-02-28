@@ -4,7 +4,6 @@ using System.Linq.Expressions;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations;
-using Stardust.Paradox.Data.Annotations.DataTypes;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Internals;
 
@@ -12,7 +11,8 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 {
     public static partial class TypedTraversalExtensions
     {
-        public static async Task<IEnumerable<T>> GetTypedAsync<T>(this IGraphSet<T> graphSet, Func<GremlinQuery<T>, GremlinQuery<T>> query) where T : IVertex
+        public static async Task<IEnumerable<T>> GetTypedAsync<T>(this IGraphSet<T> graphSet,
+            Func<GremlinQuery<T>, GremlinQuery<T>> query) where T : IVertex
         {
             var g = graphSet as GraphSet<T>;
             //var context= new GremlinContext<T>(g._context);
@@ -25,11 +25,10 @@ namespace Stardust.Paradox.Data.Traversals.Typed
                 var q = query.Invoke(baseQuery);
                 return q;
             });
-
-
         }
 
-        public static async Task<IEnumerable<T>> GetTypedAsync<T>(this IEdgeGraphSet<T> graphSet, Func<GremlinQuery<T>, GremlinQuery<T>> query) where T : IEdgeEntity
+        public static async Task<IEnumerable<T>> GetTypedAsync<T>(this IEdgeGraphSet<T> graphSet,
+            Func<GremlinQuery<T>, GremlinQuery<T>> query) where T : IEdgeEntity
         {
             var g = graphSet as EdgeGraphSet<T>;
             //var context= new GremlinContext<T>(g._context);
@@ -42,8 +41,6 @@ namespace Stardust.Paradox.Data.Traversals.Typed
                 var q = query.Invoke(baseQuery);
                 return q;
             });
-
-
         }
 
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery)
@@ -55,37 +52,44 @@ namespace Stardust.Paradox.Data.Traversals.Typed
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery, string id)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
-            return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})").HasLabel(label));
+            return new GremlinQuery<T>(
+                new GremlinQuery<T>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})").HasLabel(label));
         }
 
         public static GremlinQuery<T> V<T>(this GremlinQuery<T> baseQuery, (string, string) idAndPartitionKey)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
-            return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])").HasLabel(label));
+            return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery,
+                    $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])")
+                .HasLabel(label));
         }
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
-            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})").HasLabel(label));
+            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V({baseQuery.ComposeParameter(id)})")
+                .HasLabel(label));
         }
 
-        public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, (string,string) idAndPartitionKey)
+        public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, (string, string) idAndPartitionKey)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
-            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])").HasLabel(label));
+            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery,
+                    $"g.V([{baseQuery.ComposeParameter(idAndPartitionKey.Item2)},{baseQuery.ComposeParameter(idAndPartitionKey.Item1)}])")
+                .HasLabel(label));
         }
 
-        public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id,string partitionKey)
+        public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery, string id, string partitionKey)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
-            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)}])").HasLabel(label));
+            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery,
+                $"g.V([{baseQuery.ComposeParameter(partitionKey)},{baseQuery.ComposeParameter(id)}])").HasLabel(label));
         }
 
         public static GremlinQuery<T2> V<T1, T2>(this GremlinQuery<T1> baseQuery)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T2), out var label);
-            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, $"g.V()").HasLabel(label));
+            return new GremlinQuery<T2>(new GremlinQuery<T2>(baseQuery, "g.V()").HasLabel(label));
         }
 
         public static GremlinQuery<T> E<T>(this GremlinQuery<T> baseQuery)
@@ -97,9 +101,9 @@ namespace Stardust.Paradox.Data.Traversals.Typed
         public static GremlinQuery<T> E<T>(this GremlinQuery<T> baseQuery, string id)
         {
             CodeGenerator.typeLables.TryGetValue(typeof(T), out var label);
-            return new GremlinQuery<T>(new GremlinQuery<T>(baseQuery, $"g.E({baseQuery.ComposeParameter(id)})").HasLabel(label));
+            return new GremlinQuery<T>(
+                new GremlinQuery<T>(baseQuery, $"g.E({baseQuery.ComposeParameter(id)})").HasLabel(label));
         }
-
 
 
         public static GremlinQuery<T> Out<T>(this GremlinQuery g) where T : IVertex
@@ -107,9 +111,9 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             return new GremlinQuery<T>(g.Out());
         }
 
-        public static GremlinQuery<T1> Out<T1, T2>(this GremlinQuery<T2> g, Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
+        public static GremlinQuery<T1> Out<T1, T2>(this GremlinQuery<T2> g,
+            Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
         {
-
             var eLabel = GetEdgeLabel(navExpression);
             CodeGenerator.typeLables.TryGetValue(typeof(T1), out var label);
             return new GremlinQuery<T1>(g.Out(eLabel).HasLabel(label));
@@ -121,7 +125,8 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             return new GremlinQuery<T>(g.In());
         }
 
-        public static GremlinQuery<T1> In<T1, T2>(this GremlinQuery<T2> g, Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
+        public static GremlinQuery<T1> In<T1, T2>(this GremlinQuery<T2> g,
+            Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
         {
             var eLabel = GetEdgeLabel(navExpression);
 
@@ -129,7 +134,8 @@ namespace Stardust.Paradox.Data.Traversals.Typed
             return new GremlinQuery<T1>(g.In(eLabel).HasLabel(label));
         }
 
-        private static string GetEdgeLabel<T1, T2>(Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
+        private static string GetEdgeLabel<T1, T2>(Expression<Func<T2, IEdgeNavigation<T1>>> navExpression)
+            where T1 : IVertex where T2 : IVertex
         {
             var prop = navExpression.Body as MemberExpression;
             FluentConfig edgeLabel = null;
@@ -144,22 +150,24 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 
         public static GremlinQuery<T> Dedup<T>(this GremlinQuery<T> queryBase)
         {
-            return new GremlinQuery<T>(((GremlinQuery)queryBase).Dedup());
+            return new GremlinQuery<T>(((GremlinQuery) queryBase).Dedup());
         }
 
         public static GremlinQuery<T> As<T>(this GremlinQuery<T> queryBase, string name)
         {
-            return new GremlinQuery<T>(((GremlinQuery)queryBase).As(name));
+            return new GremlinQuery<T>(((GremlinQuery) queryBase).As(name));
         }
-       
-        public static GremlinEdgeQuery InE<T1, T2>(this GremlinQuery<T2> g, Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
+
+        public static GremlinEdgeQuery InE<T1, T2>(this GremlinQuery<T2> g,
+            Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
         {
             var eLabel = GetEdgeLabel(navExpression);
 
             return new GremlinEdgeQuery(g.InE(eLabel));
         }
 
-        public static GremlinEdgeQuery OutE<T1, T2>(this GremlinQuery<T2> g, Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
+        public static GremlinEdgeQuery OutE<T1, T2>(this GremlinQuery<T2> g,
+            Expression<Func<T2, IEdgeNavigation<T1>>> navExpression) where T1 : IVertex where T2 : IVertex
         {
             var eLabel = GetEdgeLabel(navExpression);
 
@@ -188,10 +196,11 @@ namespace Stardust.Paradox.Data.Traversals.Typed
 
         internal static GremlinQuery<T> P<T>(this PredicateGremlinQuery<T> queryBase)
         {
-            return new GremlinQuery<T>(new ComposedGremlinQuery(queryBase, $"P."));
+            return new GremlinQuery<T>(new ComposedGremlinQuery(queryBase, "P."));
         }
     }
-    public class GremlinEdgeQuery:GremlinQuery
+
+    public class GremlinEdgeQuery : GremlinQuery
     {
         internal GremlinEdgeQuery(IGremlinLanguageConnector connector, string query) : base(connector, query)
         {
@@ -205,9 +214,11 @@ namespace Stardust.Paradox.Data.Traversals.Typed
         {
         }
 
-        internal GremlinEdgeQuery(IGremlinLanguageConnector connector, string query, string id) : base(connector, query, id)
+        internal GremlinEdgeQuery(IGremlinLanguageConnector connector, string query, string id) : base(connector, query,
+            id)
         {
         }
+
         internal GremlinEdgeQuery(GremlinQuery baseQuery) : base(baseQuery, null)
         {
         }

@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Annotations.DataTypes;
-using Stardust.Paradox.Data.Internals;
 
 namespace Stardust.Paradox.CosmosDbTest
 {
@@ -14,11 +12,9 @@ namespace Stardust.Paradox.CosmosDbTest
 
         string Name { get; set; }
 
-        [OutLabel("division")]
-        IEdgeReference<ICompany> Parent { get; }
+        [OutLabel("division")] IEdgeReference<ICompany> Parent { get; }
 
-        [InLabel("division")]
-        IEdgeCollection<ICompany> Divisions { get; }
+        [InLabel("division")] IEdgeCollection<ICompany> Divisions { get; }
 
         //[ReverseEdgeLabel("employer")]
         IEdgeCollection<IProfile> Employees { get; }
@@ -31,11 +27,12 @@ namespace Stardust.Paradox.CosmosDbTest
 
         [InlineSerialization(SerializationType.Base64)]
         IInlineCollection<string> EmailDomains { get; }
-	    string Pk { get; set; }
-	}
+
+        string Pk { get; set; }
+    }
 
     [VertexLabel("person")]
-    public interface IProfile : IVertex,IDynamicGraphEntity
+    public interface IProfile : IVertex, IDynamicGraphEntity
     {
         string Id { get; }
 
@@ -59,8 +56,7 @@ namespace Stardust.Paradox.CosmosDbTest
         //[ReverseEdgeLabel("parent")]
         IEdgeCollection<IProfile> Children { get; }
 
-        [ToWayEdgeLabel("spouce")]
-        IEdgeReference<IProfile> Spouce { get; }
+        [ToWayEdgeLabel("spouce")] IEdgeReference<IProfile> Spouce { get; }
 
         [Eager]
         //[EdgeLabel("employer")]
@@ -78,11 +74,9 @@ namespace Stardust.Paradox.CosmosDbTest
         bool Adult { get; set; }
         string Description { get; set; }
         int Number { get; set; }
-	    string Pk { get; set; }
-	    EpochDateTime LastUpdatedEpoch { get; set; }
+        string Pk { get; set; }
+        EpochDateTime LastUpdatedEpoch { get; set; }
         MyProp SomeProperty { get; set; }
         GenderTypes SomeEnum { get; set; }
     }
-
-
 }

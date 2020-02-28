@@ -1,7 +1,7 @@
+using System;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Internals;
-using System;
 using Xunit;
 
 namespace Stardust.Paradox.Data.UnitTests

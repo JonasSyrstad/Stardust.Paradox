@@ -2,9 +2,8 @@
 
 namespace Stardust.Paradox.Data.CodeGeneration.Sample
 {
-    public interface IClass1:IVertex
+    public interface IClass1 : IVertex
     {
-
         string Name { get; set; }
 
         long Age { get; set; }
@@ -13,8 +12,8 @@ namespace Stardust.Paradox.Data.CodeGeneration.Sample
 
         bool ValidatedEmail { get; set; }
 
-        IEdgeCollection<IClass1> Parent { get;}
+        IEdgeCollection<IClass1> Parent { get; }
 
-        IInlineCollection<string> Inline { get;}
+        IInlineCollection<string> Inline { get; }
     }
 }

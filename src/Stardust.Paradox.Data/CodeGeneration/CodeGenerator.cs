@@ -1,24 +1,27 @@
-﻿using Newtonsoft.Json;
-using Stardust.Paradox.Data.Annotations;
-using Stardust.Paradox.Data.Internals;
-using Stardust.Particles;
-using Stardust.Particles.Collection;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
+using Newtonsoft.Json;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Internals;
+using Stardust.Particles;
+using Stardust.Particles.Collection;
 
 namespace Stardust.Paradox.Data.CodeGeneration
 {
     public class CodeGenerator
     {
-        internal static Dictionary<Type, Dictionary<MemberInfo, FluentConfig>> _FluentConfig = new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
+        internal static Dictionary<Type, Dictionary<MemberInfo, FluentConfig>> _FluentConfig =
+            new Dictionary<Type, Dictionary<MemberInfo, FluentConfig>>();
 
         private static AssemblyBuilder _builder;
         private static ModuleBuilder _moduleBuilder;
+        internal static ConcurrentDictionary<Type, string> typeLables = new ConcurrentDictionary<Type, string>();
+        internal static ConcurrentDictionary<Type, string> EdgeLables = new ConcurrentDictionary<Type, string>();
 
         internal static string EdgeLabel(Type entityType, MemberInfo member)
         {
@@ -55,10 +58,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
         internal static FluentConfig GetMemberBinding(Type entityType, MemberInfo member)
         {
             FluentConfig def = null;
-            if (GetBinding(entityType, out var t))
-            {
-                t.TryGetValue(member, out def);
-            }
+            if (GetBinding(entityType, out var t)) t.TryGetValue(member, out def);
 
             return def;
         }
@@ -67,11 +67,10 @@ namespace Stardust.Paradox.Data.CodeGeneration
         {
             return _FluentConfig.TryGetValue(entityType, out t);
         }
-        internal static ConcurrentDictionary<Type,string> typeLables=new ConcurrentDictionary<Type, string>();
-        internal static ConcurrentDictionary<Type,string> EdgeLables=new ConcurrentDictionary<Type, string>();
+
         public static Type MakeEdgeDataEntity(Type entity, string label)
         {
-	        EdgeLables.TryAdd(entity, label);
+            EdgeLables.TryAdd(entity, label);
             var dataContract = entity;
             var generics = entity.GetInterfaces().Single(c => c.GenericTypeArguments.Length == 2).GenericTypeArguments;
             var baseType = typeof(EdgeDataEntity<,>).MakeGenericType(generics);
@@ -80,27 +79,30 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     AssemblyBuilderAccess.Run);
             if (_moduleBuilder == null)
                 _moduleBuilder = _builder.DefineDynamicModule("Data.Contracts.Implementations");
-            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Edges." + entity.Name.Remove(0, 1),
+            var typeBuilder = _moduleBuilder.DefineType(
+                "Data.Contracts.Implementations.Edges." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
-               baseType,
-                new[] { dataContract }
+                baseType,
+                new[] {dataContract}
             );
             typeLables.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
-            AddIdProperty(typeBuilder,baseType);
+            AddIdProperty(typeBuilder, baseType);
             var eagerProperties = new List<string>();
             foreach (var prop in dataContract.GetProperties())
             {
                 var eager = EagerLoading(entity, prop) ?? prop.GetCustomAttribute<EagerAttribute>();
-                var serialization = Serialization(entity, prop) ?? prop.GetCustomAttribute<InlineSerializationAttribute>();
+                var serialization = Serialization(entity, prop) ??
+                                    prop.GetCustomAttribute<InlineSerializationAttribute>();
                 if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
                 {
                     if (serialization != null)
                     {
-                        AddInline(prop, typeBuilder, serialization, entity,baseType);
-                        InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}", serialization?.Type ?? SerializationType.ClearText);
-
+                        AddInline(prop, typeBuilder, serialization, entity, baseType);
+                        InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}",
+                            serialization?.Type ?? SerializationType.ClearText);
                     }
+
                     //else
                     //{
                     //    AddEdge(entity, prop, typeBuilder);
@@ -115,8 +117,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 //        eagerProperties.Add(prop.Name);
                 //}
                 else
-                    AddValueProperty(typeBuilder, prop,baseType);
+                {
+                    AddValueProperty(typeBuilder, prop, baseType);
+                }
             }
+
             if (eagerProperties.ContainsElements())
                 GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
             return typeBuilder.CreateTypeInfo();
@@ -132,10 +137,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
                     AssemblyBuilderAccess.Run);
             if (_moduleBuilder == null)
                 _moduleBuilder = _builder.DefineDynamicModule("Data.Contracts.Implementations");
-            var typeBuilder = _moduleBuilder.DefineType("Data.Contracts.Implementations.Vertices." + entity.Name.Remove(0, 1),
+            var typeBuilder = _moduleBuilder.DefineType(
+                "Data.Contracts.Implementations.Vertices." + entity.Name.Remove(0, 1),
                 TypeAttributes.Public | TypeAttributes.Class,
                 baseType,
-                new[] { dataContract }
+                new[] {dataContract}
             );
             typeLables.TryAdd(entity, label);
             AddLabelProperty(label, typeBuilder);
@@ -144,31 +150,35 @@ namespace Stardust.Paradox.Data.CodeGeneration
             foreach (var prop in dataContract.GetProperties())
             {
                 var eager = EagerLoading(entity, prop) ?? prop.GetCustomAttribute<EagerAttribute>();
-                var serialization = Serialization(entity, prop) ?? prop.GetCustomAttribute<InlineSerializationAttribute>();
+                var serialization = Serialization(entity, prop) ??
+                                    prop.GetCustomAttribute<InlineSerializationAttribute>();
                 if (typeof(IEnumerable).IsAssignableFrom(prop.PropertyType) && prop.PropertyType.IsGenericType)
                 {
                     if (serialization != null)
                     {
-                        AddInline(prop, typeBuilder, serialization, entity,baseType);
-                        InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}", serialization?.Type ?? SerializationType.ClearText);
-
+                        AddInline(prop, typeBuilder, serialization, entity, baseType);
+                        InlineCollection<string>.SetSerializationType($"{typeBuilder.FullName}.{prop.Name}",
+                            serialization?.Type ?? SerializationType.ClearText);
                     }
                     else
                     {
-                        AddEdge(entity, prop, typeBuilder,baseType);
+                        AddEdge(entity, prop, typeBuilder, baseType);
                         if (eager != null)
                             eagerProperties.Add(prop.Name);
                     }
                 }
                 else if (typeof(IEdgeReference).IsAssignableFrom(prop.PropertyType))
                 {
-                    AddEdgeRef(prop, typeBuilder, entity,baseType);
+                    AddEdgeRef(prop, typeBuilder, entity, baseType);
                     if (eager != null)
                         eagerProperties.Add(prop.Name);
                 }
                 else
-                    AddValueProperty(typeBuilder, prop,baseType);
+                {
+                    AddValueProperty(typeBuilder, prop, baseType);
+                }
             }
+
             if (eagerProperties.ContainsElements())
                 GraphDataEntity._eagerLodedProperties.TryAdd(typeBuilder.FullName, eagerProperties);
             return typeBuilder.CreateTypeInfo();
@@ -180,115 +190,130 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var property = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             var get = BuildMethodget(typeBuilder, prop, field);
-            var set = BuildMethodset(typeBuilder, prop, field,baseType);
+            var set = BuildMethodset(typeBuilder, prop, field, baseType);
             property.SetGetMethod(get);
             property.SetSetMethod(set);
             property.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { prop.Name.ToCamelCase() },
+                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {prop.Name.ToCamelCase()},
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] { DefaultValueHandling.Include }));
+                new object[] {DefaultValueHandling.Include}));
         }
 
         private static void AddEdge(Type entity, PropertyInfo prop, TypeBuilder typeBuilder, Type baseType)
         {
             var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ??
+                                   prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             if (gremlinQuery.ContainsCharacters()) edgeLabel = prop.Name;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
-            var edgePropGet = BuildMethodget_Parent(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "", gremlinQuery ?? "");
+            var edgePropGet = BuildMethodget_Parent(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "",
+                gremlinQuery ?? "");
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop,baseType));
-            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
+            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
                 new object[] { }));
             if (reverseEdgeLabel != null)
-                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(ReverseEdgeLabelAttribute).GetConstructor(new Type[] { typeof(string) }),
-                    new object[] { reverseEdgeLabel }));
+                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
+                    new object[] {reverseEdgeLabel}));
             if (edgeLabel != null)
-                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(EdgeLabelAttribute).GetConstructor(new Type[] { typeof(string) }),
-                    new object[] { edgeLabel }));
+                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(EdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
+                    new object[] {edgeLabel}));
         }
 
-        private static void AddInline(PropertyInfo prop, TypeBuilder typeBuilder, InlineSerializationAttribute serialization, Type entity, Type baseType)
+        private static void AddInline(PropertyInfo prop, TypeBuilder typeBuilder,
+            InlineSerializationAttribute serialization, Type entity, Type baseType)
         {
             var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ??
+                                   prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
-            var edgePropGet = BuildMethodget_Inline(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "", gremlinQuery ?? "",baseType);
+            var edgePropGet = BuildMethodget_Inline(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "",
+                gremlinQuery ?? "", baseType);
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop,baseType));
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
             edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { prop.Name.ToCamelCase() },
+                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {prop.Name.ToCamelCase()},
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] { DefaultValueHandling.Include }));
-            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(InlineSerializationAttribute).GetConstructor(new Type[] { typeof(SerializationType) }),
-                new object[] { serialization.Type }));
+                new object[] {DefaultValueHandling.Include}));
+            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(InlineSerializationAttribute).GetConstructor(new[] {typeof(SerializationType)}),
+                new object[] {serialization.Type}));
         }
 
         private static void AddEdgeRef(PropertyInfo prop, TypeBuilder typeBuilder, Type entity, Type baseType)
         {
             var edgeLabel = EdgeLabel(entity, prop) ?? prop.GetCustomAttribute<EdgeLabelAttribute>()?.Label;
-            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ?? prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
+            var reverseEdgeLabel = EdgeReverseLabel(entity, prop) ??
+                                   prop.GetCustomAttribute<ReverseEdgeLabelAttribute>()?.ReverseLabel;
             var towayEdgeLabel = prop.GetCustomAttribute<ToWayEdgeLabelAttribute>()?.Label;
             var gremlinQuery = InlineQuery(entity, prop) ?? prop.GetCustomAttribute<GremlinQueryAttribute>()?.Query;
             if (gremlinQuery.ContainsCharacters()) edgeLabel = prop.Name;
             if (towayEdgeLabel != null)
                 reverseEdgeLabel = edgeLabel = towayEdgeLabel;
-            var edgePropGet = BuildMethodget_Ref(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "", gremlinQuery ?? "");
+            var edgePropGet = BuildMethodget_Ref(typeBuilder, prop, edgeLabel ?? "", reverseEdgeLabel ?? "",
+                gremlinQuery ?? "");
             var edgeProp = typeBuilder.DefineProperty(prop.Name, PropertyAttributes.None, CallingConventions.Standard,
                 prop.PropertyType, null);
             edgeProp.SetGetMethod(edgePropGet);
-            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop,baseType));
-            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
+            edgeProp.SetSetMethod(BuildMethodset(typeBuilder, prop, baseType));
+            edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                typeof(JsonIgnoreAttribute).GetConstructor(new Type[] { }),
                 new object[] { }));
             if (reverseEdgeLabel != null)
-                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(ReverseEdgeLabelAttribute).GetConstructor(new Type[] { typeof(string) }),
-                    new object[] { reverseEdgeLabel }));
+                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(ReverseEdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
+                    new object[] {reverseEdgeLabel}));
             if (edgeLabel != null)
-                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(typeof(EdgeLabelAttribute).GetConstructor(new Type[] { typeof(string) }),
-                    new object[] { edgeLabel }));
+                edgeProp.SetCustomAttribute(new CustomAttributeBuilder(
+                    typeof(EdgeLabelAttribute).GetConstructor(new[] {typeof(string)}),
+                    new object[] {edgeLabel}));
         }
 
-        private static void AddIdProperty(TypeBuilder typeBuilder,Type baseType)
+        private static void AddIdProperty(TypeBuilder typeBuilder, Type baseType)
         {
-            var idget = BuildMethodget_Id(typeBuilder,baseType);
-            MethodBuilder idSet = BuildMethodset_Id(typeBuilder,baseType);
+            var idget = BuildMethodget_Id(typeBuilder, baseType);
+            var idSet = BuildMethodset_Id(typeBuilder, baseType);
             var idProperty = typeBuilder.DefineProperty("Id", PropertyAttributes.None, CallingConventions.Standard,
                 typeof(string), null);
             idProperty.SetGetMethod(idget);
             idProperty.SetSetMethod(idSet);
             idProperty.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { "id" },
+                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {"id"},
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] { DefaultValueHandling.Include }));
+                new object[] {DefaultValueHandling.Include}));
         }
 
         private static MethodBuilder BuildMethodset_Id(TypeBuilder typeBuilder, Type baseType)
         {
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.HideBySig;
-            MethodBuilder method = typeBuilder.DefineMethod("set_Id", methodAttributes);
+            var method = typeBuilder.DefineMethod("set_Id", methodAttributes);
             // Preparing Reflection instances
-            FieldInfo field1 = baseType.GetField("_entityKey", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
+            var field1 = baseType.GetField("_entityKey",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
             // Setting return type
             method.SetReturnType(typeof(void));
             // Adding parameters
             method.SetParameters(
-                typeof(String)
+                typeof(string)
             );
             // Parameter value
-            ParameterBuilder value = method.DefineParameter(1, ParameterAttributes.None, "value");
-            ILGenerator gen = method.GetILGenerator();
+            var value = method.DefineParameter(1, ParameterAttributes.None, "value");
+            var gen = method.GetILGenerator();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -301,13 +326,13 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         private static MethodBuilder BuildMethodset(TypeBuilder typeBuilder, PropertyInfo prop, Type baseType)
         {
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = typeBuilder.DefineMethod("set_" + prop.Name, methodAttributes);
+            var method = typeBuilder.DefineMethod("set_" + prop.Name, methodAttributes);
             // Preparing Reflection instances
             //FieldInfo field1 = typeof(GraphDataEntity).GetField("_entityKey", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
             // Setting return type
@@ -317,7 +342,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
                 prop.PropertyType
             );
             // Parameter value
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ret);
@@ -328,13 +353,14 @@ namespace Stardust.Paradox.Data.CodeGeneration
         private static void AddLabelProperty(string label, TypeBuilder typeBuilder)
         {
             var labelGet = BuildMethodget_Label(typeBuilder, label);
-            var labelProperty = typeBuilder.DefineProperty("Label", PropertyAttributes.None, CallingConventions.Standard,
+            var labelProperty = typeBuilder.DefineProperty("Label", PropertyAttributes.None,
+                CallingConventions.Standard,
                 typeof(string), null);
             labelProperty.SetGetMethod(labelGet);
             labelProperty.SetCustomAttribute(new CustomAttributeBuilder(
-                typeof(JsonPropertyAttribute).GetConstructor(new[] { typeof(string) }), new[] { "label" },
+                typeof(JsonPropertyAttribute).GetConstructor(new[] {typeof(string)}), new[] {"label"},
                 typeof(JsonPropertyAttribute).GetProperties().Where(p => p.Name == "DefaultValueHandling").ToArray(),
-                new object[] { DefaultValueHandling.Include }));
+                new object[] {DefaultValueHandling.Include}));
         }
 
 
@@ -342,23 +368,23 @@ namespace Stardust.Paradox.Data.CodeGeneration
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod($"get_{i.Name}", methodAttributes);
+            var method = type.DefineMethod($"get_{i.Name}", methodAttributes);
             // Preparing Reflection instances
             //FieldInfo field1 = type.GetField($"_{i.Name}", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
             // Setting return type
             method.SetReturnType(i.PropertyType);
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder str = gen.DeclareLocal(i.PropertyType);
+            var str = gen.DeclareLocal(i.PropertyType);
             // Preparing labels
-            Label label10 = gen.DefineLabel();
+            var label10 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -374,7 +400,7 @@ namespace Stardust.Paradox.Data.CodeGeneration
 
         private static FieldBuilder BuildField(TypeBuilder type, PropertyInfo i)
         {
-            FieldBuilder field = type.DefineField(
+            var field = type.DefineField(
                 "_" + i.Name,
                 i.PropertyType,
                 FieldAttributes.Private
@@ -386,23 +412,24 @@ namespace Stardust.Paradox.Data.CodeGeneration
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod("get_Id", methodAttributes);
+            var method = type.DefineMethod("get_Id", methodAttributes);
             // Preparing Reflection instances
-            FieldInfo field1 = baseType.GetField("_entityKey", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
+            var field1 = baseType.GetField("_entityKey",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.GetField);
             // Setting return type
-            method.SetReturnType(typeof(String));
+            method.SetReturnType(typeof(string));
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder str = gen.DeclareLocal(typeof(String));
+            var str = gen.DeclareLocal(typeof(string));
             // Preparing labels
-            Label label10 = gen.DefineLabel();
+            var label10 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -417,52 +444,55 @@ namespace Stardust.Paradox.Data.CodeGeneration
         }
 
 
-        private static MethodBuilder BuildMethodset(TypeBuilder type, PropertyInfo i, FieldBuilder field1,Type baseType)
+        private static MethodBuilder BuildMethodset(TypeBuilder type, PropertyInfo i, FieldBuilder field1,
+            Type baseType)
         {
             // Method attributes
             var methodAttributes =
-                  MethodAttributes.Public
+                MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod($"set_{i.Name}", methodAttributes);
+            var method = type.DefineMethod($"set_{i.Name}", methodAttributes);
             // Preparing Reflection instances
 
-            MethodInfo method2 = baseType.GetMethod(
+            var method2 = baseType.GetMethod(
                 "OnPropertyChanging",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                new Type[]{
-            typeof(Object),
-            typeof(Object),
-            typeof(String)
-                    },
+                new[]
+                {
+                    typeof(object),
+                    typeof(object),
+                    typeof(string)
+                },
                 null
-                );
-            MethodInfo method3 = baseType.GetMethod(
+            );
+            var method3 = baseType.GetMethod(
                 "OnPropertyChanged",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                new Type[]{
-            typeof(Object),
-            typeof(String)
-                    },
+                new[]
+                {
+                    typeof(object),
+                    typeof(string)
+                },
                 null
-                );
+            );
             // Setting return type
             method.SetReturnType(typeof(void));
             // Adding parameters
             method.SetParameters(
                 i.PropertyType
-                );
+            );
             // Parameter value
-            ParameterBuilder value = method.DefineParameter(1, ParameterAttributes.None, "value");
-            ILGenerator gen = method.GetILGenerator();
+            var value = method.DefineParameter(1, ParameterAttributes.None, "value");
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder flag = gen.DeclareLocal(typeof(Boolean));
+            var flag = gen.DeclareLocal(typeof(bool));
             // Preparing labels
-            Label label45 = gen.DefineLabel();
+            var label45 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -556,29 +586,30 @@ namespace Stardust.Paradox.Data.CodeGeneration
             //gen.Emit(OpCodes.Ret);
             //// finished
             //return method;
-
         }
 
-        private static MethodBuilder BuildMethodget_Parent(TypeBuilder type, PropertyInfo prop, string label, string reverseLabel, string gremlinQuery)
+        private static MethodBuilder BuildMethodget_Parent(TypeBuilder type, PropertyInfo prop, string label,
+            string reverseLabel, string gremlinQuery)
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod("get_" + prop.Name, methodAttributes);
+            var method = type.DefineMethod("get_" + prop.Name, methodAttributes);
             // Preparing Reflection instances
-            MethodInfo method1 = typeof(GraphDataEntity).GetMethod(
+            var method1 = typeof(GraphDataEntity).GetMethod(
                 "GetEdgeCollection",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                new Type[]{
-                    typeof(String),
-                    typeof(String),
-                    typeof(String)
+                new[]
+                {
+                    typeof(string),
+                    typeof(string),
+                    typeof(string)
                 },
                 null
             );
@@ -586,11 +617,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Setting return type
             method.SetReturnType(prop.PropertyType);
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder edges = gen.DeclareLocal(prop.PropertyType);
+            var edges = gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
-            Label label15 = gen.DefineLabel();
+            var label15 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -612,20 +643,21 @@ namespace Stardust.Paradox.Data.CodeGeneration
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod("get_" + prop.Name, methodAttributes);
+            var method = type.DefineMethod("get_" + prop.Name, methodAttributes);
             // Preparing Reflection instances
-            MethodInfo method1 =baseType.GetMethod(
+            var method1 = baseType.GetMethod(
                 "GetInlineCollection",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                new Type[]{
-                    typeof(String)
+                new[]
+                {
+                    typeof(string)
                 },
                 null
             );
@@ -633,11 +665,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Setting return type
             method.SetReturnType(prop.PropertyType);
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder edges = gen.DeclareLocal(prop.PropertyType);
+            var edges = gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
-            Label label15 = gen.DefineLabel();
+            var label15 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -652,26 +684,28 @@ namespace Stardust.Paradox.Data.CodeGeneration
             return method;
         }
 
-        private static MethodBuilder BuildMethodget_Ref(TypeBuilder type, PropertyInfo prop, string label, string reverseLabel, string gremlinQuery)
+        private static MethodBuilder BuildMethodget_Ref(TypeBuilder type, PropertyInfo prop, string label,
+            string reverseLabel, string gremlinQuery)
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.Final
                 | MethodAttributes.HideBySig
                 | MethodAttributes.NewSlot;
-            MethodBuilder method = type.DefineMethod("get_" + prop.Name, methodAttributes);
+            var method = type.DefineMethod("get_" + prop.Name, methodAttributes);
             // Preparing Reflection instances
-            MethodInfo method1 = typeof(GraphDataEntity).GetMethod(
+            var method1 = typeof(GraphDataEntity).GetMethod(
                 "GetEdgeReference",
                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
                 null,
-                new Type[]{
-                    typeof(String),
-                    typeof(String),
-                    typeof(String)
+                new[]
+                {
+                    typeof(string),
+                    typeof(string),
+                    typeof(string)
                 },
                 null
             );
@@ -679,11 +713,11 @@ namespace Stardust.Paradox.Data.CodeGeneration
             // Setting return type
             method.SetReturnType(prop.PropertyType);
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Preparing locals
-            LocalBuilder edges = gen.DeclareLocal(prop.PropertyType);
+            var edges = gen.DeclareLocal(prop.PropertyType);
             // Preparing labels
-            Label label15 = gen.DefineLabel();
+            var label15 = gen.DefineLabel();
             // Writing body
             gen.Emit(OpCodes.Nop);
             gen.Emit(OpCodes.Ldarg_0);
@@ -704,16 +738,16 @@ namespace Stardust.Paradox.Data.CodeGeneration
         {
             // Declaring method builder
             // Method attributes
-            MethodAttributes methodAttributes =
+            var methodAttributes =
                 MethodAttributes.Public
                 | MethodAttributes.Virtual
                 | MethodAttributes.HideBySig;
-            MethodBuilder method = type.DefineMethod("get_Label", methodAttributes);
+            var method = type.DefineMethod("get_Label", methodAttributes);
             // Preparing Reflection instances
             // Setting return type
             method.SetReturnType(typeof(string));
             // Adding parameters
-            ILGenerator gen = method.GetILGenerator();
+            var gen = method.GetILGenerator();
             // Writing body
             gen.Emit(OpCodes.Ldstr, label);
             gen.Emit(OpCodes.Ret);

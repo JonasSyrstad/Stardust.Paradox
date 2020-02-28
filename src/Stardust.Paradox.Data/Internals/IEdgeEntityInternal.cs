@@ -6,6 +6,6 @@ namespace Stardust.Paradox.Data.Internals
     {
         void SetInVertex(IVertex inVertex);
         void SetOutVertex(IVertex outVertex);
-	    void Reset(bool b);
+        void Reset(bool b);
     }
 }

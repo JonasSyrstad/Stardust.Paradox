@@ -14,21 +14,23 @@
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
     <ProjectGuid>{1B91D5B2-6524-492C-834B-F1360D19C631}</ProjectGuid>
-    <PackageReleaseNotes>Added support for typed Edges.
-Added parameterized queries for connectors that support it, for connectors that doesnt support it input strings are escaped to avoid some injection attacks
-Added support for partitioning (CosmosDB)
-Added missing 'and' overload and fixed get edge partitioning issue.
-Added missing 'and' overload
-Bugfix: new TypedEdge is not saved when no properties are updated
-Bugfix: Parameterization of numbers larger than int.MaxValue fails when calling cosmosDB
-Enhancement: Added EpochDateTime type to handle datetime values better.
-Enhancement: Added support for EpochDateTime in the appropriate predicate steps
-Enhancement: Added support for text predicates
-Enhancement: Removing restrictions requiring vertex and edge properties to have a setter (thanx @bittola)
-Enhancement: added support for enums (thanx @adelzu)
-Performance fixes
-Enhancement: added support filter expressions on ToVerticesAsync  (thanx @adelzu)
-Enhancement: support for complex properties with change tracking.</PackageReleaseNotes>
+    <PackageReleaseNotes>
+      Added support for typed Edges.
+      Added parameterized queries for connectors that support it, for connectors that doesnt support it input strings are escaped to avoid some injection attacks
+      Added support for partitioning (CosmosDB)
+      Added missing 'and' overload and fixed get edge partitioning issue.
+      Added missing 'and' overload
+      Bugfix: new TypedEdge is not saved when no properties are updated
+      Bugfix: Parameterization of numbers larger than int.MaxValue fails when calling cosmosDB
+      Enhancement: Added EpochDateTime type to handle datetime values better.
+      Enhancement: Added support for EpochDateTime in the appropriate predicate steps
+      Enhancement: Added support for text predicates
+      Enhancement: Removing restrictions requiring vertex and edge properties to have a setter (thanx @bittola)
+      Enhancement: added support for enums (thanx @adelzu)
+      Performance fixes
+      Enhancement: added support filter expressions on ToVerticesAsync  (thanx @adelzu)
+      Enhancement: support for complex properties with change tracking.
+    </PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
