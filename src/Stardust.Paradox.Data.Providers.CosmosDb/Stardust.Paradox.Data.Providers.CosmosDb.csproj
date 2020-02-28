@@ -19,6 +19,7 @@ Connector for CosmosDb using the document client</Description>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ProjectGuid>EE625C0B-6424-4CE0-B3F2-3D518259F1AC</ProjectGuid>
   </PropertyGroup>
 
   <ItemGroup>

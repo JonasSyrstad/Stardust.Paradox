@@ -19,6 +19,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="XunitXml.TestLogger" Version="2.1.26" />
+    <ProjectGuid>FC96E0EA-576E-4938-B389-3ECA00D3A2BF</ProjectGuid>
   </ItemGroup>
 
   <ItemGroup>

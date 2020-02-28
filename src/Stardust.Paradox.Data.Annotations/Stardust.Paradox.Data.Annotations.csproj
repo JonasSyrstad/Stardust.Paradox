@@ -20,6 +20,7 @@ Added EpochDateTime type</Description>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <ProjectGuid>4532C1E4-BC30-48C0-93B7-A0DC73208B20</ProjectGuid>
   </PropertyGroup>
 
   <ItemGroup>

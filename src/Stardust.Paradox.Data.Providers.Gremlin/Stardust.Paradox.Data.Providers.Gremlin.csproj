@@ -20,6 +20,7 @@ Added retry on connection issues</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ProjectGuid>F55201A3-4B61-4F49-A730-34FEBBB95FC3</ProjectGuid>
   </PropertyGroup>
 
   <ItemGroup>
