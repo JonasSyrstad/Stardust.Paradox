@@ -1,6 +1,10 @@
 # Stardust.Paradox
 Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=alert_status)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=security_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+
 # Usage (asp.net core)
 
 ## Startup.cs
