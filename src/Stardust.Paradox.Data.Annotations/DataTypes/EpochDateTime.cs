@@ -6,19 +6,17 @@ namespace Stardust.Paradox.Data.Annotations.DataTypes
 	public partial struct EpochDateTime : IComparable, IComparable<DateTime>, IConvertible, IEquatable<DateTime>, IFormattable, ISerializable
 	{
 
-		public DateTime Value
-		{
-			get
-			{
-				return _dateTime; 
+		public DateTime Value => _dateTime;
 
-			}
-		}
-
-		public int CompareTo(object obj)
+        public int CompareTo(object obj)
 		{
 			return _dateTime.CompareTo(obj);
 		}
+
+        public int CompareTo(DateTime other)
+        {
+            return _dateTime.CompareTo(other);
+        }
 
 		public static implicit operator DateTime(EpochDateTime mdt)
 		{
@@ -29,12 +27,7 @@ namespace Stardust.Paradox.Data.Annotations.DataTypes
 		{
 			return new EpochDateTime(mdt);
 		}
-
-		public int CompareTo(DateTime other)
-		{
-			return _dateTime.CompareTo(other);
-		}
-
+		
 		public TypeCode GetTypeCode()
 		{
 			return _dateTime.GetTypeCode();
@@ -124,6 +117,11 @@ namespace Stardust.Paradox.Data.Annotations.DataTypes
 		{
 			return _dateTime.Equals(other);
 		}
+
+        public bool Equals(EpochDateTime other)
+        {
+            return _dateTime.Equals(other.Value);
+        }
 
 		public override string ToString()
 		{
