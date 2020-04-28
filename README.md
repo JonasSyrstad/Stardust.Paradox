@@ -5,6 +5,7 @@ Entity framework'ish tool for developing .net applications using gremlin graph q
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=ncloc)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox?ref=badge_shield)
 
 # Usage (asp.net core)
 
@@ -277,3 +278,7 @@ public class MyProp:IComplexProperty
         }
     }
 ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox?ref=badge_large)
