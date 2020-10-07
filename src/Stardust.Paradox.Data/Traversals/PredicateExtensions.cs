@@ -312,7 +312,22 @@ namespace Stardust.Paradox.Data.Traversals
             return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
         }
 
-	    public static GremlinQuery Has(this GremlinQuery queryBase, string key, EpochDateTime value)
+        public static GremlinQuery Has(this GremlinQuery queryBase, string key, int value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery Has(this GremlinQuery queryBase, string key, long value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery Has(this GremlinQuery queryBase, string key, decimal value)
+        {
+            return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
+        }
+
+        public static GremlinQuery Has(this GremlinQuery queryBase, string key, EpochDateTime value)
 	    {
 		    return new ComposedGremlinQuery(queryBase, $"has({queryBase.ComposeParameter(key)},{queryBase.ComposeParameter(value)})");
 	    }
