@@ -249,7 +249,7 @@ namespace Stardust.Paradox.Data.Internals
 
 		public void Delete()
 		{
-			UpdateChain.Add("____drop____", new Update { Parameterless = ".drop()" });
+			UpdateChain.Add($"__drop_{InVertexId}_{OutVertextId}_", new Update { Parameterless = ".drop()" });
 			IsDeleted = true;
 			IsDirty = true;
 		}

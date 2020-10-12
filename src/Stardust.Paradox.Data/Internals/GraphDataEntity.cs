@@ -218,7 +218,7 @@ namespace Stardust.Paradox.Data.Internals
         public void Delete()
         {
             //gremlinUpdateStatement = ".drop()";
-            UpdateChain.Add("____drop____", new Update { Parameterless = ".drop()" });
+            UpdateChain.Add($"_drop_{EntityKey}_", new Update { Parameterless = ".drop()" });
             IsDeleted = true;
             IsDirty = true;
         }
