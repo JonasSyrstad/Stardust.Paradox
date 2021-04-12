@@ -107,11 +107,12 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (ResponseException responseException)
 				{
-					await HandleResponseException(compileQuery, responseException,retry);
+					await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", responseException,retry);
 					retry++;
 				}
-				catch (Exception ex) when(Log(compileQuery, ex))
+				catch (Exception ex) when(Log($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", ex))
 				{
+                    //await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", ex, retry);
 					throw;
 				}
 			}
