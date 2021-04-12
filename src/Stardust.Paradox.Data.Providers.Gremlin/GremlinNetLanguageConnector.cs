@@ -91,7 +91,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					}
 					if (aggregateException.InnerException is ResponseException rex)
 					{
-						await HandleResponseException(compileQuery, rex, retry);
+						await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", rex, retry);
 						retry++;
 					}
 				}
