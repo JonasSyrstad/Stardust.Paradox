@@ -27,7 +27,7 @@ namespace Stardust.Paradox.Data.Traversals
         }
         public static GremlinQuery By(this GremlinQuery queryBase, Func<GremlinQuery, GremlinQuery> inner)
         {
-            return new LambdaComposedGremlinQuery(queryBase, ".by('{0}')", query => inner.Invoke(new PredicateGremlinQuery(query)));
+            return new LambdaComposedGremlinQuery(queryBase, ".by({0})", query => inner.Invoke(new PredicateGremlinQuery(query)));
         }
         public static GremlinQuery Dedup(this GremlinQuery queryBase)
         {
