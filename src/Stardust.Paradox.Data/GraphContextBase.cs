@@ -302,7 +302,7 @@ namespace Stardust.Paradox.Data
             catch (Exception ex)
             {
                 SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement });
-                throw;
+                throw new GraphExecutionException("SaveChanges failed", new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement }, ex);
             }
             ChangesSaved?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
         }
@@ -570,6 +570,16 @@ namespace Stardust.Paradox.Data
         {
             Dispose(true);
             GC.SuppressFinalize(this);
+        }
+    }
+
+    public class GraphExecutionException : Exception
+    {
+        public SaveEventArgs SaveEventArgs { get; }
+
+        public GraphExecutionException(string message, SaveEventArgs saveEventArgs, Exception exception) : base(message, exception)
+        {
+            SaveEventArgs = saveEventArgs;
         }
     }
 }
