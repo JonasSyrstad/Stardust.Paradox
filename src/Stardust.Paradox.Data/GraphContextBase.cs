@@ -265,10 +265,13 @@ namespace Stardust.Paradox.Data
             string updateStatement = null;
             try
             {
-                var deleted = new List<IGraphEntityInternal>();
-
-                await SaveEntities("vertex", deleted);
-                await SaveEntities("edge", deleted);
+                var deleted = new List<IGraphEntityInternal>(); if (GremlinContext.ParallelSaveExecution)
+                    await Task.WhenAll(SaveEntities("vertex", deleted), SaveEntities("edge", deleted));
+                else
+                {
+                    await SaveEntities("vertex", deleted);
+                    await SaveEntities("edge", deleted);
+                }
 
                 var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty select i)
@@ -289,7 +292,6 @@ namespace Stardust.Paradox.Data
                 }
                 foreach (var graphDataEntity in deleted)
                 {
-
                     _trackedEntities.TryRemove(graphDataEntity.EntityKey, out var d);
                 }
                 foreach (var graphDataEntity in _trackedEntities)
@@ -300,6 +302,7 @@ namespace Stardust.Paradox.Data
             catch (Exception ex)
             {
                 SaveChangesError?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values, Error = ex, FailedUpdateStatement = updateStatement });
+                throw;
             }
             ChangesSaved?.Invoke(this, new SaveEventArgs { TrackedItems = _trackedEntities.Values });
         }
@@ -480,7 +483,7 @@ namespace Stardust.Paradox.Data
                 if (value is IComplexProperty notifiable)
                 {
                     var entity = item as IGraphEntityInternal;
-                    entity.RegisterNotifiable(prop.Name,notifiable);
+                    entity.RegisterNotifiable(prop.Name, notifiable);
                 }
             }
             catch (Exception ex)
