@@ -115,6 +115,8 @@ namespace Stardust.Paradox.Data.Traversals
 		    return new ComposedGremlinQuery(queryBase, "or()");
 	    }
 
+
+
         /// <summary>
         /// The optional()-step (branch/flatMap) returns the result of the specified traversal if it yields a result else it returns the calling element, i.e. the identity().
         /// </summary>
