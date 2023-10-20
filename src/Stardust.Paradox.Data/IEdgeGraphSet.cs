@@ -11,7 +11,7 @@ namespace Stardust.Paradox.Data
 
 		T Create(IVertex inVertex, IVertex outVertex);
 
-		Task<T> GetAsync(string inId, string outId,bool partitioned=false);
+		Task<T> GetAsync(string inId, string outId,string partitionKey=null);
 
 		Task<T> GetPartitionedAsync(string id, string partitionKey);
 
