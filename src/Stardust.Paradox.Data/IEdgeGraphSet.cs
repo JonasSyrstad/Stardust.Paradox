@@ -19,5 +19,6 @@ namespace Stardust.Paradox.Data
 
 		Task<IEnumerable<T>> GetByInIdAsync(string inId);
 		Task<IEnumerable<T>> GetByOutIdAsync(string outId);
-	}
+        bool UseFallBack { get; set; }
+    }
 }

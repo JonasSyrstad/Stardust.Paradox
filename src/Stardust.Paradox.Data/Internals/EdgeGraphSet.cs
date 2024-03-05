@@ -15,6 +15,7 @@ namespace Stardust.Paradox.Data.Internals
         private readonly IGraphContext _context;
         private readonly bool _useVerticesIdsAsEdgeId;
         private string label;
+        private static bool _useFallBack;
 
         internal EdgeGraphSet(IGraphContext context, bool useVerticesIdsAsEdgeId)
         {
@@ -104,29 +105,36 @@ namespace Stardust.Paradox.Data.Internals
 
         public async Task<T> GetAsync(string inId, string outId, string paritionKey = null)
         {
+            if (label == null)
+                    label = CodeGenerator.EdgeLables[typeof(T)];
             if (_useVerticesIdsAsEdgeId)
             {
-                if (label == null)
-                    label = CodeGenerator.EdgeLables[typeof(T)];
+                
                 T edge;
                 if (paritionKey.ContainsCharacters())
                 {
-                    edge= await GetPartitionedAsync($"{label}{inId}{outId}".ToTuple());
+                    edge= await GetPartitionedAsync($"{label}{inId}{outId}",paritionKey);
                 }
                 else 
                     edge= await GetAsync($"{label}{inId}{outId}");
-                if (edge != null) return edge;
+                if (edge != null || UseFallBack ) return edge;
 
             }
 
             IEnumerable<T> e;
             if (paritionKey.IsNullOrWhiteSpace())
             {
-                e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE().Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
+                e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE(label).Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
             }
             else
-                e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString(), paritionKey.EscapeGremlinString()).OutE().Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
+                e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString(), paritionKey.EscapeGremlinString()).OutE(label).Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
             return e.SingleOrDefault();
+        }
+
+        public bool UseFallBack
+        {
+            get => _useFallBack;
+            set => _useFallBack = value;
         }
 
         public async Task<IEnumerable<T>> GetByInIdAsync(string inId)
