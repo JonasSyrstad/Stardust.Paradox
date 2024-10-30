@@ -317,9 +317,17 @@ namespace Stardust.Paradox.Data.Internals
 
         public void SetProperty(string propertyName, object value)
         {
+            Logging.DebugMessage($"Setting property {propertyName} to {value}");
             if (GetProperty(propertyName) == value)
+            {
+                Logging.DebugMessage($"Property {propertyName} is already set to {value}");
                 return;
-            if (_isLoading) return;
+            }
+
+            if (_isLoading)
+            {
+                return;
+            }
             if (IsDeleted)
                 throw new EntityDeletedException(
                     $"Entitiy {GetType().GetInterfaces().First().Name}.{_entityKey} is marked as deleted.");
@@ -339,6 +347,7 @@ namespace Stardust.Paradox.Data.Internals
             }
             else
             {
+                PropertyChanged?.Invoke(this, new PropertyChangedHandlerArgs(value, propertyName));
                 UpdateChain.Add(propertyName.ToCamelCase(), new Update
                 {
                     Parameterless = $".property('{propertyName.ToCamelCase()}',null)"

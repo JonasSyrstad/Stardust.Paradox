@@ -489,7 +489,7 @@ namespace Stardust.Paradox.CosmosDbTest
             var y = g.V().Or(x=>x.Has("name", "Sanne"),x=>x.Has("name", "Herman"));
             var query = y.CompileQuery();
 			var parameters=y.Parameters;
-            ;
+            ;	
 			var q = g.V().Has("name", "Sanne").As("s") //find start
 				.In("parent").Out("parent") //navigate to siblings
 				.Where(p => p.Without("s")).Dedup();

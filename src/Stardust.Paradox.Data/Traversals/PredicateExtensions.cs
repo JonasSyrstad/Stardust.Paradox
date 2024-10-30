@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Stardust.Paradox.Data.Annotations.DataTypes;
 
 namespace Stardust.Paradox.Data.Traversals
@@ -48,30 +49,41 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new LambdaComposedGremlinQuery(queryBase, "not({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
         }
-        
-        /// <summary>
-        /// The and()-step ensures that all provided traversals yield a result (filter). Please see or() for or-semantics.
-        /// </summary>
-        /// <param name="queryBase">the base query to append the step to</param>
-        /// <param name="expression">the filter expression</param>
-        /// <returns></returns>
-        public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
-        {
-            return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
-        }
 
         /// <summary>
         /// The and()-step ensures that all provided traversals yield a result (filter). Please see or() for or-semantics.
         /// </summary>
         /// <param name="queryBase">the base query to append the step to</param>
-        /// <param name="expression1">the first filter expression</param>
-        /// /// <param name="expression2">the second filter expression</param>
+        /// <param name="expressions">the filter expression</param>
         /// <returns></returns>
-        public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        public static GremlinQuery And(this GremlinQuery queryBase, params Func<PredicateGremlinQuery, GremlinQuery>[] expressions)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "and({0},{1})", query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(), query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+
+            return new LambdaComposedGremlinQuery(queryBase, $"and({ConstructStepPlaceholders(expressions)})", MakeQueryFunc(expressions));
         }
-       
+        ///// <summary>
+        ///// The and()-step ensures that all provided traversals yield a result (filter). Please see or() for or-semantics.
+        ///// </summary>
+        ///// <param name="queryBase">the base query to append the step to</param>
+        ///// <param name="expression">the filter expression</param>
+        ///// <returns></returns>
+        //public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
+        //{
+        //    return new LambdaComposedGremlinQuery(queryBase, "and({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
+        //}
+
+        ///// <summary>
+        ///// The and()-step ensures that all provided traversals yield a result (filter). Please see or() for or-semantics.
+        ///// </summary>
+        ///// <param name="queryBase">the base query to append the step to</param>
+        ///// <param name="expression1">the first filter expression</param>
+        ///// /// <param name="expression2">the second filter expression</param>
+        ///// <returns></returns>
+        //public static GremlinQuery And(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        //{
+        //    return new LambdaComposedGremlinQuery(queryBase, "and({0},{1})", query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(), query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+        //}
+
         /// <summary>
         /// The and()-step ensures that all provided traversals yield a result (filter). Please see or() for or-semantics.
         /// </summary>
@@ -82,38 +94,109 @@ namespace Stardust.Paradox.Data.Traversals
 		    return new ComposedGremlinQuery(queryBase, "and()");
 	    }
 
-        /// <summary>
-        /// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
-        /// </summary>
-        /// <param name="queryBase">the base query to append the step to</param>
-        /// <param name="expression">the filter expression</param>
-        /// <returns></returns>
-		public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
-        {
-            return new LambdaComposedGremlinQuery(queryBase, "or({0})", query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
-        }
+        //      /// <summary>
+        //      /// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
+        //      /// </summary>
+        //      /// <param name="queryBase">the base query to append the step to</param>
+        //      /// <param name="expression">the filter expression</param>
+        //      /// <returns></returns>
+        //public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression)
+        //      {
+        //          return new LambdaComposedGremlinQuery(queryBase, "or({0})",
+        //              query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
+        //      }
+
+        //      /// <summary>
+        //      /// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
+        //      /// </summary>
+        //      /// <param name="queryBase">the base query to append the step to</param>
+        //      /// <param name="expression">the filter expression</param>
+        //      /// <returns></returns>
+        //      public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2, Func<PredicateGremlinQuery, GremlinQuery> expression3, Func<PredicateGremlinQuery, GremlinQuery> expression4, Func<PredicateGremlinQuery, GremlinQuery> expression5)
+        //      {
+        //          return new LambdaComposedGremlinQuery(queryBase, "or({0},{1},{2},{3},{4})",
+        //              query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(),
+        //              query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery(),
+        //              query3 => expression3.Invoke(new PredicateGremlinQuery(query3)).CompileQuery(),
+        //              query4 => expression4.Invoke(new PredicateGremlinQuery(query4)).CompileQuery(),
+        //              query5 => expression5.Invoke(new PredicateGremlinQuery(query5)).CompileQuery());
+        //      }
 
         /// <summary>
         /// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
         /// </summary>
         /// <param name="queryBase">the base query to append the step to</param>
-        /// <param name="expression1">the first filter expression</param>
-        /// /// <param name="expression2">the second filter expression</param>
+        /// <param name="expressions">the filter expressions</param>
         /// <returns></returns>
-        public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        public static GremlinQuery Or(this GremlinQuery queryBase, params Func<PredicateGremlinQuery, GremlinQuery>[] expressions)
         {
-            return new LambdaComposedGremlinQuery(queryBase, "or({0},{1})", query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(), query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+            return new LambdaComposedGremlinQuery(queryBase, $"or({ConstructStepPlaceholders(expressions)})",MakeQueryFunc(expressions));
         }
 
-        /// <summary>
-        /// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
-        /// </summary>
-        /// <param name="queryBase">the base query to append the step to</param>
-        /// <returns></returns>
-        public static GremlinQuery Or(this GremlinQuery queryBase)
-	    {
-		    return new ComposedGremlinQuery(queryBase, "or()");
-	    }
+        private static Func<GremlinQuery, string>[] MakeQueryFunc(Func<PredicateGremlinQuery, GremlinQuery>[] expressions)
+        {
+            return expressions.Select(MakeQueryElement).ToArray();
+        }
+
+        private static Func<GremlinQuery, string> MakeQueryElement(Func<PredicateGremlinQuery, GremlinQuery> expression)
+        {
+            return new Func<GremlinQuery, string>(query => expression.Invoke(new PredicateGremlinQuery(query)).CompileQuery());
+        }
+
+        private static string ConstructStepPlaceholders(Func<PredicateGremlinQuery, GremlinQuery>[] expressions)
+        {
+            var query = string.Join(",", expressions.Select((t, i) => $"{{{i}}}"));
+            return query;
+        }
+
+        ///// <summary>
+        ///// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
+        ///// </summary>
+        ///// <param name="queryBase">the base query to append the step to</param>
+        ///// <param name="expression1">the first filter expression</param>
+        ///// /// <param name="expression2">the second filter expression</param>
+        ///// <returns></returns>
+        //public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2)
+        //{
+        //    return new LambdaComposedGremlinQuery(queryBase, "or({0},{1})",
+        //        query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(),
+        //        query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery());
+        //}
+
+        ///// <summary>
+        ///// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
+        ///// </summary>
+        ///// <param name="queryBase">the base query to append the step to</param>
+        ///// <param name="expression1">the first filter expression</param>
+        ///// /// <param name="expression2">the second filter expression</param>
+        ///// <returns></returns>
+        //public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2, Func<PredicateGremlinQuery, GremlinQuery> expression3)
+        //{
+        //    return new LambdaComposedGremlinQuery(queryBase, "or({0},{1},{2})",
+        //        query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(),
+        //        query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery(),
+        //        query3 => expression3.Invoke(new PredicateGremlinQuery(query3)).CompileQuery());
+        //}
+
+        ///// <summary>
+        ///// The or()-step ensures that at least one of the provided traversals yield a result (filter). Please see and() for and-semantics.
+        ///// </summary>
+        ///// <param name="queryBase">the base query to append the step to</param>
+        ///// <param name="expression1">the first filter expression</param>
+        ///// /// <param name="expression2">the second filter expression</param>
+        ///// <returns></returns>
+        //public static GremlinQuery Or(this GremlinQuery queryBase, Func<PredicateGremlinQuery, GremlinQuery> expression1, Func<PredicateGremlinQuery, GremlinQuery> expression2, Func<PredicateGremlinQuery, GremlinQuery> expression3, Func<PredicateGremlinQuery, GremlinQuery> expression4)
+        //{
+        //    return new LambdaComposedGremlinQuery(queryBase, "or({0},{1},{2},{3})",
+        //        query1 => expression1.Invoke(new PredicateGremlinQuery(query1)).CompileQuery(),
+        //        query2 => expression2.Invoke(new PredicateGremlinQuery(query2)).CompileQuery(),
+        //        query3 => expression3.Invoke(new PredicateGremlinQuery(query3)).CompileQuery(),
+        //        query4 => expression4.Invoke(new PredicateGremlinQuery(query4)).CompileQuery());
+        //}
+        
+
+
+        
 
 
 
