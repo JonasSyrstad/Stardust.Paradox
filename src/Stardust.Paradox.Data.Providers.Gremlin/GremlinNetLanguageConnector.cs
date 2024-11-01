@@ -73,8 +73,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 						.ConfigureAwait(false);
 					if (resp.StatusAttributes.TryGetValue("x-ms-total-request-charge", out var ru))
 					{
-						Log(
-							$"gremlin: {compileQuery}{Environment.NewLine}{JsonConvert.SerializeObject(parametrizedValues, Formatting.Indented)} (ru cost: {ru})");
+						Log($"gremlin: {compileQuery}{Environment.NewLine}{JsonConvert.SerializeObject(parametrizedValues, Formatting.Indented)} (ru cost: {ru})");
 						ConsumedRU += (double) ru;
 					}
 					else
@@ -91,7 +90,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					}
 					if (aggregateException.InnerException is ResponseException rex)
 					{
-						await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", rex, retry);
+						await HandleResponseException($"{compileQuery}", rex, retry, parametrizedValues);
 						retry++;
 					}
 				}
@@ -107,10 +106,10 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 				}
 				catch (ResponseException responseException)
 				{
-					await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", responseException,retry);
+					await HandleResponseException($"{compileQuery}", responseException,retry, parametrizedValues);
 					retry++;
 				}
-				catch (Exception ex) when(Log($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", ex))
+				catch (Exception ex) when(Log($"{compileQuery}", ex, parametrizedValues))
 				{
                     //await HandleResponseException($"{compileQuery} ({JsonConvert.SerializeObject(parametrizedValues)})", ex, retry);
 					throw;
@@ -135,7 +134,7 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 			InitializeClient();
 		}
 
-		private async Task HandleResponseException(string compileQuery, ResponseException responseException,int retry)
+		private async Task HandleResponseException(string compileQuery, ResponseException responseException,int retry, object properties)
 		{
 			if (responseException.StatusAttributes.TryGetValue("x-ms-status-code", out var s))
 			{
@@ -145,20 +144,20 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
 					await Task.Delay((int) waitTime);
 					if (retry > 5)
 					{
-						Log(compileQuery, responseException);
+						Log(compileQuery, responseException, properties);
 						throw responseException;
 					}
 
 				}
 				else
 				{
-					Log(compileQuery, responseException);
+					Log(compileQuery, responseException,properties);
 					throw responseException;
 				}
 			}
 			else
 			{
-				Log(compileQuery, responseException);
+				Log(compileQuery, responseException,properties);
 				throw responseException;
 			}
 

@@ -23,6 +23,7 @@ namespace Stardust.Paradox.Data
 
         private readonly IGremlinLanguageConnector _connector;
         protected readonly IServiceProvider ServiceProvider;
+        private readonly ILogging _logger;
         internal static DualDictionary<Type, string> _dataSetLabelMapping = new DualDictionary<Type, string>();
         private static readonly ConcurrentDictionary<string, bool> InitializationState = new ConcurrentDictionary<string, bool>();
 
@@ -43,11 +44,17 @@ namespace Stardust.Paradox.Data
         private static readonly object lockObject = new object();
         private ConcurrentDictionary<string, IGraphEntityInternal> _trackedEntities = new ConcurrentDictionary<string, IGraphEntityInternal>();
 
+        protected virtual void Logg(Exception ex)
+        {
+            if (_logger != null) _logger.Exception(ex, GetType().FullName);
+            else Logging.Exception(ex, GetType().FullName);
+        }
 
-        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider)
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider, ILogging logger=null)
         {
             _connector = connector;
             ServiceProvider = serviceProvider;
+            _logger = logger;
             if (Initialized) return;
             lock (lockObject)
             {
@@ -309,20 +316,54 @@ namespace Stardust.Paradox.Data
 
         private async Task SaveEntities(string type, List<IGraphEntityInternal> deleted)
         {
-            var tasks = new List<Task>();
-            foreach (var graphDataEntity in from i in _trackedEntities where i.Value.IsDirty && i.Value._EntityType == type select i)
+            try
             {
-                var updateStatement = graphDataEntity.Value.GetUpdateStatement(_connector.CanParameterizeQueries);
-                if (GremlinContext.ParallelSaveExecution)
-                    tasks.Add(_connector.ExecuteAsync(updateStatement, graphDataEntity.Value.GetParameterizedValues()));
-                else
-                    await _connector.ExecuteAsync(updateStatement, graphDataEntity.Value.GetParameterizedValues()).ConfigureAwait(false);
-                if (graphDataEntity.Value.IsDeleted)
-                    deleted.Add(graphDataEntity.Value);
+                var tasks = new List<Task>();
+                foreach (var graphDataEntity in from i in _trackedEntities
+                         where i.Value.IsDirty && i.Value._EntityType == type
+                         select i)
+                {
+                    var updateStatement = graphDataEntity.Value.GetUpdateStatement(_connector.CanParameterizeQueries);
+                    if (GremlinContext.ParallelSaveExecution)
+                        tasks.Add(_connector.ExecuteAsync(updateStatement,
+                            graphDataEntity.Value.GetParameterizedValues()));
+                    else
+                        await _connector.ExecuteAsync(updateStatement, graphDataEntity.Value.GetParameterizedValues())
+                            .ConfigureAwait(false);
+                    if (graphDataEntity.Value.IsDeleted)
+                        deleted.Add(graphDataEntity.Value);
+                }
+
+                if (GremlinContext.ParallelSaveExecution && tasks.Any())
+                {
+                    await Task.WhenAll(tasks).ConfigureAwait(false);
+                }
             }
-            if (GremlinContext.ParallelSaveExecution && tasks.Any())
+            catch (AggregateException ex)
             {
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                Logg(ex);
+                foreach (var exInnerException in ex.InnerExceptions)
+                {
+                    Logg(exInnerException);
+                    LoggInner(exInnerException);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logg(ex);
+                throw;
+            }
+        }
+
+        private void LoggInner(Exception ex)
+        {
+            if (ex.InnerException != null)
+            {
+                if (_logger != null)
+                    _logger.Exception(ex.InnerException, $"{GetType().FullName}({ex.InnerException.GetType()})");
+                else
+                    Logging.Exception(ex.InnerException, $"{GetType().FullName}({ex.GetType()})");
+                LoggInner(ex);
             }
         }
 

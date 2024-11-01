@@ -59,7 +59,7 @@ namespace Stardust.Paradox.Data.Providers.CosmosDb
 				return d.AsEnumerable();
 			}
 
-			catch (Exception ex) when (Log(query, ex))
+			catch (Exception ex) when (Log(query, ex,parametrizedValues))
 			{
 				throw;
 			}
