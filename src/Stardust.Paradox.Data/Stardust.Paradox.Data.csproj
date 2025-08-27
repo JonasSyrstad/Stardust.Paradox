@@ -7,9 +7,9 @@
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <Copyright>Copyright Stardust ©  2023</Copyright>
+    <Copyright>Copyright Stardust ©  2025</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog%3A_start/logo_smal.png</PackageIconUrl>
+    <PackageIcon>logo_smal.png</PackageIcon>
     <RepositoryType>GIT</RepositoryType>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
@@ -43,6 +43,10 @@
 
   <ItemGroup>
     <Folder Include="CosmosDbExtensions\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="logo_smal.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

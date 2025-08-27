@@ -7,9 +7,9 @@
     <Authors>Stardust</Authors>
     <Company>Stardust</Company>
     <Product>Stardust.Paradox.Data</Product>
-    <Copyright>Copyright Stardust ©  2020</Copyright>
+    <Copyright>Copyright Stardust ©  2025</Copyright>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
+    <PackageIcon>logo_smal.png</PackageIcon>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
     <Description>[This package will be deprecated in V 3.0, consider moving to 'Stardust.Paradox.Data.Providers.Gremlin']
@@ -30,6 +30,10 @@ Connector for CosmosDb using the document client</Description>
 
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="logo_smal.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
