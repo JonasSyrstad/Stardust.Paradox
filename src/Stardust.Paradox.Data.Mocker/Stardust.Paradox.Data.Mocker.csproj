@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Version>2.3.4</Version>
+    <Authors>Stardust</Authors>
+    <Company>Stardust</Company>
+    <Product>Stardust.Paradox.Data</Product>
+    <Description>Mock framework for Stardust.Paradox.Data</Description>
+    <Copyright>Copyright Stardust ©  2021</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageIconUrl>http://stardustframework.wdfiles.com/local--files/blog:_start/logo_smal.png</PackageIconUrl>
+    <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
+    <RepositoryType>GIT</RepositoryType>
+    <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework Mock Testing</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSource>True</IncludeSource>
+    <IncludeSymbols>True</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\"/>
+  </ItemGroup>
+
+</Project>

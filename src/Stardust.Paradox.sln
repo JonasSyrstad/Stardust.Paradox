@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2026
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Stardust.Paradox.Data", "Stardust.Paradox.Data\Stardust.Paradox.Data.csproj", "{D6AE37AA-AFEC-4CBE-8CE5-AB8887BE4ACD}"
 EndProject
@@ -14,6 +14,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Stardust.Paradox.Data.Providers.Gremlin", "Stardust.Paradox.Data.Providers.Gremlin\Stardust.Paradox.Data.Providers.Gremlin.csproj", "{9C37DC0B-F24F-4698-995D-FE23AE187BCD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.Data.UnitTests", "Stardust.Paradox.Data.UnitTests\Stardust.Paradox.Data.UnitTests.csproj", "{E7DEF000-3BE1-4A42-844E-992D9ABD2A94}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.Data.Mocker", "Stardust.Paradox.Data.Mocker\Stardust.Paradox.Data.Mocker.csproj", "{209DF375-E14C-4278-9597-374B6829F3FD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.Data.MockTester", "Stardust.Paradox.Data.MockTester\Stardust.Paradox.Data.MockTester.csproj", "{9448F07F-AAC5-4C50-A02D-547A93D2F7E1}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -45,6 +49,14 @@ Global
 		{E7DEF000-3BE1-4A42-844E-992D9ABD2A94}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E7DEF000-3BE1-4A42-844E-992D9ABD2A94}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E7DEF000-3BE1-4A42-844E-992D9ABD2A94}.Release|Any CPU.Build.0 = Release|Any CPU
+		{209DF375-E14C-4278-9597-374B6829F3FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{209DF375-E14C-4278-9597-374B6829F3FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{209DF375-E14C-4278-9597-374B6829F3FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{209DF375-E14C-4278-9597-374B6829F3FD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9448F07F-AAC5-4C50-A02D-547A93D2F7E1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9448F07F-AAC5-4C50-A02D-547A93D2F7E1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9448F07F-AAC5-4C50-A02D-547A93D2F7E1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9448F07F-AAC5-4C50-A02D-547A93D2F7E1}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

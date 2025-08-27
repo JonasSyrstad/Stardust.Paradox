@@ -1,0 +1,121 @@
+using System;
+using System.Collections.Generic;
+using Stardust.Paradox.Data;
+using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Annotations.DataTypes;
+using Stardust.Paradox.Data.Internals;
+
+namespace Stardust.Paradox.Data.MockTester.Models
+{
+    [VertexLabel("company")]
+    public interface ICompany : IVertex
+    {
+        string Id { get; }
+
+        string Name { get; set; }
+
+        [OutLabel("division")]
+        IEdgeReference<ICompany> Parent { get; }
+
+        [InLabel("division")]
+        IEdgeCollection<ICompany> Divisions { get; }
+
+        //[ReverseEdgeLabel("employer")]
+        IEdgeCollection<IProfile> Employees { get; }
+
+        [GremlinQuery("g.V('{id}').out('division').tail(1)")]
+        IEdgeReference<ICompany> Group { get; }
+
+        [GremlinQuery("g.V('{id}').emit().repeat(inE('division').outV()).out('employer')")]
+        IEdgeCollection<IProfile> AllEmployees { get; }
+
+        [InlineSerialization(SerializationType.Base64)]
+        IInlineCollection<string> EmailDomains { get; }
+        string Pk { get; set; }
+    }
+
+    [VertexLabel("person")]
+    public interface IProfile : IVertex, IDynamicGraphEntity
+    {
+        string Id { get; }
+
+        string FirstName { get; set; }
+
+        string LastName { get; set; }
+
+        string Email { get; set; }
+
+        bool VerifiedEmail { get; set; }
+
+        string Name { get; set; }
+
+        string Ocupation { get; set; }
+
+        DateTime LastUpdated { get; set; }
+
+        //[EdgeLabel("parent")]
+        IEdgeCollection<IProfile> Parents { get; }
+
+        //[ReverseEdgeLabel("parent")]
+        IEdgeCollection<IProfile> Children { get; }
+
+        [ToWayEdgeLabel("spouce")]
+        IEdgeReference<IProfile> Spouce { get; }
+
+        [Eager]
+        //[EdgeLabel("employer")]
+        ICollection<ICompany> Employers { get; }
+
+        [GremlinQuery("g.V('{id}').as('s').in('parent').out('parent').where(without('s')).dedup()")]
+        IEdgeCollection<IProfile> Siblings { get; }
+
+        [InlineSerialization(SerializationType.ClearText)]
+        ICollection<string> ProgramingLanguages { get; }
+
+        IEdgeCollection<IProfile> AllSiblings { get; set; }
+
+        bool Adult { get; set; }
+        string Description { get; set; }
+        int Number { get; set; }
+        string Pk { get; set; }
+        EpochDateTime LastUpdatedEpoch { get; set; }
+        MyProp SomeProperty { get; set; }
+        GenderTypes SomeEnum { get; set; }
+    }
+
+    [EdgeLabel("employer")]
+    public interface IEmployment : IEdge<IProfile, ICompany>, IDynamicGraphEntity
+    {
+        string Id { get; }
+
+        DateTime HiredDate { get; set; }
+
+        string Manager { get; set; }
+
+        [InlineSerialization(SerializationType.ClearText)]
+        ICollection<string> TestInline { get; set; }
+    }
+
+    public enum GenderTypes
+    {
+        Male,
+        Female,
+        Other
+    }
+
+    public class MyProp : IComplexProperty
+    {
+        private DateTime _timeStamp;
+
+        public DateTime TimeStamp
+        {
+            get => _timeStamp;
+            set
+            {
+                if (value.Equals(_timeStamp)) return;
+                _timeStamp = value;
+                OnPropertyChanged();
+            }
+        }
+    }
+}
