@@ -5,6 +5,24 @@ using System.Linq;
 namespace Stardust.Paradox.Data.InMemory
 {
     /// <summary>
+    /// Wrapper for path objects to prevent them from being flattened in results
+    /// </summary>
+    public class PathWrapper
+    {
+        public List<dynamic> Path { get; }
+        
+        public PathWrapper(List<dynamic> path)
+        {
+            Path = path ?? new List<dynamic>();
+        }
+        
+        public override string ToString()
+        {
+            return $"path[{string.Join(", ", Path.Select(p => p?.ToString() ?? "null"))}]";
+        }
+    }
+
+    /// <summary>
     /// TinkerGraph-inspired query executor with optimized traversal strategies
     /// Based on Apache TinkerPop's TinkerGraph execution model
     /// </summary>
@@ -54,11 +72,28 @@ namespace Stardust.Paradox.Data.InMemory
             if (firstStep?.IsStartStep == true)
             {
                 var initialResults = ExecuteStartStep(firstStep);
-                return new TinkerTraversalContext(initialResults);
+                var context = new TinkerTraversalContext();
+                
+                // Create traversers and initialize their paths with the starting element
+                foreach (var result in initialResults)
+                {
+                    var traverser = new Traverser(result);
+                    traverser.AddToPath(result); // Add the starting element to the path
+                    context.Traversers.Add(traverser);
+                }
+                
+                return context;
             }
             
             // Default to all vertices if no start step
-            return new TinkerTraversalContext(_database.GetAllVertices().Select(v => v.ToGremlinResponse()));
+            var defaultContext = new TinkerTraversalContext();
+            foreach (var vertex in _database.GetAllVertices())
+            {
+                var traverser = new Traverser(vertex.ToGremlinResponse());
+                traverser.AddToPath(vertex.ToGremlinResponse());
+                defaultContext.Traversers.Add(traverser);
+            }
+            return defaultContext;
         }
 
         /// <summary>
@@ -111,6 +146,9 @@ namespace Stardust.Paradox.Data.InMemory
                     break;
                 case "inv":
                     ExecuteInVStep(step, context);
+                    break;
+                case "bothv":
+                    ExecuteBothVStep(step, context);
                     break;
                 case "otherv":
                     ExecuteOtherVStep(step, context);
@@ -296,6 +334,10 @@ namespace Stardust.Paradox.Data.InMemory
                     {
                         var newTraverser = traverser.Split();
                         newTraverser.Value = vertex.ToGremlinResponse();
+                        
+                        // Add current step to path for path tracking
+                        newTraverser.AddToPath(vertex.ToGremlinResponse());
+                        
                         newTraversers.Add(newTraverser);
                     }
                 }
@@ -319,6 +361,10 @@ namespace Stardust.Paradox.Data.InMemory
                     {
                         var newTraverser = traverser.Split();
                         newTraverser.Value = vertex.ToGremlinResponse();
+                        
+                        // Add current step to path for path tracking
+                        newTraverser.AddToPath(vertex.ToGremlinResponse());
+                        
                         newTraversers.Add(newTraverser);
                     }
                 }
@@ -471,6 +517,41 @@ namespace Stardust.Paradox.Data.InMemory
             context.Traversers = newTraversers;
         }
 
+        private void ExecuteBothVStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                var edgeId = ExtractEdgeId(traverser.Value);
+                if (!string.IsNullOrEmpty(edgeId))
+                {
+                    var edge = _database.GetEdge(edgeId);
+                    if (edge != null)
+                    {
+                        // Add both the outV and inV vertices
+                        var outVertex = _database.GetVertex(edge.OutVertexId);
+                        if (outVertex != null)
+                        {
+                            var outTraverser = traverser.Split();
+                            outTraverser.Value = outVertex.ToGremlinResponse();
+                            newTraversers.Add(outTraverser);
+                        }
+
+                        var inVertex = _database.GetVertex(edge.InVertexId);
+                        if (inVertex != null)
+                        {
+                            var inTraverser = traverser.Split();
+                            inTraverser.Value = inVertex.ToGremlinResponse();
+                            newTraversers.Add(inTraverser);
+                        }
+                    }
+                }
+            }
+
+            context.Traversers = newTraversers;
+        }
+
         private void ExecuteOtherVStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
             // OtherV step needs context about which vertex we came from
@@ -492,50 +573,95 @@ namespace Stardust.Paradox.Data.InMemory
             if (step.Arguments.Count == 1)
             {
                 // has(key) - check if property exists
-                context.Filter(traverser =>
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
-                    var properties = ExtractProperties(traverser.Value);
-                    return properties != null && properties.ContainsKey(key);
-                });
+                    // Special case: has('label') - check if element has a label (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractLabel(traverser.Value)));
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id') - check if element has an ID (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractId(traverser.Value)));
+                }
+                else
+                {
+                    // Normal case: check if property exists
+                    context.Filter(traverser =>
+                    {
+                        var properties = ExtractProperties(traverser.Value);
+                        return properties != null && properties.ContainsKey(key);
+                    });
+                }
             }
             else if (step.Arguments.Count >= 2)
             {
                 // has(key, value) - check property value
                 var expectedValue = step.Arguments[1];
-                context.Filter(traverser =>
+                
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
-                    var properties = ExtractProperties(traverser.Value);
-                    if (properties != null && properties.ContainsKey(key))
+                    // Special case: has('label', value) - check element label
+                    context.Filter(traverser =>
                     {
-                        var actualValue = properties[key];
-                        
-                        // Handle different value types and comparisons
-                        if (expectedValue is string expectedStr && actualValue is string actualStr)
+                        var actualLabel = ExtractLabel(traverser.Value);
+                        if (expectedValue is string expectedStr && actualLabel is string actualStr)
                         {
                             return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
                         }
-                        else if (expectedValue is double && actualValue != null)
+                        return Equals(actualLabel, expectedValue);
+                    });
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id', value) - check element ID
+                    context.Filter(traverser =>
+                    {
+                        var actualId = ExtractId(traverser.Value);
+                        if (expectedValue is string expectedStr && actualId is string actualStr)
                         {
-                            // Handle numeric comparisons (for weight properties)
-                            if (double.TryParse(actualValue.ToString(), out double actualDouble))
-                            {
-                                var expectedDouble = (double)expectedValue;
-                                return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
-                            }
+                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
                         }
-                        else if (expectedValue is int && actualValue != null)
+                        return Equals(actualId, expectedValue);
+                    });
+                }
+                else
+                {
+                    // Normal case: check property value
+                    context.Filter(traverser =>
+                    {
+                        var properties = ExtractProperties(traverser.Value);
+                        if (properties != null && properties.ContainsKey(key))
                         {
-                            if (int.TryParse(actualValue.ToString(), out int actualInt))
+                            var actualValue = properties[key];
+                            
+                            // Handle different value types and comparisons
+                            if (expectedValue is string expectedStr && actualValue is string actualStr)
                             {
-                                var expectedInt = (int)expectedValue;
-                                return expectedInt == actualInt;
+                                return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
                             }
+                            else if (expectedValue is double && actualValue != null)
+                            {
+                                // Handle numeric comparisons (for weight properties)
+                                if (double.TryParse(actualValue.ToString(), out double actualDouble))
+                                {
+                                    var expectedDouble = (double)expectedValue;
+                                    return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
+                                }
+                            }
+                            else if (expectedValue is int && actualValue != null)
+                            {
+                                if (int.TryParse(actualValue.ToString(), out int actualInt))
+                                {
+                                    var expectedInt = (int)expectedValue;
+                                    return expectedInt == actualInt;
+                                }
+                            }
+                            
+                            return Equals(actualValue, expectedValue);
                         }
-                        
-                        return Equals(actualValue, expectedValue);
-                    }
-                    return false;
-                });
+                        return false;
+                    });
+                }
             }
         }
 
@@ -950,7 +1076,7 @@ namespace Stardust.Paradox.Data.InMemory
         private void ExecuteLimitStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
             var limit = step.GetFirstIntArgument();
-            if (limit > 0)
+            if (limit >= 0)  // Allow limit(0) to work correctly
             {
                 context.Limit(limit);
             }
@@ -1265,8 +1391,16 @@ namespace Stardust.Paradox.Data.InMemory
             {
                 var newTraverser = traverser.Split();
                 
-                // Get the path from the traverser, or create a simple path
-                var path = traverser.HasPath ? traverser.GetPath() : new List<dynamic> { traverser.Value };
+                // Get the path from the traverser
+                var path = traverser.GetPath();
+                
+                // If path is empty, at least include the current value
+                if (!path.Any())
+                {
+                    path = new List<dynamic> { traverser.Value };
+                }
+                
+                // Set the path directly as the traverser value (not wrapped)
                 newTraverser.Value = path;
                 newTraversers.Add(newTraverser);
             }

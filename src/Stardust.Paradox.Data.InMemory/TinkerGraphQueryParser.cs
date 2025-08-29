@@ -96,10 +96,41 @@ namespace Stardust.Paradox.Data.InMemory
             // 2. Nested traversals: .to(g.V())
             // 3. Complex addE patterns
             // 4. Single property calls that set ID (these need special handling)
+            // 5. Multi-step traversals: .out().in(), .out().hasLabel(), etc.
+            
             var propertyCount = query.Split(new[] { ".property(" }, StringSplitOptions.None).Length - 1;
-            return query.Contains(".property(") && (propertyCount > 1 || query.Contains(".property('id'") || query.Contains(".property(\"id\"")) ||
-                   query.Contains(".to(g.") ||
-                   query.Contains(".from(g.");
+            var isPropertyChainComplex = query.Contains(".property(") && (propertyCount > 1 || query.Contains(".property('id'") || query.Contains(".property(\"id\""));
+            
+            var hasNestedTraversals = query.Contains(".to(g.") || query.Contains(".from(g.");
+            
+            // Check for multi-step traversals (the main issue we're fixing)
+            var hasMultiStepTraversal = HasMultiStepTraversal(query);
+            
+            return isPropertyChainComplex || hasNestedTraversals || hasMultiStepTraversal;
+        }
+        
+        /// <summary>
+        /// Check if query contains multi-step traversals that need complex handling
+        /// </summary>
+        private bool HasMultiStepTraversal(string query)
+        {
+            // Count the number of traversal steps
+            var traversalSteps = new[] { 
+                ".out(", ".in(", ".both(", ".outE(", ".inE", ".bothE(", 
+                ".outV(", ".inV(", ".hasLabel(", ".has(", ".values(", ".valueMap(",
+                ".path(", ".dedup(", ".order(", ".limit(", ".skip(", ".count(",
+                ".sum(", ".mean(", ".max(", ".min(", ".fold(", ".unfold(",
+                ".group(", ".groupCount(", ".where(", ".select(", ".as("
+            };
+            var stepCount = 0;
+            
+            foreach (var step in traversalSteps)
+            {
+                stepCount += query.Split(new[] { step }, StringSplitOptions.None).Length - 1;
+            }
+            
+            // If more than 1 step (excluding the start step g.V()), consider it complex
+            return stepCount > 1;
         }
 
         /// <summary>
@@ -119,9 +150,17 @@ namespace Stardust.Paradox.Data.InMemory
                 return ExecuteComplexAddEdge(query);
             }
 
-            // Fall back to normal parsing
-            var traversal = ParseQuery(query);
-            return _executor.Execute(traversal);
+            // Handle multi-step traversals using improved TinkerGraph execution
+            if (HasMultiStepTraversal(query))
+            {
+                // Parse the query normally and let the TinkerGraph executor handle it
+                var traversal = ParseQuery(query);
+                return _executor.Execute(traversal);
+            }
+
+            // Fall back to normal parsing for other complex cases
+            var normalTraversal = ParseQuery(query);
+            return _executor.Execute(normalTraversal);
         }
 
         /// <summary>

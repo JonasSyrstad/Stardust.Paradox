@@ -70,12 +70,24 @@ namespace Stardust.Paradox.Data.InMemory
                 // Handle both single values and enumerable values
                 if (traverser.Value is IEnumerable<dynamic> enumerable && !(traverser.Value is string))
                 {
-                    // If it's already an enumerable (but not a string), flatten it with bulk
-                    for (int i = 0; i < traverser.Bulk; i++)
+                    // Special handling for path results - don't flatten path lists
+                    if (IsPathResult(traverser.Value))
                     {
-                        foreach (var item in enumerable)
+                        // Return the path as a single result, repeated for bulk
+                        for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            yield return item;
+                            yield return traverser.Value;
+                        }
+                    }
+                    else
+                    {
+                        // If it's already an enumerable (but not a string), flatten it with bulk
+                        for (int i = 0; i < traverser.Bulk; i++)
+                        {
+                            foreach (var item in enumerable)
+                            {
+                                yield return item;
+                            }
                         }
                     }
                 }
@@ -87,6 +99,48 @@ namespace Stardust.Paradox.Data.InMemory
                         yield return traverser.Value;
                     }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Check if the value is a path result that shouldn't be flattened
+        /// </summary>
+        private bool IsPathResult(dynamic value)
+        {
+            // Path results are typically List<dynamic> containing graph elements
+            if (value is List<dynamic> list)
+            {
+                // Check if it looks like a path (contains graph elements)
+                return list.Any() && IsGraphElement(list[0]);
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Check if an object appears to be a graph element (vertex or edge)
+        /// </summary>
+        private bool IsGraphElement(dynamic value)
+        {
+            if (value == null) return false;
+            
+            try
+            {
+                // Check for common graph element properties
+                if (value is IDictionary<string, object> dict)
+                {
+                    return dict.ContainsKey("id") && (dict.ContainsKey("label") || dict.ContainsKey("type"));
+                }
+                
+                // Try dynamic property access
+                var hasId = value.id != null;
+                var hasLabel = value.label != null;
+                var hasType = value.type != null;
+                
+                return hasId && (hasLabel || hasType);
+            }
+            catch
+            {
+                return false;
             }
         }
 

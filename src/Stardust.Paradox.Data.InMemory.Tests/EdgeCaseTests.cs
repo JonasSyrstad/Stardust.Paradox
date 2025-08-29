@@ -394,20 +394,7 @@ public class EdgeCaseTests
         var result = await connector.ExecuteAsync("g.V().limit(0)", new Dictionary<string, object>());
 
         // Assert
-        // Note: Different Gremlin implementations may handle limit(0) differently
-        // Some return empty results, others may ignore the limit(0) entirely
-        // For our in-memory implementation, we'll accept either behavior
-        if (result.Any())
-        {
-            // If limit(0) is ignored and returns results, that's acceptable for now
-            _output.WriteLine("limit(0) returned results - this behavior may vary by implementation");
-            result.Should().NotBeNull();
-        }
-        else
-        {
-            // If limit(0) returns empty results, that's the expected behavior
-            result.Should().BeEmpty();
-        }
+        result.Should().BeEmpty();
     }
 
     [Fact]
