@@ -95,8 +95,9 @@ namespace Stardust.Paradox.Data.InMemory
             // 1. Chained property calls: .property().property()
             // 2. Nested traversals: .to(g.V())
             // 3. Complex addE patterns
+            // 4. Single property calls that set ID (these need special handling)
             var propertyCount = query.Split(new[] { ".property(" }, StringSplitOptions.None).Length - 1;
-            return query.Contains(".property(") && propertyCount > 1 ||
+            return query.Contains(".property(") && (propertyCount > 1 || query.Contains(".property('id'") || query.Contains(".property(\"id\"")) ||
                    query.Contains(".to(g.") ||
                    query.Contains(".from(g.");
         }

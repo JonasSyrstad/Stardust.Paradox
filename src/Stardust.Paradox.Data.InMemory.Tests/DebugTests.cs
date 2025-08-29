@@ -107,7 +107,7 @@ public class DebugTests
 
         // Assert final result
         var company = traversalResult.First();
-        company.properties.name.Should().Be("Tech Corp");
+        ((string)company.properties.name).Should().Be("Tech Corp");
     }
 
     [Fact]
@@ -133,10 +133,6 @@ public class DebugTests
 
         var company = traversalResult.First();
         ((object)company).Should().NotBeNull("company should not be null");
-        
-        // Check the actual structure of the response
-        var gremlinResponse = company;
-        gremlinResponse.Should().NotBeNull();
     }
 
     [Fact]

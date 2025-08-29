@@ -11,7 +11,7 @@ public class EdgeOperationTests
     public async Task AddE_ShouldCreateEdge()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
 
@@ -31,7 +31,10 @@ public class EdgeOperationTests
     public async Task AddE_UsingScenario_ShouldCreateEdge()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up basic social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'alice')", new Dictionary<string, object>());
 
         // Act - Add a new edge between existing vertices
         var result = await connector.ExecuteAsync("g.V('bob').addE('follows').to(g.V('alice'))", new Dictionary<string, object>());
@@ -48,7 +51,7 @@ public class EdgeOperationTests
     public async Task E_WithoutArguments_ShouldReturnAllEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -64,7 +67,16 @@ public class EdgeOperationTests
     public async Task E_WithScenario_ShouldReturnAllEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('post').property('id', 'post1')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('jane').addE('knows').to(g.V('bob'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('authored').to(g.V('post1'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('jane').addE('authored').to(g.V('post1'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.E()", new Dictionary<string, object>());
@@ -78,7 +90,7 @@ public class EdgeOperationTests
     public async Task E_WithId_ShouldReturnSpecificEdge()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         var addResult = await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -96,7 +108,7 @@ public class EdgeOperationTests
     public async Task HasLabel_OnEdges_ShouldFilterByLabel()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('company').property('id', 'c1')", new Dictionary<string, object>());
@@ -115,7 +127,12 @@ public class EdgeOperationTests
     public async Task HasLabel_OnEdges_UsingScenario_ShouldFilterByLabel()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('jane').addE('knows').to(g.V('john'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.E().hasLabel('knows')", new Dictionary<string, object>());
@@ -129,7 +146,7 @@ public class EdgeOperationTests
     public async Task OutE_ShouldReturnOutgoingEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('company').property('id', 'c1')", new Dictionary<string, object>());
@@ -148,7 +165,13 @@ public class EdgeOperationTests
     public async Task OutE_UsingScenario_ShouldReturnOutgoingEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('bob'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.V('john').outE()", new Dictionary<string, object>());
@@ -162,7 +185,7 @@ public class EdgeOperationTests
     public async Task OutE_WithLabel_ShouldFilterByEdgeLabel()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('company').property('id', 'c1')", new Dictionary<string, object>());
@@ -181,7 +204,11 @@ public class EdgeOperationTests
     public async Task OutE_WithLabel_UsingScenario_ShouldFilterByEdgeLabel()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.V('john').outE('knows')", new Dictionary<string, object>());
@@ -195,7 +222,7 @@ public class EdgeOperationTests
     public async Task InE_ShouldReturnIncomingEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p3')", new Dictionary<string, object>());
@@ -214,7 +241,13 @@ public class EdgeOperationTests
     public async Task InE_UsingScenario_ShouldReturnIncomingEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('bob').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act - Jane should have incoming 'knows' edges
         var result = await connector.ExecuteAsync("g.V('jane').inE('knows')", new Dictionary<string, object>());
@@ -228,7 +261,7 @@ public class EdgeOperationTests
     public async Task BothE_ShouldReturnBothDirectionEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p3')", new Dictionary<string, object>());
@@ -246,7 +279,13 @@ public class EdgeOperationTests
     public async Task BothE_UsingScenario_ShouldReturnBothDirectionEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('bob').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act - Jane should have edges in both directions
         var result = await connector.ExecuteAsync("g.V('jane').bothE('knows')", new Dictionary<string, object>());
@@ -259,7 +298,7 @@ public class EdgeOperationTests
     public async Task InV_ShouldNavigateToIncomingVertex()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1').property('name', 'John')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2').property('name', 'Jane')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -276,7 +315,11 @@ public class EdgeOperationTests
     public async Task InV_UsingScenario_ShouldNavigateToIncomingVertex()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john').property('name', 'John')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane').property('name', 'Jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.V('john').outE('knows').inV()", new Dictionary<string, object>());
@@ -290,7 +333,7 @@ public class EdgeOperationTests
     public async Task OutV_ShouldNavigateToOutgoingVertex()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1').property('name', 'John')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2').property('name', 'Jane')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -307,7 +350,11 @@ public class EdgeOperationTests
     public async Task OutV_UsingScenario_ShouldNavigateToOutgoingVertex()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john').property('name', 'John')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane').property('name', 'Jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.V('jane').inE('knows').outV()", new Dictionary<string, object>());
@@ -321,7 +368,7 @@ public class EdgeOperationTests
     public async Task BothV_ShouldNavigateToBothVertices()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1').property('name', 'John')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2').property('name', 'Jane')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -340,7 +387,11 @@ public class EdgeOperationTests
     public async Task BothV_UsingScenario_ShouldNavigateToBothVertices()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john').property('name', 'John')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane').property('name', 'Jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
 
         // Act
         var result = await connector.ExecuteAsync("g.E().hasLabel('knows').bothV()", new Dictionary<string, object>());
@@ -354,7 +405,7 @@ public class EdgeOperationTests
     public async Task DropEdge_ShouldRemoveEdge()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         var addResult = await connector.ExecuteAsync("g.V('p1').addE('knows').to(g.V('p2'))", new Dictionary<string, object>());
@@ -372,7 +423,7 @@ public class EdgeOperationTests
     public async Task DropVertex_ShouldRemoveConnectedEdges()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateForTesting();
+        var connector = InMemoryGremlinLanguageConnector.Create();
         await connector.ExecuteAsync("g.addV('person').property('id', 'p1')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p2')", new Dictionary<string, object>());
         await connector.ExecuteAsync("g.addV('person').property('id', 'p3')", new Dictionary<string, object>());
@@ -393,7 +444,15 @@ public class EdgeOperationTests
     public async Task ScenarioData_ShouldSupportComplexEdgeQueries()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateSocialNetwork();
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john').property('name', 'John')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane').property('name', 'Jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'bob').property('name', 'Bob')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'alice').property('name', 'Alice')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('jane').addE('knows').to(g.V('bob'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('bob').addE('knows').to(g.V('alice'))", new Dictionary<string, object>());
 
         // Act - Complex query combining multiple edge traversals
         var friendsOfFriends = await connector.ExecuteAsync("g.V('john').out('knows').out('knows').dedup()", new Dictionary<string, object>());
@@ -407,8 +466,13 @@ public class EdgeOperationTests
     public async Task MultipleScenarios_ShouldCombineEdgeData()
     {
         // Arrange
-        var connector = InMemoryConnectorFactory.CreateWithScenarios(
-            new[] { "BasicSocialNetwork", "SimpleECommerce" });
+        var connector = InMemoryGremlinLanguageConnector.Create();
+        // Set up social network and ecommerce data manually
+        await connector.ExecuteAsync("g.addV('person').property('id', 'john').property('name', 'John')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('person').property('id', 'jane').property('name', 'Jane')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.addV('product').property('id', 'laptop')", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('knows').to(g.V('jane'))", new Dictionary<string, object>());
+        await connector.ExecuteAsync("g.V('john').addE('purchased').to(g.V('laptop'))", new Dictionary<string, object>());
 
         // Act
         var socialEdges = await connector.ExecuteAsync("g.E().hasLabel('knows')", new Dictionary<string, object>());
