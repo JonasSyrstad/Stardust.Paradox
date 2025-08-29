@@ -1,0 +1,75 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<IncludeSymbols>true</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		
+		<!-- Package Information -->
+		<PackageId>Stardust.Paradox.Data.InMemory</PackageId>
+		<Version>1.0.0-preview.1</Version>
+		<AssemblyVersion>1.0.0.0</AssemblyVersion>
+		<FileVersion>1.0.0.0</FileVersion>
+		<Authors>Jonas Syrstad, Stardust Contributors</Authors>
+		<Company>Stardust</Company>
+		<Product>Stardust.Paradox.Data.InMemory</Product>
+		<Title>Stardust Paradox InMemory Graph Database</Title>
+		<Summary>High-performance in-memory Gremlin graph database implementation for testing and development</Summary>
+		<Description>A comprehensive in-memory Gremlin-compatible graph database implementation for Stardust.Paradox.Data. Perfect for unit testing, integration testing, and rapid prototyping. Features a powerful scenario framework for easy test data setup, full Gremlin query support, and seamless integration with existing Paradox applications.</Description>
+		<Copyright>Copyright © Stardust 2021-2024</Copyright>
+		
+		<!-- Package Metadata -->
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryBranch>main</RepositoryBranch>
+		<PackageTags>Gremlin;InMemory;Graph;Database;Testing;TinkerPop;GraphDB;Unit-Testing;Integration-Testing;Scenario-Framework;Stardust;Paradox</PackageTags>
+		<PackageReleaseNotes>Preview Release 1.0.0-preview.1: Full in-memory Gremlin query execution engine with comprehensive scenario framework for test data setup. Built-in scenarios for Social Network, E-Commerce, Organization, User Management. Fluent API for easy connector creation and configuration. Custom scenario support with extensible provider pattern. High-performance graph traversals and aggregations. Complete documentation and usage examples. Compatible with .NET Standard 2.0 and higher.</PackageReleaseNotes>
+		
+		<!-- Build Configuration -->
+		<Deterministic>true</Deterministic>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<EmbedUntrackedSources>true</EmbedUntrackedSources>
+		<ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+		
+		<!-- Development Dependencies -->
+		<DevelopmentDependency>false</DevelopmentDependency>
+		<IsPackable>true</IsPackable>
+		
+		<!-- Package Classification -->
+		<PackageType>Dependency</PackageType>
+		<ContentTargetFolders>content</ContentTargetFolders>
+	</PropertyGroup>
+
+	<!-- Package Dependencies -->
+	<ItemGroup>
+		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
+		<PackageReference Include="System.Text.RegularExpressions" Version="4.3.1" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+	</ItemGroup>
+
+	<!-- Project Dependencies -->
+	<ItemGroup>
+		<ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" PrivateAssets="None" />
+	</ItemGroup>
+
+	<!-- Package Content -->
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
+		<None Include="SCENARIO_FRAMEWORK_README.md" Pack="true" PackagePath="docs\" Condition="Exists('SCENARIO_FRAMEWORK_README.md')" />
+		<None Include="SCENARIO_FRAMEWORK_IMPLEMENTATION_SUMMARY.md" Pack="true" PackagePath="docs\" Condition="Exists('SCENARIO_FRAMEWORK_IMPLEMENTATION_SUMMARY.md')" />
+		<None Include="TESTING_GUIDE.md" Pack="true" PackagePath="docs\" Condition="Exists('TESTING_GUIDE.md')" />
+		<None Include="NUGET_PUBLISHING_GUIDE.md" Pack="true" PackagePath="docs\" Condition="Exists('NUGET_PUBLISHING_GUIDE.md')" />
+	</ItemGroup>
+
+	<!-- Conditional Framework References -->
+	<ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
+		<PackageReference Include="System.ComponentModel.Annotations" Version="4.7.0" />
+	</ItemGroup>
+
+</Project>

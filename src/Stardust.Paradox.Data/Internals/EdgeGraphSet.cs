@@ -106,25 +106,26 @@ namespace Stardust.Paradox.Data.Internals
         public async Task<T> GetAsync(string inId, string outId, string paritionKey = null)
         {
             if (label == null)
-                    label = CodeGenerator.EdgeLables[typeof(T)];
+                label = CodeGenerator.EdgeLables[typeof(T)];
             if (_useVerticesIdsAsEdgeId)
             {
-                
+
                 T edge;
                 if (paritionKey.ContainsCharacters())
                 {
-                    edge= await GetPartitionedAsync($"{label}{inId}{outId}",paritionKey);
+                    edge = await GetPartitionedAsync($"{label}{inId}{outId}", paritionKey);
                 }
-                else 
-                    edge= await GetAsync($"{label}{inId}{outId}");
-                if (edge != null || UseFallBack ) return edge;
+                else
+                    edge = await GetAsync($"{label}{inId}{outId}");
+                if (edge != null || UseFallBack) return edge;
 
             }
 
             IEnumerable<T> e;
             if (paritionKey.IsNullOrWhiteSpace())
             {
-                e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString()).OutE(label).Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
+                e = await _context.EAsync<T>(g =>
+                    g.V(outId.EscapeGremlinString()).OutE(label).Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);
             }
             else
                 e = await _context.EAsync<T>(g => g.V(outId.EscapeGremlinString(), paritionKey.EscapeGremlinString()).OutE(label).Where(p => p.__().OtherV().HasId(inId.EscapeGremlinString()))).ConfigureAwait(false);

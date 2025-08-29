@@ -1,3 +1,5 @@
+using Stardust.Particles;
+
 namespace Stardust.Paradox.Data.Mocker
 {
     /// <summary>
@@ -9,6 +11,8 @@ namespace Stardust.Paradox.Data.Mocker
         /// Whether to log queries and parameters
         /// </summary>
         public bool LogQueries { get; set; } = false;
+
+        public ILogging Logger { get; set; }
 
         /// <summary>
         /// Simulated RU cost per query execution
@@ -39,6 +43,8 @@ namespace Stardust.Paradox.Data.Mocker
         /// Whether to enable intelligent pattern matching
         /// </summary>
         public bool EnableSmartMatching { get; set; } = true;
+
+        public bool SimulateResponse { get; set; } = true;
     }
 
     /// <summary>

@@ -18,7 +18,7 @@ namespace Stardust.Paradox.Data.Mocker
         private readonly InMemoryGraphStore _graphStore;
         private readonly MockConnectorOptions _options;
 
-        public MockGremlinLanguageConnector(MockConnectorOptions options = null) : base(null)
+        public MockGremlinLanguageConnector(MockConnectorOptions options = null) : base(options?.Logger)
         {
             _options = options ?? new MockConnectorOptions();
             _queryResponses = new Dictionary<string, IResponseProvider>();
@@ -138,7 +138,7 @@ namespace Stardust.Paradox.Data.Mocker
         public void MockVertices(string label, int count = 1, params string[] propertyNames)
         {
             var vertices = MockExtensions.CreateRandomVertices(label, count, propertyNames);
-            
+
             ConfigureFunctionResponse($@"g\.V\(\)\.hasLabel\('{label}'\)", (q, p) => vertices);
         }
 
@@ -160,7 +160,7 @@ namespace Stardust.Paradox.Data.Mocker
         public void MockSpecificVertex(string id, string label, KeyValuePair<string, object>[] properties)
         {
             var vertex = MockExtensions.CreateVertexResponse(id, label, properties?.ToDictionary(p => p.Key, p => p.Value));
-            
+
             ConfigureFunctionResponse($@"g\.V\('{Regex.Escape(id)}'\)", (q, p) => new[] { vertex });
         }
 
@@ -203,35 +203,42 @@ namespace Stardust.Paradox.Data.Mocker
                 if (Regex.IsMatch(query, kvp.Key, RegexOptions.IgnoreCase))
                 {
                     var response = await kvp.Value.GetResponseAsync(query, parametrizedValues);
+                    LogQuery($"Response: {JsonConvert.SerializeObject(response ?? new object())}");
                     return response;
                 }
             }
 
+
             // If no configured response, try to simulate the operation
-            return await SimulateGraphOperation(query, parametrizedValues);
+            if (_options.SimulateResponse)
+            {
+                LogQuery($"Response: No configured response, simulating operation.");
+                return await SimulateGraphOperation(query, parametrizedValues);
+            }
+            return null;
         }
 
         private async Task<IEnumerable<dynamic>> SimulateGraphOperation(string query, Dictionary<string, object> parametrizedValues)
         {
             var operation = DetectOperationType(query);
-            
+
             switch (operation)
             {
                 case OperationType.AddVertex:
                     return await _graphStore.AddVertex(query, parametrizedValues);
-                
+
                 case OperationType.AddEdge:
                     return await _graphStore.AddEdge(query, parametrizedValues);
-                
+
                 case OperationType.Update:
                     return await _graphStore.UpdateElements(query, parametrizedValues);
-                
+
                 case OperationType.Delete:
                     return await _graphStore.DeleteElements(query, parametrizedValues);
-                
+
                 case OperationType.Query:
                     return await _graphStore.QueryElements(query, parametrizedValues);
-                
+
                 default:
                     // Default to empty result for unknown operations
                     return new List<dynamic>();
@@ -241,19 +248,19 @@ namespace Stardust.Paradox.Data.Mocker
         private OperationType DetectOperationType(string query)
         {
             var lowerQuery = query.ToLowerInvariant();
-            
+
             if (lowerQuery.Contains("addv("))
                 return OperationType.AddVertex;
-            
+
             if (lowerQuery.Contains("adde("))
                 return OperationType.AddEdge;
-            
+
             if (lowerQuery.Contains("drop()"))
                 return OperationType.Delete;
-            
+
             if (lowerQuery.Contains("property("))
                 return OperationType.Update;
-            
+
             return OperationType.Query;
         }
 
@@ -282,7 +289,10 @@ namespace Stardust.Paradox.Data.Mocker
         {
             if (_options.LogQueries)
             {
-                Console.WriteLine($"[MockConnector] {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}");
+                if (_options.Logger != null)
+                    _options.Logger.DebugMessage($"[MockConnector] {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}");
+                else
+                    Console.WriteLine($"[MockConnector] {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}");
             }
         }
     }
