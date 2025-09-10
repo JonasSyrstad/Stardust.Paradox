@@ -137,19 +137,39 @@ namespace Stardust.Paradox.Data.InMemory
 
             // Try boolean first (before numeric parsing)
             if (bool.TryParse(valueStr, out bool boolVal))
+            {
                 return boolVal;
+            }
 
-            // Try double with invariant culture (to handle decimal points correctly)
-            if (double.TryParse(valueStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
-                return doubleVal;
+            // Handle numbers - be smart about int vs double
+            // If the string contains a decimal point, try double first
+            if (valueStr.Contains("."))
+            {
+                if (double.TryParse(valueStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                {
+                    return doubleVal;
+                }
+            }
+            else
+            {
+                // No decimal point, try integer first
+                if (int.TryParse(valueStr, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int intVal))
+                {
+                    return intVal;
+                }
                 
-            // Try integer (after double, so decimals don't get truncated)
-            if (int.TryParse(valueStr, out int intVal))
-                return intVal;
+                // Fallback to double for large numbers
+                if (double.TryParse(valueStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                {
+                    return doubleVal;
+                }
+            }
                 
             // Try DateTime
             if (DateTime.TryParse(valueStr, out DateTime dateVal))
+            {
                 return dateVal;
+            }
             
             return valueStr;
         }

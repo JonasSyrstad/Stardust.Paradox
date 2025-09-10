@@ -333,7 +333,8 @@ namespace Stardust.Paradox.Data.InMemory
                 if (string.IsNullOrEmpty(trimmed))
                     continue;
                     
-                arguments.Add(ParseSingleArgument(trimmed));
+                var parsed = ParseSingleArgument(trimmed);
+                arguments.Add(parsed);
             }
 
             return arguments;
@@ -823,24 +824,50 @@ namespace Stardust.Paradox.Data.InMemory
             if ((arg.StartsWith("'") && arg.EndsWith("'")) || 
                 (arg.StartsWith("\"") && arg.EndsWith("\"")))
             {
-                return arg.Substring(1, arg.Length - 2);
+                var stringValue = arg.Substring(1, arg.Length - 2);
+                return stringValue;
             }
 
-            // Handle numbers
-            if (int.TryParse(arg, out int intVal))
-                return intVal;
-            if (long.TryParse(arg, out long longVal))
-                return longVal;
-            if (double.TryParse(arg, out double doubleVal))
-                return doubleVal;
-
-            // Handle booleans
+            // Handle booleans first
             if (bool.TryParse(arg, out bool boolVal))
+            {
                 return boolVal;
+            }
 
             // Handle null
             if (arg.Equals("null", StringComparison.OrdinalIgnoreCase))
+            {
                 return null;
+            }
+
+            // Handle numbers - be smart about int vs double
+            // If the string contains a decimal point, try double first
+            if (arg.Contains("."))
+            {
+                if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                {
+                    return doubleVal;
+                }
+            }
+            else
+            {
+                // No decimal point, try integer first
+                if (int.TryParse(arg, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int intVal))
+                {
+                    return intVal;
+                }
+                
+                if (long.TryParse(arg, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long longVal))
+                {
+                    return longVal;
+                }
+                
+                // Fallback to double for large numbers
+                if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                {
+                    return doubleVal;
+                }
+            }
 
             // Return as string for everything else
             return arg;
