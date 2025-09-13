@@ -1,4 +1,9 @@
+using System.Collections;
+using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.InMemory;
+using Stardust.Particles;
+using System.Runtime.ConstrainedExecution;
 
 namespace Stardust.Paradox.Data.InMemory.Tests;
 
@@ -210,6 +215,58 @@ public class VertexOperationTests
         elementMap["type"].Should().Be("vertex");
         elementMap["name"].Should().Be("John");
     }
+
+    [Fact]
+    public async Task GetVertexById()
+    {
+        var connector = InMemoryGremlinLanguageConnector.Create(options =>
+        {
+            options.EnableDebugLogging = true;
+        });
+        var scenario = new HasOnExistingService();
+        scenario.ConfigureScenario(connector.Database);
+        var users = await connector.ExecuteAsync("g.V('550e8400-e29b-41d4-a716-446655440000')",
+            new Dictionary<string, object>());
+        var user = users.First();
+        var p1 = user.properties as JObject;
+        var list = new List<object>();
+        if (user.properties != null)
+        {
+            
+            var properties = user.properties as JObject;
+            if (properties != null)
+                foreach (var p in properties)
+                {
+                    // The property values should be arrays that can be deserialized to Property[]
+                    // This is how Cosmos DB returns them and how LoadProperties expects them
+                    list.Add(p.Value.ToObject<Property[]>());
+                }
+        }
+        p1.Should().NotBeNullOrEmpty();
+        list.Should().NotBeNullOrEmpty();
+    }
+
+    private static IEnumerable LoadProperties1(object de)
+    {
+        var d = de as dynamic;
+        if (d.properties != null)
+        {
+            var properties = d.properties as JObject;
+            if (properties != null)
+                foreach (var p in properties)
+                {
+                    if (true)
+                    {
+                        yield return p.Value.ToObject<Property[]>();
+                    }
+                    else
+                    {
+                        yield return p.Value.ToObject<object>();
+                    }
+                }
+        }
+    }
+
 
     [Fact]
     public async Task Dedup_ShouldRemoveDuplicates()

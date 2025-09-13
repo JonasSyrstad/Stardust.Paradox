@@ -10,60 +10,60 @@ public class OrganizationHierarchyScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "OrganizationHierarchy";
     public override string Description => "Company structure with employees, departments, and management relationships";
 
-    protected override (InMemoryVertexDefinition[] vertices, InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
     {
-        var vertices = new InMemoryVertexDefinition[]
+        var vertices = new ScenarioVertexDefinition[]
         {
-            new InMemoryVertexDefinition("ceo", "employee", Props(
+            new ScenarioVertexDefinition("ceo", "employee", Props(
                 ("name", "CEO Smith"),
                 ("position", "Chief Executive Officer"),
                 ("department", "Executive"),
                 ("salary", 200000)
             )),
-            new InMemoryVertexDefinition("eng_manager", "employee", Props(
+            new ScenarioVertexDefinition("eng_manager", "employee", Props(
                 ("name", "Engineering Manager"),
                 ("position", "Engineering Manager"),
                 ("department", "Engineering"),
                 ("salary", 120000)
             )),
-            new InMemoryVertexDefinition("dev1", "employee", Props(
+            new ScenarioVertexDefinition("dev1", "employee", Props(
                 ("name", "Developer One"),
                 ("position", "Senior Developer"),
                 ("department", "Engineering"),
                 ("salary", 95000)
             )),
-            new InMemoryVertexDefinition("dev2", "employee", Props(
+            new ScenarioVertexDefinition("dev2", "employee", Props(
                 ("name", "Developer Two"),
                 ("position", "Junior Developer"),
                 ("department", "Engineering"),
                 ("salary", 70000)
             )),
-            new InMemoryVertexDefinition("hr_manager", "employee", Props(
+            new ScenarioVertexDefinition("hr_manager", "employee", Props(
                 ("name", "HR Manager"),
                 ("position", "HR Manager"),
                 ("department", "Human Resources"),
                 ("salary", 85000)
             )),
-            new InMemoryVertexDefinition("engineering_dept", "department", Props(
+            new ScenarioVertexDefinition("engineering_dept", "department", Props(
                 ("name", "Engineering"),
                 ("budget", 500000)
             )),
-            new InMemoryVertexDefinition("hr_dept", "department", Props(
+            new ScenarioVertexDefinition("hr_dept", "department", Props(
                 ("name", "Human Resources"),
                 ("budget", 200000)
             ))
         };
 
-        var edges = new InMemoryEdgeDefinition[]
+        var edges = new SenarioEdgeDefinition[]
         {
-            new InMemoryEdgeDefinition("manages", "ceo", "eng_manager"),
-            new InMemoryEdgeDefinition("manages", "ceo", "hr_manager"),
-            new InMemoryEdgeDefinition("manages", "eng_manager", "dev1"),
-            new InMemoryEdgeDefinition("manages", "eng_manager", "dev2"),
-            new InMemoryEdgeDefinition("works_for", "eng_manager", "engineering_dept"),
-            new InMemoryEdgeDefinition("works_for", "dev1", "engineering_dept"),
-            new InMemoryEdgeDefinition("works_for", "dev2", "engineering_dept"),
-            new InMemoryEdgeDefinition("works_for", "hr_manager", "hr_dept")
+            new SenarioEdgeDefinition("manages", "ceo", "eng_manager"),
+            new SenarioEdgeDefinition("manages", "ceo", "hr_manager"),
+            new SenarioEdgeDefinition("manages", "eng_manager", "dev1"),
+            new SenarioEdgeDefinition("manages", "eng_manager", "dev2"),
+            new SenarioEdgeDefinition("works_for", "eng_manager", "engineering_dept"),
+            new SenarioEdgeDefinition("works_for", "dev1", "engineering_dept"),
+            new SenarioEdgeDefinition("works_for", "dev2", "engineering_dept"),
+            new SenarioEdgeDefinition("works_for", "hr_manager", "hr_dept")
         };
 
         return (vertices, edges);

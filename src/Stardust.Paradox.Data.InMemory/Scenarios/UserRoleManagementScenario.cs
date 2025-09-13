@@ -11,89 +11,89 @@ public class UserRoleManagementScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "UserRoleManagement";
     public override string Description => "User management system with roles, permissions, and access control";
 
-    protected override (InMemoryVertexDefinition[] vertices, InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
     {
-        var vertices = new InMemoryVertexDefinition[]
+        var vertices = new ScenarioVertexDefinition[]
         {
-            new InMemoryVertexDefinition("admin", "user", Props(
+            new ScenarioVertexDefinition("admin", "user", Props(
                 ("username", "admin"),
                 ("email", "admin@company.com"),
                 ("active", true),
                 ("lastLogin", DateTime.UtcNow.AddHours(-1))
             )),
-            new InMemoryVertexDefinition("manager", "user", Props(
+            new ScenarioVertexDefinition("manager", "user", Props(
                 ("username", "manager"),
                 ("email", "manager@company.com"),
                 ("active", true),
                 ("lastLogin", DateTime.UtcNow.AddHours(-3))
             )),
-            new InMemoryVertexDefinition("developer", "user", Props(
+            new ScenarioVertexDefinition("developer", "user", Props(
                 ("username", "developer"),
                 ("email", "dev@company.com"),
                 ("active", true),
                 ("lastLogin", DateTime.UtcNow.AddMinutes(-30))
             )),
-            new InMemoryVertexDefinition("guest", "user", Props(
+            new ScenarioVertexDefinition("guest", "user", Props(
                 ("username", "guest"),
                 ("email", "guest@company.com"),
                 ("active", false),
                 ("lastLogin", DateTime.UtcNow.AddDays(-7))
             )),
-            new InMemoryVertexDefinition("admin_role", "role", Props(
+            new ScenarioVertexDefinition("admin_role", "role", Props(
                 ("name", "Administrator"),
                 ("level", 10),
                 ("description", "Full system access")
             )),
-            new InMemoryVertexDefinition("manager_role", "role", Props(
+            new ScenarioVertexDefinition("manager_role", "role", Props(
                 ("name", "Manager"),
                 ("level", 7),
                 ("description", "Management access")
             )),
-            new InMemoryVertexDefinition("dev_role", "role", Props(
+            new ScenarioVertexDefinition("dev_role", "role", Props(
                 ("name", "Developer"),
                 ("level", 5),
                 ("description", "Development access")
             )),
-            new InMemoryVertexDefinition("guest_role", "role", Props(
+            new ScenarioVertexDefinition("guest_role", "role", Props(
                 ("name", "Guest"),
                 ("level", 1),
                 ("description", "Read-only access")
             )),
-            new InMemoryVertexDefinition("create_perm", "permission", Props(
+            new ScenarioVertexDefinition("create_perm", "permission", Props(
                 ("name", "CREATE"),
                 ("resource", "users")
             )),
-            new InMemoryVertexDefinition("read_perm", "permission", Props(
+            new ScenarioVertexDefinition("read_perm", "permission", Props(
                 ("name", "READ"),
                 ("resource", "users")
             )),
-            new InMemoryVertexDefinition("update_perm", "permission", Props(
+            new ScenarioVertexDefinition("update_perm", "permission", Props(
                 ("name", "UPDATE"),
                 ("resource", "users")
             )),
-            new InMemoryVertexDefinition("delete_perm", "permission", Props(
+            new ScenarioVertexDefinition("delete_perm", "permission", Props(
                 ("name", "DELETE"),
                 ("resource", "users")
             ))
         };
 
-        var edges = new InMemoryEdgeDefinition[]
+        var edges = new SenarioEdgeDefinition[]
         {
             // User-Role assignments
-            new InMemoryEdgeDefinition("has_role", "admin", "admin_role"),
-            new InMemoryEdgeDefinition("has_role", "manager", "manager_role"),
-            new InMemoryEdgeDefinition("has_role", "developer", "dev_role"),
-            new InMemoryEdgeDefinition("has_role", "guest", "guest_role"),
+            new SenarioEdgeDefinition("has_role", "admin", "admin_role"),
+            new SenarioEdgeDefinition("has_role", "manager", "manager_role"),
+            new SenarioEdgeDefinition("has_role", "developer", "dev_role"),
+            new SenarioEdgeDefinition("has_role", "guest", "guest_role"),
                 
             // Role-Permission assignments
-            new InMemoryEdgeDefinition("has_permission", "admin_role", "create_perm"),
-            new InMemoryEdgeDefinition("has_permission", "admin_role", "read_perm"),
-            new InMemoryEdgeDefinition("has_permission", "admin_role", "update_perm"),
-            new InMemoryEdgeDefinition("has_permission", "admin_role", "delete_perm"),
-            new InMemoryEdgeDefinition("has_permission", "manager_role", "read_perm"),
-            new InMemoryEdgeDefinition("has_permission", "manager_role", "update_perm"),
-            new InMemoryEdgeDefinition("has_permission", "dev_role", "read_perm"),
-            new InMemoryEdgeDefinition("has_permission", "guest_role", "read_perm")
+            new SenarioEdgeDefinition("has_permission", "admin_role", "create_perm"),
+            new SenarioEdgeDefinition("has_permission", "admin_role", "read_perm"),
+            new SenarioEdgeDefinition("has_permission", "admin_role", "update_perm"),
+            new SenarioEdgeDefinition("has_permission", "admin_role", "delete_perm"),
+            new SenarioEdgeDefinition("has_permission", "manager_role", "read_perm"),
+            new SenarioEdgeDefinition("has_permission", "manager_role", "update_perm"),
+            new SenarioEdgeDefinition("has_permission", "dev_role", "read_perm"),
+            new SenarioEdgeDefinition("has_permission", "guest_role", "read_perm")
         };
 
         return (vertices, edges);

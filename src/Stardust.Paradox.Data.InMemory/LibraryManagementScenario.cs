@@ -13,36 +13,36 @@ namespace Stardust.Paradox.Data.InMemory
         public override string ScenarioName => "LibraryManagement";
         public override string Description => "Library system with books, authors, genres, and borrowing relationships";
 
-        protected override (Scenarios.InMemoryVertexDefinition[] vertices, Scenarios.InMemoryEdgeDefinition[] edges) GetScenarioData()
+        protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.SenarioEdgeDefinition[] edges) GetScenarioData()
         {
-            var vertices = new Scenarios.InMemoryVertexDefinition[]
+            var vertices = new Scenarios.ScenarioVertexDefinition[]
             {
                 // Authors
-                new Scenarios.InMemoryVertexDefinition("tolkien", "author", Props(
+                new Scenarios.ScenarioVertexDefinition("tolkien", "author", Props(
                     ("name", "J.R.R. Tolkien"),
                     ("birthYear", 1892),
                     ("nationality", "British")
                 )),
-                new Scenarios.InMemoryVertexDefinition("asimov", "author", Props(
+                new Scenarios.ScenarioVertexDefinition("asimov", "author", Props(
                     ("name", "Isaac Asimov"),
                     ("birthYear", 1920),
                     ("nationality", "American")
                 )),
 
                 // Books
-                new Scenarios.InMemoryVertexDefinition("lotr", "book", Props(
+                new Scenarios.ScenarioVertexDefinition("lotr", "book", Props(
                     ("title", "The Lord of the Rings"),
                     ("publicationYear", 1954),
                     ("isbn", "978-0544003415"),
                     ("availableCopies", 3)
                 )),
-                new Scenarios.InMemoryVertexDefinition("foundation", "book", Props(
+                new Scenarios.ScenarioVertexDefinition("foundation", "book", Props(
                     ("title", "Foundation"),
                     ("publicationYear", 1951),
                     ("isbn", "978-0553293357"),
                     ("availableCopies", 2)
                 )),
-                new Scenarios.InMemoryVertexDefinition("hobbit", "book", Props(
+                new Scenarios.ScenarioVertexDefinition("hobbit", "book", Props(
                     ("title", "The Hobbit"),
                     ("publicationYear", 1937),
                     ("isbn", "978-0547928227"),
@@ -50,46 +50,46 @@ namespace Stardust.Paradox.Data.InMemory
                 )),
 
                 // Genres
-                new Scenarios.InMemoryVertexDefinition("fantasy", "genre", Props(
+                new Scenarios.ScenarioVertexDefinition("fantasy", "genre", Props(
                     ("name", "Fantasy"),
                     ("description", "Fantasy fiction")
                 )),
-                new Scenarios.InMemoryVertexDefinition("scifi", "genre", Props(
+                new Scenarios.ScenarioVertexDefinition("scifi", "genre", Props(
                     ("name", "Science Fiction"),
                     ("description", "Science fiction literature")
                 )),
 
                 // Patrons
-                new Scenarios.InMemoryVertexDefinition("patron1", "patron", Props(
+                new Scenarios.ScenarioVertexDefinition("patron1", "patron", Props(
                     ("name", "Alice Reader"),
                     ("membershipNumber", "L001"),
                     ("joinDate", DateTime.UtcNow.AddYears(-2))
                 )),
-                new Scenarios.InMemoryVertexDefinition("patron2", "patron", Props(
+                new Scenarios.ScenarioVertexDefinition("patron2", "patron", Props(
                     ("name", "Bob Bookworm"),
                     ("membershipNumber", "L002"),
                     ("joinDate", DateTime.UtcNow.AddMonths(-6))
                 ))
             };
 
-            var edges = new Scenarios.InMemoryEdgeDefinition[]
+            var edges = new Scenarios.SenarioEdgeDefinition[]
             {
                 // Author-Book relationships
-                new Scenarios.InMemoryEdgeDefinition("wrote", "tolkien", "lotr"),
-                new Scenarios.InMemoryEdgeDefinition("wrote", "tolkien", "hobbit"),
-                new Scenarios.InMemoryEdgeDefinition("wrote", "asimov", "foundation"),
+                new Scenarios.SenarioEdgeDefinition("wrote", "tolkien", "lotr"),
+                new Scenarios.SenarioEdgeDefinition("wrote", "tolkien", "hobbit"),
+                new Scenarios.SenarioEdgeDefinition("wrote", "asimov", "foundation"),
 
                 // Book-Genre relationships
-                new Scenarios.InMemoryEdgeDefinition("belongs_to", "lotr", "fantasy"),
-                new Scenarios.InMemoryEdgeDefinition("belongs_to", "hobbit", "fantasy"),
-                new Scenarios.InMemoryEdgeDefinition("belongs_to", "foundation", "scifi"),
+                new Scenarios.SenarioEdgeDefinition("belongs_to", "lotr", "fantasy"),
+                new Scenarios.SenarioEdgeDefinition("belongs_to", "hobbit", "fantasy"),
+                new Scenarios.SenarioEdgeDefinition("belongs_to", "foundation", "scifi"),
 
                 // Borrowing relationships
-                new Scenarios.InMemoryEdgeDefinition("borrowed", "patron1", "lotr", Props(
+                new Scenarios.SenarioEdgeDefinition("borrowed", "patron1", "lotr", Props(
                     ("borrowDate", DateTime.UtcNow.AddDays(-10)),
                     ("dueDate", DateTime.UtcNow.AddDays(4))
                 )),
-                new Scenarios.InMemoryEdgeDefinition("borrowed", "patron2", "foundation", Props(
+                new Scenarios.SenarioEdgeDefinition("borrowed", "patron2", "foundation", Props(
                     ("borrowDate", DateTime.UtcNow.AddDays(-5)),
                     ("dueDate", DateTime.UtcNow.AddDays(9))
                 ))

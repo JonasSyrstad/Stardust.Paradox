@@ -123,6 +123,9 @@ namespace Stardust.Paradox.Data.InMemory
         {
             switch (step.StepName.ToLower())
             {
+                case "v":
+                    ExecuteVStep(step, context);
+                    break;
                 case "out":
                     ExecuteOutStep(step, context);
                     break;
@@ -228,6 +231,15 @@ namespace Stardust.Paradox.Data.InMemory
                 case "adde":
                     ExecuteAddEdgeContextStep(step, context);
                     break;
+                case "from":
+                    ExecuteFromStep(step, context);
+                    break;
+                case "to":
+                    ExecuteToStep(step, context);
+                    break;
+                case "as":
+                    ExecuteAsStep(step, context);
+                    break;
                 default:
                     // Unknown step - pass through
                     break;
@@ -243,17 +255,204 @@ namespace Stardust.Paradox.Data.InMemory
             }
         }
 
+        /// <summary>
+        /// Execute V step when it's not a start step (mid-traversal V step)
+        /// </summary>
+        private void ExecuteVStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (step.Arguments.Any())
+            {
+                // Handle CosmosDB partition key array syntax: V([partitionKey, id])
+                var processedIds = new List<string>();
+                
+                foreach (var arg in step.Arguments)
+                {
+                    if (arg is System.Collections.IList list && list.Count >= 2)
+                    {
+                        // Handle case where argument is already parsed as a list/array
+                        var id = list[1]?.ToString(); // Use second element (id), ignore first (partition key)
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            processedIds.Add(id.Trim('"', '\''));
+                        }
+                    }
+                    else
+                    {
+                        var argString = arg.ToString();
+                        
+                        // Check if this is an array format like "['string','string']"
+                        if (argString.StartsWith("['") && argString.EndsWith("']"))
+                        {
+                            // Parse the array content - this is specifically for the ['string','string'] format
+                            var content = argString.Substring(2, argString.Length - 4); // Remove [' and ']
+                            var parts = content.Split(new[] { "','" }, StringSplitOptions.None);
+                            
+                            if (parts.Length >= 2)
+                            {
+                                // Extract the ID (second element), ignoring partition key (first element)
+                                var id = parts[1].Trim();
+                                processedIds.Add(id);
+                            }
+                            else if (parts.Length == 1)
+                            {
+                                // Single element array, use it as ID
+                                var id = parts[0].Trim();
+                                processedIds.Add(id);
+                            }
+                        }
+                        else if (argString.StartsWith("[") && argString.EndsWith("]"))
+                        {
+                            // Parse the array content for unquoted arrays like [string,string]
+                            var content = argString.Substring(1, argString.Length - 2); // Remove [ and ]
+                            var parts = content.Split(',');
+                            
+                            if (parts.Length >= 2)
+                            {
+                                // Extract the ID (second element), ignoring partition key (first element)
+                                var id = parts[1].Trim().Trim('"', '\'');
+                                processedIds.Add(id);
+                            }
+                            else if (parts.Length == 1)
+                            {
+                                // Single element array, use it as ID
+                                var id = parts[0].Trim().Trim('"', '\'');
+                                processedIds.Add(id);
+                            }
+                        }
+                        else
+                        {
+                            // Regular ID format
+                            processedIds.Add(argString);
+                        }
+                    }
+                }
+                
+                // V(id1, id2, ...) in the middle of traversal replaces current traversers
+                var newTraversers = new List<Traverser>();
+                
+                foreach (var vertexId in processedIds)
+                {
+                    var vertex = _database.GetVertex(vertexId);
+                    if (vertex != null)
+                    {
+                        // For each existing traverser, create a new one with the specified vertex
+                        foreach (var existingTraverser in context.Traversers)
+                        {
+                            var newTraverser = existingTraverser.Split();
+                            newTraverser.Value = vertex.ToGremlinResponse();
+                            
+                            // Add to path for path tracking
+                            newTraverser.AddToPath(vertex.ToGremlinResponse());
+                            
+                            newTraversers.Add(newTraverser);
+                        }
+                    }
+                }
+                
+                context.Traversers = newTraversers;
+            }
+            else
+            {
+                // V() - get all vertices (replace current traversers)
+                var allVertices = _database.GetAllVertices().Select(v => v.ToGremlinResponse()).ToList();
+                var newTraversers = new List<Traverser>();
+                
+                foreach (var existingTraverser in context.Traversers)
+                {
+                    foreach (var vertex in allVertices)
+                    {
+                        var newTraverser = existingTraverser.Split();
+                        newTraverser.Value = vertex;
+                        newTraversers.Add(newTraverser);
+                    }
+                }
+                
+                context.Traversers = newTraversers;
+            }
+        }
+
         #region Start Steps
 
         private IEnumerable<dynamic> ExecuteVertexStep(TinkerGraphStep step)
         {
             if (step.Arguments.Any())
             {
-                // V(id1, id2, ...) - get specific vertices
-                var ids = step.Arguments.Select(arg => arg.ToString());
-                return ids.Select(id => _database.GetVertex(id))
-                         .Where(v => v != null)
-                         .Select(v => v.ToGremlinResponse());
+                // Handle CosmosDB partition key array syntax: V([partitionKey, id])
+                // For InMemory database, we ignore the partition key and use only the id
+                var processedIds = new List<string>();
+                
+                foreach (var arg in step.Arguments)
+                {
+                    // Check if this argument looks like an array from CosmosDB partition key syntax
+                    // The argument could be:
+                    // 1. A string that looks like "['value1','value2']" 
+                    // 2. An actual array/list object
+                    // 3. A regular ID string
+                    
+                    if (arg is System.Collections.IList list && list.Count >= 2)
+                    {
+                        // Handle case where argument is already parsed as a list/array
+                        var id = list[1]?.ToString(); // Use second element (id), ignore first (partition key)
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            processedIds.Add(id.Trim('"', '\''));
+                        }
+                    }
+                    else
+                    {
+                        var argString = arg.ToString();
+                        
+                        // Check if this is an array format like "['string','string']"
+                        if (argString.StartsWith("['") && argString.EndsWith("']"))
+                        {
+                            // Parse the array content - this is specifically for the ['string','string'] format
+                            var content = argString.Substring(2, argString.Length - 4); // Remove [' and ']
+                            var parts = content.Split(new[] { "','" }, StringSplitOptions.None);
+                        
+                            if (parts.Length >= 2)
+                            {
+                                // Extract the ID (second element), ignoring partition key (first element)
+                                var id = parts[1].Trim();
+                                processedIds.Add(id);
+                            }
+                            else if (parts.Length == 1)
+                            {
+                                // Single element array, use it as ID
+                                var id = parts[0].Trim();
+                                processedIds.Add(id);
+                            }
+                        }
+                        else if (argString.StartsWith("[") && argString.EndsWith("]"))
+                        {
+                            // Parse the array content for unquoted arrays like [string,string]
+                            var content = argString.Substring(1, argString.Length - 2); // Remove [ and ]
+                            var parts = content.Split(',');
+                            
+                            if (parts.Length >= 2)
+                            {
+                                // Extract the ID (second element), ignoring partition key (first element)
+                                var id = parts[1].Trim().Trim('"', '\'');
+                                processedIds.Add(id);
+                            }
+                            else if (parts.Length == 1)
+                            {
+                                // Single element array, use it as ID
+                                var id = parts[0].Trim().Trim('"', '\'');
+                                processedIds.Add(id);
+                            }
+                        }
+                        else
+                        {
+                            // Regular ID format
+                            processedIds.Add(argString);
+                        }
+                    }
+                }
+                
+                // V(id1, id2, ...) - get specific vertices using processed IDs
+                return processedIds.Select(id => _database.GetVertex(id))
+                                 .Where(v => v != null)
+                                 .Select(v => v.ToGremlinResponse());
             }
             
             // V() - get all vertices
@@ -299,6 +498,15 @@ namespace Stardust.Paradox.Data.InMemory
             var label = step.GetFirstStringArgument();
             var fromId = step.Arguments[1].ToString();
             var toId = step.Arguments[2].ToString();
+            
+            // Ensure vertices exist before creating edge
+            var fromVertex = _database.GetVertex(fromId);
+            var toVertex = _database.GetVertex(toId);
+            
+            if (fromVertex == null || toVertex == null)
+            {
+                return Enumerable.Empty<dynamic>();
+            }
             
             var edge = _database.AddEdge(label, fromId, toId);
             if (edge == null)
@@ -557,6 +765,159 @@ namespace Stardust.Paradox.Data.InMemory
             // OtherV step needs context about which vertex we came from
             // For simplicity, implement as OutV for now
             ExecuteOutVStep(step, context);
+        }
+
+        #endregion
+
+        #region Modulator Steps - Edge creation support
+
+        private void ExecuteAsStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            // 'as' step creates a label for the current element for later reference
+            var label = step.GetFirstStringArgument();
+            
+            if (!string.IsNullOrEmpty(label))
+            {
+                foreach (var traverser in context.Traversers)
+                {
+                    traverser.AddLabel(label, traverser.Value);
+                }
+            }
+        }
+
+        private void ExecuteFromStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            // 'from' step is a modulator for addE step - it specifies the source vertex for edge creation
+            var labelOrId = step.GetFirstStringArgument();
+            
+            // Store the from specification in the context for use by addE
+            context.SetMetadata("addE_from", labelOrId);
+            
+            // Check if we have all needed parts to execute the edge creation
+            TryExecutePendingAddE(context);
+        }
+
+        private void ExecuteToStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            // 'to' step is a modulator for addE step - it specifies the target vertex for edge creation
+            var labelOrId = step.GetFirstStringArgument();
+            
+            // Store the to specification in the context for use by addE
+            context.SetMetadata("addE_to", labelOrId);
+            
+            // Check if we have all needed parts to execute the edge creation
+            TryExecutePendingAddE(context);
+        }
+
+        private void ExecuteAddEdgeContextStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (step.Arguments.Count < 1)
+                return;
+                
+            var label = step.GetFirstStringArgument();
+            
+            // Store the addE operation in metadata - don't execute yet
+            // Wait for from() and to() modulators first
+            context.SetMetadata("addE_label", label);
+            context.SetMetadata("addE_pending", true);
+            
+            // Store any properties from this step - but properties come later, not in addE step
+            context.SetMetadata("addE_properties", new Dictionary<string, object>());
+            
+            // Don't change traversers yet - wait for modulators
+        }
+
+        private void TryExecutePendingAddE(TinkerTraversalContext context)
+        {
+            // Only execute if we have a pending addE and both from and to specifications
+            if (!context.HasMetadata("addE_pending") || 
+                !context.HasMetadata("addE_from") || 
+                !context.HasMetadata("addE_to"))
+            {
+                return;
+            }
+            
+            var label = context.GetMetadata<string>("addE_label");
+            var fromSpec = context.GetMetadata<string>("addE_from");
+            var toSpec = context.GetMetadata<string>("addE_to");
+            var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
+            
+            var newTraversers = new List<Traverser>();
+            
+            foreach (var traverser in context.Traversers)
+            {
+                // Resolve from and to vertices
+                string fromVertexId = null;
+                string toVertexId = null;
+                
+                // Resolve fromSpec
+                if (!string.IsNullOrEmpty(fromSpec))
+                {
+                    // Check if it's a label reference
+                    var fromVertex = traverser.GetTagged<dynamic>(fromSpec);
+                    if (fromVertex != null)
+                    {
+                        fromVertexId = ExtractId(fromVertex);
+                    }
+                    else
+                    {
+                        // Assume it's a direct vertex ID
+                        fromVertexId = fromSpec;
+                    }
+                }
+                
+                // Resolve toSpec
+                if (!string.IsNullOrEmpty(toSpec))
+                {
+                    // Check if it's a label reference
+                    var toVertex = traverser.GetTagged<dynamic>(toSpec);
+                    if (toVertex != null)
+                    {
+                        toVertexId = ExtractId(toVertex);
+                    }
+                    else
+                    {
+                        // Assume it's a direct vertex ID
+                        toVertexId = toSpec;
+                    }
+                }
+                
+                // Create the edge if we have both vertices
+                if (!string.IsNullOrEmpty(fromVertexId) && !string.IsNullOrEmpty(toVertexId))
+                {
+                    var fromVertexObj = _database.GetVertex(fromVertexId);
+                    var toVertexObj = _database.GetVertex(toVertexId);
+                    
+                    if (fromVertexObj != null && toVertexObj != null)
+                    {
+                        var edge = _database.AddEdge(label, fromVertexId, toVertexId);
+                        if (edge != null)
+                        {
+                            // Apply properties
+                            foreach (var prop in properties)
+                            {
+                                edge.SetProperty(prop.Key, prop.Value);
+                            }
+                            
+                            var newTraverser = traverser.Split();
+                            newTraverser.Value = edge.ToGremlinResponse();
+                            newTraversers.Add(newTraverser);
+                        }
+                    }
+                }
+            }
+            
+            if (newTraversers.Any())
+            {
+                context.Traversers = newTraversers;
+            }
+            
+            // Clear the metadata after use
+            context.RemoveMetadata("addE_pending");
+            context.RemoveMetadata("addE_label");
+            context.RemoveMetadata("addE_from");
+            context.RemoveMetadata("addE_to");
+            context.RemoveMetadata("addE_properties");
         }
 
         #endregion
@@ -982,7 +1343,6 @@ namespace Stardust.Paradox.Data.InMemory
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Property extraction error: {ex.Message}");
                         // If property access fails, try to access properties dynamically
                         try
                         {
@@ -1304,6 +1664,19 @@ namespace Stardust.Paradox.Data.InMemory
                 var key = step.Arguments[0].ToString();
                 var value = step.Arguments[1];
                 
+                // Check if this is a property step for a pending addE operation
+                if (context.HasMetadata("addE_pending"))
+                {
+                    // Add property to the pending addE operation
+                    var existingProperties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
+                    existingProperties[key] = value;
+                    context.SetMetadata("addE_properties", existingProperties);
+                    
+                    // Don't change traversers yet - wait for modulators
+                    return;
+                }
+                
+                // Normal property step execution
                 var newTraversers = new List<Traverser>();
 
                 foreach (var traverser in context.Traversers)
@@ -1364,19 +1737,6 @@ namespace Stardust.Paradox.Data.InMemory
             
             // Drop step returns empty results
             context.Traversers = new List<Traverser>();
-        }
-
-        private void ExecuteAddEdgeContextStep(TinkerGraphStep step, TinkerTraversalContext context)
-        {
-            if (step.Arguments.Count < 1)
-                return;
-                
-            var label = step.GetFirstStringArgument();
-            
-            // For addE in a traversal context, we need more sophisticated handling
-            // This would require tracking the .to() and .from() modulators
-            // For now, just pass through the current traversers
-            // In a real implementation, this would be part of a more complex state machine
         }
 
         #endregion

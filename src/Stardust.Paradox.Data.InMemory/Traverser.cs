@@ -122,6 +122,17 @@ public class Traverser
     }
 
     /// <summary>
+    /// Add a label to this traverser, tagging the current or specified value
+    /// </summary>
+    public void AddLabel(string label, dynamic value = null)
+    {
+        if (!string.IsNullOrEmpty(label))
+        {
+            Tags[label] = value ?? Value;
+        }
+    }
+
+    /// <summary>
     /// Set a sack value
     /// </summary>
     public void SetSack(string key, object value)

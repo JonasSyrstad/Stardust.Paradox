@@ -29,6 +29,9 @@ namespace Stardust.Paradox.Data.InMemory
         // Optimization metadata
         public bool RequiresPath { get; set; }
         public bool RequiresSideEffects { get; set; }
+        
+        // Metadata for complex operations like addE with from/to modulators
+        public Dictionary<string, object> Metadata { get; set; }
 
         public TinkerTraversalContext()
         {
@@ -39,6 +42,7 @@ namespace Stardust.Paradox.Data.InMemory
             StepLabels = new Dictionary<string, List<Traverser>>();
             Barriers = new Dictionary<string, List<Traverser>>();
             LoopCounters = new Dictionary<string, int>();
+            Metadata = new Dictionary<string, object>();
             KeepLabels = false;
             Scope = TraversalScope.Global;
             RequiresPath = false;
@@ -54,11 +58,52 @@ namespace Stardust.Paradox.Data.InMemory
             StepLabels = new Dictionary<string, List<Traverser>>();
             Barriers = new Dictionary<string, List<Traverser>>();
             LoopCounters = new Dictionary<string, int>();
+            Metadata = new Dictionary<string, object>();
             KeepLabels = false;
             Scope = TraversalScope.Global;
             RequiresPath = false;
             RequiresSideEffects = false;
         }
+
+        #region Metadata Management
+
+        /// <summary>
+        /// Set metadata value for complex operations
+        /// </summary>
+        public void SetMetadata(string key, object value)
+        {
+            Metadata[key] = value;
+        }
+
+        /// <summary>
+        /// Get metadata value for complex operations
+        /// </summary>
+        public T GetMetadata<T>(string key)
+        {
+            if (Metadata.TryGetValue(key, out var value) && value is T typedValue)
+            {
+                return typedValue;
+            }
+            return default(T);
+        }
+
+        /// <summary>
+        /// Remove metadata value
+        /// </summary>
+        public void RemoveMetadata(string key)
+        {
+            Metadata.Remove(key);
+        }
+
+        /// <summary>
+        /// Check if metadata key exists
+        /// </summary>
+        public bool HasMetadata(string key)
+        {
+            return Metadata.ContainsKey(key);
+        }
+
+        #endregion
 
         /// <summary>
         /// Get current results as enumerable of dynamic objects
@@ -508,6 +553,7 @@ namespace Stardust.Paradox.Data.InMemory
                 StepLabels = StepLabels.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Select(t => t.Split()).ToList()),
                 Barriers = Barriers.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Select(t => t.Split()).ToList()),
                 LoopCounters = new Dictionary<string, int>(LoopCounters),
+                Metadata = new Dictionary<string, object>(Metadata),
                 KeepLabels = KeepLabels,
                 Scope = Scope,
                 RequiresPath = RequiresPath,
@@ -573,7 +619,8 @@ namespace Stardust.Paradox.Data.InMemory
                 ["hasSideEffects"] = RequiresSideEffects,
                 ["labelCount"] = StepLabels.Count,
                 ["barrierCount"] = Barriers.Count,
-                ["activeLoops"] = LoopCounters.Count
+                ["activeLoops"] = LoopCounters.Count,
+                ["metadataCount"] = Metadata.Count
             };
         }
     }

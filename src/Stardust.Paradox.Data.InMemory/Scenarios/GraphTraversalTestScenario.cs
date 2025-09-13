@@ -10,34 +10,34 @@ public class GraphTraversalTestScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "GraphTraversalTest";
     public override string Description => "Designed for testing complex graph traversal operations and edge cases";
 
-    protected override (InMemoryVertexDefinition[] vertices, InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
     {
-        var vertices = new InMemoryVertexDefinition[]
+        var vertices = new ScenarioVertexDefinition[]
         {
             // Create a small but complex graph for testing traversals
-            new InMemoryVertexDefinition("v1", "node", Props(("value", 1), ("type", "start"))),
-            new InMemoryVertexDefinition("v2", "node", Props(("value", 2), ("type", "intermediate"))),
-            new InMemoryVertexDefinition("v3", "node", Props(("value", 3), ("type", "intermediate"))),
-            new InMemoryVertexDefinition("v4", "node", Props(("value", 4), ("type", "end"))),
-            new InMemoryVertexDefinition("v5", "node", Props(("value", 5), ("type", "isolated"))),
+            new ScenarioVertexDefinition("v1", "node", Props(("value", 1), ("type", "start"))),
+            new ScenarioVertexDefinition("v2", "node", Props(("value", 2), ("type", "intermediate"))),
+            new ScenarioVertexDefinition("v3", "node", Props(("value", 3), ("type", "intermediate"))),
+            new ScenarioVertexDefinition("v4", "node", Props(("value", 4), ("type", "end"))),
+            new ScenarioVertexDefinition("v5", "node", Props(("value", 5), ("type", "isolated"))),
                 
             // Different vertex types for testing hasLabel
-            new InMemoryVertexDefinition("t1", "typeA", Props(("name", "TypeA-1"))),
-            new InMemoryVertexDefinition("t2", "typeB", Props(("name", "TypeB-1"))),
-            new InMemoryVertexDefinition("t3", "typeA", Props(("name", "TypeA-2"))),
+            new ScenarioVertexDefinition("t1", "typeA", Props(("name", "TypeA-1"))),
+            new ScenarioVertexDefinition("t2", "typeB", Props(("name", "TypeB-1"))),
+            new ScenarioVertexDefinition("t3", "typeA", Props(("name", "TypeA-2"))),
         };
 
-        var edges = new InMemoryEdgeDefinition[]
+        var edges = new SenarioEdgeDefinition[]
         {
-            new InMemoryEdgeDefinition("connects", "v1", "v2"),
-            new InMemoryEdgeDefinition("connects", "v2", "v3"),
-            new InMemoryEdgeDefinition("connects", "v3", "v4"),
-            new InMemoryEdgeDefinition("connects", "v1", "v3"), // Alternative path
-            new InMemoryEdgeDefinition("links", "t1", "t2"),
-            new InMemoryEdgeDefinition("links", "t2", "t3"),
+            new SenarioEdgeDefinition("connects", "v1", "v2"),
+            new SenarioEdgeDefinition("connects", "v2", "v3"),
+            new SenarioEdgeDefinition("connects", "v3", "v4"),
+            new SenarioEdgeDefinition("connects", "v1", "v3"), // Alternative path
+            new SenarioEdgeDefinition("links", "t1", "t2"),
+            new SenarioEdgeDefinition("links", "t2", "t3"),
                 
             // Self-loop for testing
-            new InMemoryEdgeDefinition("self", "v2", "v2")
+            new SenarioEdgeDefinition("self", "v2", "v2")
         };
 
         return (vertices, edges);

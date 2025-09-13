@@ -8,23 +8,23 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
     public override string ScenarioName { get; } = "hasOneExistingService";
     public override string Description { get; } = "Creates a test service with admin user";
 
-    protected override (InMemoryVertexDefinition[] vertices, InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
     {
         // Test user ID from TestsBase.CreateTestClaimsIdentity() 
         var testUserId = "550e8400-e29b-41d4-a716-446655440000";
         var existingServiceId = "12345678-1234-5678-9abc-123456789abc";
 
-        var vertices = new InMemoryVertexDefinition[]
+        var vertices = new ScenarioVertexDefinition[]
         {
             // Test user (from TestsBase.CreateTestClaimsIdentity())
-            new InMemoryVertexDefinition(testUserId, "user", Props(
+            new ScenarioVertexDefinition(testUserId, "user", Props(
                 ("name", "Test User"),
                 ("email", "test@veracity.com"),
                 ("pk", testUserId)
             )),
                 
             // Existing service vertex that the test will update
-            new InMemoryVertexDefinition(existingServiceId, "serviceDefinition", Props(
+            new ScenarioVertexDefinition(existingServiceId, "serviceDefinition", Props(
                 ("name", "Existing Test Service"),
                 ("technicalContactEmail", "admin@testservice.com"),
                 ("serviceUrl", "https://existing-test-service.veracity.com"),
@@ -43,9 +43,9 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
         };
 
         // Administrator edge from service to user (IAdministrator : IEdge<IServiceDefinition, IUser>)
-        var edges = new InMemoryEdgeDefinition[]
+        var edges = new SenarioEdgeDefinition[]
         {
-            new InMemoryEdgeDefinition("administrators", existingServiceId, testUserId, Props(
+            new SenarioEdgeDefinition("administrators", existingServiceId, testUserId, Props(
                 ("roles", "MYDNV_ADM_SERVICE"),
                 ("isOwner", true)
             ))

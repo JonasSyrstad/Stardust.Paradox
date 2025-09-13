@@ -11,23 +11,23 @@ public class TestCustomScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "TestCustom";
     public override string Description => "Custom test scenario for unit testing";
 
-    protected override (Scenarios.InMemoryVertexDefinition[] vertices, Scenarios.InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.SenarioEdgeDefinition[] edges) GetScenarioData()
     {
-        var vertices = new Scenarios.InMemoryVertexDefinition[]
+        var vertices = new Scenarios.ScenarioVertexDefinition[]
         {
-            new Scenarios.InMemoryVertexDefinition("custom1", "custom", Props(
+            new Scenarios.ScenarioVertexDefinition("custom1", "custom", Props(
                 ("name", "Custom One"),
                 ("type", "test")
             )),
-            new Scenarios.InMemoryVertexDefinition("custom2", "custom", Props(
+            new Scenarios.ScenarioVertexDefinition("custom2", "custom", Props(
                 ("name", "Custom Two"),
                 ("type", "test")
             ))
         };
 
-        var edges = new Scenarios.InMemoryEdgeDefinition[]
+        var edges = new Scenarios.SenarioEdgeDefinition[]
         {
-            new Scenarios.InMemoryEdgeDefinition("connects", "custom1", "custom2")
+            new Scenarios.SenarioEdgeDefinition("connects", "custom1", "custom2")
         };
 
         return (vertices, edges);

@@ -23,7 +23,7 @@ namespace Stardust.Paradox.Data.InMemory
             if (!_specialVertexIndices.ContainsKey(propertyKey))
             {
                 _specialVertexIndices[propertyKey] = new Dictionary<object, HashSet<InMemoryVertex>>();
-                
+
                 // Populate the index with existing vertices
                 foreach (var vertex in _vertices.Values)
                 {
@@ -44,7 +44,7 @@ namespace Stardust.Paradox.Data.InMemory
             if (!_specialEdgeIndices.ContainsKey(propertyKey))
             {
                 _specialEdgeIndices[propertyKey] = new Dictionary<object, HashSet<InMemoryEdge>>();
-                
+
                 // Populate the index with existing edges
                 foreach (var edge in _edges.Values)
                 {
@@ -62,7 +62,7 @@ namespace Stardust.Paradox.Data.InMemory
         /// </summary>
         public IEnumerable<InMemoryVertex> GetVerticesBySpecialIndex(string key, object value)
         {
-            if (_specialVertexIndices.TryGetValue(key, out var index) && 
+            if (_specialVertexIndices.TryGetValue(key, out var index) &&
                 index.TryGetValue(value, out var vertices))
             {
                 return vertices;
@@ -75,7 +75,7 @@ namespace Stardust.Paradox.Data.InMemory
         /// </summary>
         public IEnumerable<InMemoryEdge> GetEdgesBySpecialIndex(string key, object value)
         {
-            if (_specialEdgeIndices.TryGetValue(key, out var index) && 
+            if (_specialEdgeIndices.TryGetValue(key, out var index) &&
                 index.TryGetValue(value, out var edges))
             {
                 return edges;
@@ -129,11 +129,11 @@ namespace Stardust.Paradox.Data.InMemory
             var stats = new Dictionary<string, object>
             {
                 ["specialVertexIndices"] = _specialVertexIndices.ToDictionary(
-                    kvp => kvp.Key, 
+                    kvp => kvp.Key,
                     kvp => kvp.Value.Values.Sum(set => set.Count)
                 ),
                 ["specialEdgeIndices"] = _specialEdgeIndices.ToDictionary(
-                    kvp => kvp.Key, 
+                    kvp => kvp.Key,
                     kvp => kvp.Value.Values.Sum(set => set.Count)
                 )
             };
@@ -184,12 +184,5 @@ namespace Stardust.Paradox.Data.InMemory
             }
         }
 
-        /// <summary>
-        /// Export all data from the database
-        /// </summary>
-        public (IEnumerable<InMemoryVertex> Vertices, IEnumerable<InMemoryEdge> Edges) ExportData()
-        {
-            return (_vertices.Values, _edges.Values);
-        }
     }
 }

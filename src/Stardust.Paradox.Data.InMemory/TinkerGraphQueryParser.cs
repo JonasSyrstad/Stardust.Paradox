@@ -13,7 +13,7 @@ namespace Stardust.Paradox.Data.InMemory
     {
         private readonly InMemoryGraphDatabase _database;
         private readonly TinkerGraphQueryExecutor _executor;
-        
+
         // TinkerPop step categories for optimization strategies
         private static readonly HashSet<string> FilterSteps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -31,15 +31,17 @@ namespace Stardust.Paradox.Data.InMemory
             "outE", "inE", "bothE", "out", "in", "both", "properties", "values"
         };
 
-        private static readonly HashSet<string> ReducingBarrierSteps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "count", "sum", "mean", "min", "max", "fold", "reduce"
-        };
+        private static readonly HashSet<string> ReducingBarrierSteps =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "count", "sum", "mean", "min", "max", "fold", "reduce"
+            };
 
-        private static readonly HashSet<string> CollectingBarrierSteps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "group", "groupCount", "order", "dedup", "barrier"
-        };
+        private static readonly HashSet<string> CollectingBarrierSteps =
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "group", "groupCount", "order", "dedup", "barrier"
+            };
 
         public TinkerGraphQueryParser(InMemoryGraphDatabase database)
         {
@@ -97,38 +99,48 @@ namespace Stardust.Paradox.Data.InMemory
             // 3. Complex addE patterns
             // 4. Single property calls that set ID (these need special handling)
             // 5. Multi-step traversals: .out().in(), .out().hasLabel(), etc.
-            
+
             var propertyCount = query.Split(new[] { ".property(" }, StringSplitOptions.None).Length - 1;
-            var isPropertyChainComplex = query.Contains(".property(") && (propertyCount > 1 || query.Contains(".property('id'") || query.Contains(".property(\"id\""));
-            
+            var isPropertyChainComplex = query.Contains(".property(") && (propertyCount > 1 ||
+                                                                          query.Contains(".property('id'") ||
+                                                                          query.Contains(".property(\"id\""));
+
             var hasNestedTraversals = query.Contains(".to(g.") || query.Contains(".from(g.");
-            
+
             // Check for multi-step traversals (the main issue we're fixing)
             var hasMultiStepTraversal = HasMultiStepTraversal(query);
-            
+
             return isPropertyChainComplex || hasNestedTraversals || hasMultiStepTraversal;
         }
-        
+
         /// <summary>
         /// Check if query contains multi-step traversals that need complex handling
         /// </summary>
         private bool HasMultiStepTraversal(string query)
         {
             // Count the number of traversal steps
-            var traversalSteps = new[] { 
-                ".out(", ".in(", ".both(", ".outE(", ".inE", ".bothE(", 
+            var traversalSteps = new[]
+            {
+                ".out(", ".in(", ".both(", ".outE(", ".inE", ".bothE(",
                 ".outV(", ".inV(", ".hasLabel(", ".has(", ".values(", ".valueMap(",
                 ".path(", ".dedup(", ".order(", ".limit(", ".skip(", ".count(",
                 ".sum(", ".mean(", ".max(", ".min(", ".fold(", ".unfold(",
-                ".group(", ".groupCount(", ".where(", ".select(", ".as("
+                ".group(", ".groupCount(", ".where(", ".select(", ".as(",
+                ".V(", ".E(" // Add mid-traversal V() and E() steps
             };
             var stepCount = 0;
-            
+
             foreach (var step in traversalSteps)
             {
                 stepCount += query.Split(new[] { step }, StringSplitOptions.None).Length - 1;
             }
-            
+
+            // Special case: if query contains mid-traversal V() or E() steps, always treat as complex
+            if (query.Contains(".V(") || query.Contains(".E("))
+            {
+                return true;
+            }
+
             // If more than 1 step (excluding the start step g.V()), consider it complex
             return stepCount > 1;
         }
@@ -217,23 +229,32 @@ namespace Stardust.Paradox.Data.InMemory
             try
             {
                 // Handle complex patterns like: g.V().has('name', 'marko').addE('knows').to(g.V().has('name', 'vadas')).property('weight', 0.5)
-                
-                // Pattern 1: Simple V(id) to V(id) pattern  
-                var simplePattern = @"g\.V\(([^)]+)\)\.addE\(([^)]+)\)\.to\(g\.V\(([^)]+)\)\)";
-                var simpleMatch = Regex.Match(query, simplePattern);
-                
+
+                // Pattern 1: Simple V(id) to V(id) pattern with optional properties
+                var simplePatternWithProps = @"g\.V\(([^)]+)\)\.addE\(([^)]+)\)\.to\(g\.V\(([^)]+)\)\)(.*)";
+                var simpleMatch = Regex.Match(query, simplePatternWithProps);
+
                 if (simpleMatch.Success)
                 {
                     var fromId = simpleMatch.Groups[1].Value.Trim('\'', '"');
                     var edgeLabel = simpleMatch.Groups[2].Value.Trim('\'', '"');
                     var toId = simpleMatch.Groups[3].Value.Trim('\'', '"');
+                    var remainingQuery = simpleMatch.Groups[4].Value;
+
+                    // Verify vertices exist before creating edge
+                    var fromVertex = _database.GetVertex(fromId);
+                    var toVertex = _database.GetVertex(toId);
+
+                    if (fromVertex == null || toVertex == null)
+                    {
+                        return Enumerable.Empty<dynamic>();
+                    }
 
                     var edge = _database.AddEdge(edgeLabel, fromId, toId);
                     if (edge != null)
                     {
-                        // Parse any additional properties
-                        var remainingQuery = query.Substring(simpleMatch.Length);
-                        if (remainingQuery.Contains(".property("))
+                        // Parse any additional properties from the remaining query
+                        if (!string.IsNullOrEmpty(remainingQuery) && remainingQuery.Contains(".property("))
                         {
                             var propertyMatches = Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
                             foreach (Match propMatch in propertyMatches)
@@ -247,7 +268,7 @@ namespace Stardust.Paradox.Data.InMemory
                                 }
                             }
                         }
-                        
+
                         return new[] { edge.ToGremlinResponse() };
                     }
                 }
@@ -255,54 +276,64 @@ namespace Stardust.Paradox.Data.InMemory
                 // Pattern 2: Complex has() filter patterns like g.V().has('name', 'marko').addE('knows').to(g.V().has('name', 'vadas'))
                 var complexPattern = @"g\.V\(\)\.has\([^)]+\)\.addE\(([^)]+)\)\.to\(g\.V\(\)\.has\([^)]+\)\)";
                 var complexMatch = Regex.Match(query, complexPattern);
-                
+
                 if (complexMatch.Success)
                 {
                     var edgeLabel = complexMatch.Groups[1].Value.Trim('\'', '"');
-                    
+
                     // Extract the from and to has() conditions
                     var fromHasMatch = Regex.Match(query, @"g\.V\(\)\.has\(([^)]+)\)\.addE");
                     var toHasMatch = Regex.Match(query, @"to\(g\.V\(\)\.has\(([^)]+)\)\)");
-                    
+
                     if (fromHasMatch.Success && toHasMatch.Success)
                     {
                         var fromHasArgs = ParsePropertyArguments(fromHasMatch.Groups[1].Value);
                         var toHasArgs = ParsePropertyArguments(toHasMatch.Groups[1].Value);
-                        
+
                         if (fromHasArgs.Count >= 2 && toHasArgs.Count >= 2)
                         {
                             var fromProperty = fromHasArgs[0].ToString();
                             var fromValue = fromHasArgs[1];
                             var toProperty = toHasArgs[0].ToString();
                             var toValue = toHasArgs[1];
-                            
+
                             // Find vertices by property
                             var fromVertex = _database.GetAllVertices()
-                                .FirstOrDefault(v => v.HasProperty(fromProperty) && 
-                                    Equals(v.GetProperty<object>(fromProperty), fromValue));
-                            
+                                .FirstOrDefault(v => v.HasProperty(fromProperty) &&
+                                                     Equals(v.GetProperty<object>(fromProperty), fromValue));
+
                             var toVertex = _database.GetAllVertices()
-                                .FirstOrDefault(v => v.HasProperty(toProperty) && 
-                                    Equals(v.GetProperty<object>(toProperty), toValue));
-                            
+                                .FirstOrDefault(v => v.HasProperty(toProperty) &&
+                                                     Equals(v.GetProperty<object>(toProperty), toValue));
+
                             if (fromVertex != null && toVertex != null)
                             {
                                 var edge = _database.AddEdge(edgeLabel, fromVertex.Id, toVertex.Id);
                                 if (edge != null)
                                 {
-                                    // Parse any additional properties
-                                    var propertyMatches = Regex.Matches(query, @"\.property\(([^)]+)\)");
-                                    foreach (Match propMatch in propertyMatches)
+                                    // Parse any additional properties after the to() clause
+                                    var afterToMatch = Regex.Match(query, @"to\(g\.V\(\)\.has\([^)]+\)\)(.*)");
+                                    if (afterToMatch.Success)
                                     {
-                                        var args = ParsePropertyArguments(propMatch.Groups[1].Value);
-                                        if (args.Count >= 2)
+                                        var remainingQuery = afterToMatch.Groups[1].Value;
+                                        if (!string.IsNullOrEmpty(remainingQuery) &&
+                                            remainingQuery.Contains(".property("))
                                         {
-                                            var key = args[0].ToString();
-                                            var value = args[1];
-                                            edge.SetProperty(key, value);
+                                            var propertyMatches =
+                                                Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
+                                            foreach (Match propMatch in propertyMatches)
+                                            {
+                                                var args = ParsePropertyArguments(propMatch.Groups[1].Value);
+                                                if (args.Count >= 2)
+                                                {
+                                                    var key = args[0].ToString();
+                                                    var value = args[1];
+                                                    edge.SetProperty(key, value);
+                                                }
+                                            }
                                         }
                                     }
-                                    
+
                                     return new[] { edge.ToGremlinResponse() };
                                 }
                             }
@@ -312,9 +343,10 @@ namespace Stardust.Paradox.Data.InMemory
 
                 return Enumerable.Empty<dynamic>();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                // If complex parsing fails, return empty
+                // Log the error for debugging
+                Console.WriteLine($"Error in ExecuteComplexAddEdge: {ex.Message}");
                 return Enumerable.Empty<dynamic>();
             }
         }
@@ -326,13 +358,13 @@ namespace Stardust.Paradox.Data.InMemory
         {
             var arguments = new List<object>();
             var parts = SplitArguments(argsString);
-            
+
             foreach (var part in parts)
             {
                 var trimmed = part.Trim();
                 if (string.IsNullOrEmpty(trimmed))
                     continue;
-                    
+
                 var parsed = ParseSingleArgument(trimmed);
                 arguments.Add(parsed);
             }
@@ -346,22 +378,37 @@ namespace Stardust.Paradox.Data.InMemory
         private TinkerGraphTraversal ParseQuery(string query)
         {
             var traversal = new TinkerGraphTraversal();
-            
+
             // Remove 'g.' prefix if present
             var cleanQuery = query.StartsWith("g.") ? query.Substring(2) : query;
-            
+
             // Split into steps while preserving nested structures
             var stepStrings = SplitIntoSteps(cleanQuery);
-            
+
+            bool isFirstStep = true;
             foreach (var stepString in stepStrings)
             {
                 var step = ParseStep(stepString.Trim());
                 if (step != null)
                 {
+                    // Only mark the first V/E/addV/addE step as a start step
+                    if (isFirstStep && (step.StepName.Equals("v", StringComparison.OrdinalIgnoreCase) ||
+                                        step.StepName.Equals("e", StringComparison.OrdinalIgnoreCase) ||
+                                        step.StepName.Equals("addv", StringComparison.OrdinalIgnoreCase) ||
+                                        step.StepName.Equals("adde", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        step.IsStartStep = true;
+                    }
+                    else
+                    {
+                        step.IsStartStep = false;
+                    }
+
                     traversal.AddStep(step);
+                    isFirstStep = false;
                 }
             }
-            
+
             return traversal;
         }
 
@@ -376,11 +423,13 @@ namespace Stardust.Paradox.Data.InMemory
             // Handle chained method calls like step().by('label')
             var parts = SplitChainedMethods(stepString);
             var mainPart = parts[0];
-            
+
             // Extract step name and arguments
             var match = Regex.Match(mainPart, @"^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\([^)]*\))?");
             if (!match.Success)
+            {
                 return null;
+            }
 
             var stepName = match.Groups[1].Value;
             var step = new TinkerGraphStep(stepName);
@@ -413,7 +462,7 @@ namespace Stardust.Paradox.Data.InMemory
         private void ClassifyStep(TinkerGraphStep step)
         {
             var stepName = step.StepName.ToLower();
-            
+
             if (FilterSteps.Contains(stepName))
             {
                 step.StepType = TinkerGraphStepType.Filter;
@@ -439,10 +488,12 @@ namespace Stardust.Paradox.Data.InMemory
                 step.StepType = TinkerGraphStepType.SideEffect;
             }
 
-            // Special handling for start steps
+            // Special handling for start steps - ONLY the first V/E/addV/addE should be a start step
+            // Mid-traversal V() and E() steps should NOT be marked as start steps
             if (stepName == "v" || stepName == "e" || stepName == "addv" || stepName == "adde")
             {
-                step.IsStartStep = true;
+                // Don't automatically mark as start step - let the parser determine this
+                // step.IsStartStep = true; // Remove this automatic assignment
             }
         }
 
@@ -453,13 +504,13 @@ namespace Stardust.Paradox.Data.InMemory
         {
             // Strategy 1: Adjacent vertex optimization
             ApplyAdjacentVertexOptimization(traversal);
-            
+
             // Strategy 2: Filter ranking strategy
             ApplyFilterRankingStrategy(traversal);
-            
+
             // Strategy 3: Label step strategy
             ApplyLabelStepStrategy(traversal);
-            
+
             // Strategy 4: Path retrieval optimization
             ApplyPathRetrievalStrategy(traversal);
         }
@@ -473,7 +524,7 @@ namespace Stardust.Paradox.Data.InMemory
             {
                 var current = traversal.Steps[i];
                 var next = traversal.Steps[i + 1];
-                
+
                 // Optimize out().in() to both() when possible
                 if (current.StepName.Equals("out", StringComparison.OrdinalIgnoreCase) &&
                     next.StepName.Equals("in", StringComparison.OrdinalIgnoreCase) &&
@@ -485,7 +536,7 @@ namespace Stardust.Paradox.Data.InMemory
                         StepType = TinkerGraphStepType.FlatMap,
                         IsOptimized = true
                     };
-                    
+
                     traversal.Steps[i] = optimizedStep;
                     traversal.Steps.RemoveAt(i + 1);
                     i--; // Adjust index after removal
@@ -540,11 +591,11 @@ namespace Stardust.Paradox.Data.InMemory
         private void ApplyPathRetrievalStrategy(TinkerGraphTraversal traversal)
         {
             // Check if path tracking is needed
-            var needsPath = traversal.Steps.Any(s => 
+            var needsPath = traversal.Steps.Any(s =>
                 s.StepName.Equals("path", StringComparison.OrdinalIgnoreCase) ||
                 s.StepName.Equals("select", StringComparison.OrdinalIgnoreCase) ||
                 s.Labels.Any());
-                
+
             traversal.RequiresPath = needsPath;
         }
 
@@ -554,11 +605,11 @@ namespace Stardust.Paradox.Data.InMemory
         private bool CanMoveFilterEarlier(TinkerGraphTraversal traversal, int filterIndex)
         {
             var filter = traversal.Steps[filterIndex];
-            
+
             // Don't move filters that depend on previous step results
             if (filter.StepName.Equals("where", StringComparison.OrdinalIgnoreCase))
                 return false;
-                
+
             return true;
         }
 
@@ -576,6 +627,7 @@ namespace Stardust.Paradox.Data.InMemory
                     return i + 1;
                 }
             }
+
             return 1; // After start step
         }
 
@@ -707,7 +759,7 @@ namespace Stardust.Paradox.Data.InMemory
                 return;
 
             var methodName = match.Groups[1].Value;
-            
+
             if (methodName.Equals("as", StringComparison.OrdinalIgnoreCase) && match.Groups[2].Success)
             {
                 var argsString = match.Groups[2].Value.Trim('(', ')');
@@ -739,18 +791,18 @@ namespace Stardust.Paradox.Data.InMemory
         private List<object> ParseArguments(string argsString)
         {
             var arguments = new List<object>();
-            
+
             if (string.IsNullOrWhiteSpace(argsString))
                 return arguments;
 
             var parts = SplitArguments(argsString);
-            
+
             foreach (var part in parts)
             {
                 var trimmed = part.Trim();
                 if (string.IsNullOrEmpty(trimmed))
                     continue;
-                    
+
                 arguments.Add(ParseSingleArgument(trimmed));
             }
 
@@ -758,7 +810,7 @@ namespace Stardust.Paradox.Data.InMemory
         }
 
         /// <summary>
-        /// Split arguments by comma while preserving quoted strings
+        /// Split arguments by comma while preserving quoted strings and square brackets
         /// </summary>
         private List<string> SplitArguments(string argsString)
         {
@@ -767,6 +819,7 @@ namespace Stardust.Paradox.Data.InMemory
             var inQuotes = false;
             var quoteChar = '\0';
             var parenLevel = 0;
+            var bracketLevel = 0; // Track square brackets
 
             for (int i = 0; i < argsString.Length; i++)
             {
@@ -793,7 +846,17 @@ namespace Stardust.Paradox.Data.InMemory
                     parenLevel--;
                     current += c;
                 }
-                else if (!inQuotes && c == ',' && parenLevel == 0)
+                else if (!inQuotes && c == '[')
+                {
+                    bracketLevel++;
+                    current += c;
+                }
+                else if (!inQuotes && c == ']')
+                {
+                    bracketLevel--;
+                    current += c;
+                }
+                else if (!inQuotes && c == ',' && parenLevel == 0 && bracketLevel == 0)
                 {
                     parts.Add(current);
                     current = "";
@@ -821,7 +884,7 @@ namespace Stardust.Paradox.Data.InMemory
                 return null;
 
             // Handle quoted strings
-            if ((arg.StartsWith("'") && arg.EndsWith("'")) || 
+            if ((arg.StartsWith("'") && arg.EndsWith("'")) ||
                 (arg.StartsWith("\"") && arg.EndsWith("\"")))
             {
                 var stringValue = arg.Substring(1, arg.Length - 2);
@@ -844,7 +907,8 @@ namespace Stardust.Paradox.Data.InMemory
             // If the string contains a decimal point, try double first
             if (arg.Contains("."))
             {
-                if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                if (double.TryParse(arg, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
                 {
                     return doubleVal;
                 }
@@ -852,18 +916,21 @@ namespace Stardust.Paradox.Data.InMemory
             else
             {
                 // No decimal point, try integer first
-                if (int.TryParse(arg, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int intVal))
+                if (int.TryParse(arg, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out int intVal))
                 {
                     return intVal;
                 }
-                
-                if (long.TryParse(arg, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out long longVal))
+
+                if (long.TryParse(arg, System.Globalization.NumberStyles.Integer,
+                        System.Globalization.CultureInfo.InvariantCulture, out long longVal))
                 {
                     return longVal;
                 }
-                
+
                 // Fallback to double for large numbers
-                if (double.TryParse(arg, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
+                if (double.TryParse(arg, System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out double doubleVal))
                 {
                     return doubleVal;
                 }
@@ -887,6 +954,7 @@ namespace Stardust.Paradox.Data.InMemory
                 var value = FormatParameterValue(param.Value);
                 result = result.Replace(param.Key, value);
             }
+
             return result;
         }
 

@@ -29,7 +29,7 @@ namespace Stardust.Paradox.Data
 
         protected internal static string PartitionKeyName { get; set; }
 
-        public double ConsumedRU => _connector.ConsumedRU;
+        public double ConsumedRU => _connector?.ConsumedRU??0;
 
         private bool Initialized
         {
@@ -499,14 +499,72 @@ namespace Stardust.Paradox.Data
                     if (value is EpochDateTime d)
                         action.Invoke(item, d);
                     else
-                        action.Invoke(item, new EpochDateTime { Epoch = int.Parse(value.ToString()) });
+                    {
+                        // Handle the case where value might be "timestampEpoch" format
+                        var valueStr = value.ToString();
+                        if (valueStr.EndsWith("Epoch", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Remove the "Epoch" suffix and parse the numeric part
+                            var numericPart = valueStr.Substring(0, valueStr.Length - 5); // Remove "Epoch"
+                            if (int.TryParse(numericPart, out int epochValue))
+                            {
+                                action.Invoke(item, new EpochDateTime { Epoch = epochValue });
+                            }
+                            else if (long.TryParse(numericPart, out long ticksValue))
+                            {
+                                // If it's .NET ticks, convert to epoch seconds
+                                var dateTime = new DateTime(ticksValue);
+                                var epoch = (int)((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+                                action.Invoke(item, new EpochDateTime { Epoch = epoch });
+                            }
+                            else
+                            {
+                                // Fallback: use current time
+                                action.Invoke(item, new EpochDateTime { Epoch = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+                            }
+                        }
+                        else
+                        {
+                            action.Invoke(item, new EpochDateTime { Epoch = int.Parse(valueStr) });
+                        }
+                    }
                 }
                 else if (prop.PropertyType == typeof(EpochDateTime?))
                 {
                     if (value is EpochDateTime d)
                         action.Invoke(item, d);
+                    else if (value == null)
+                        action.Invoke(item, (EpochDateTime?)null);
                     else
-                        action.Invoke(item, value == null ? (EpochDateTime?)null : new EpochDateTime { Epoch = int.Parse(value.ToString()) });
+                    {
+                        // Handle the case where value might be "timestampEpoch" format
+                        var valueStr = value.ToString();
+                        if (valueStr.EndsWith("Epoch", StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Remove the "Epoch" suffix and parse the numeric part
+                            var numericPart = valueStr.Substring(0, valueStr.Length - 5); // Remove "Epoch"
+                            if (int.TryParse(numericPart, out int epochValue))
+                            {
+                                action.Invoke(item, new EpochDateTime { Epoch = epochValue });
+                            }
+                            else if (long.TryParse(numericPart, out long ticksValue))
+                            {
+                                // If it's .NET ticks, convert to epoch seconds
+                                var dateTime = new DateTime(ticksValue);
+                                var epoch = (int)((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+                                action.Invoke(item, new EpochDateTime { Epoch = epoch });
+                            }
+                            else
+                            {
+                                // Fallback: use current time
+                                action.Invoke(item, new EpochDateTime { Epoch = (int)DateTimeOffset.UtcNow.ToUnixTimeSeconds() });
+                            }
+                        }
+                        else
+                        {
+                            action.Invoke(item, new EpochDateTime { Epoch = int.Parse(valueStr) });
+                        }
+                    }
                 }
                 else if (prop.PropertyType == typeof(int))
                     action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));

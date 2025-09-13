@@ -11,39 +11,39 @@ public class SimpleECommerceScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "SimpleECommerce";
     public override string Description => "Basic e-commerce setup with products, customers, and purchase relationships";
 
-    protected override (InMemoryVertexDefinition[] vertices, InMemoryEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
     {
-        var vertices = new InMemoryVertexDefinition[]
+        var vertices = new ScenarioVertexDefinition[]
         {
-            new InMemoryVertexDefinition("customer1", "customer", Props(
+            new ScenarioVertexDefinition("customer1", "customer", Props(
                 ("name", "Customer One"),
                 ("email", "customer1@example.com"),
                 ("membershipLevel", "Gold")
             )),
-            new InMemoryVertexDefinition("customer2", "customer", Props(
+            new ScenarioVertexDefinition("customer2", "customer", Props(
                 ("name", "Customer Two"),
                 ("email", "customer2@example.com"),
                 ("membershipLevel", "Silver")
             )),
-            new InMemoryVertexDefinition("laptop", "product", Props(
+            new ScenarioVertexDefinition("laptop", "product", Props(
                 ("name", "Gaming Laptop"),
                 ("price", 1299.99),
                 ("category", "Electronics"),
                 ("inStock", true)
             )),
-            new InMemoryVertexDefinition("mouse", "product", Props(
+            new ScenarioVertexDefinition("mouse", "product", Props(
                 ("name", "Wireless Mouse"),
                 ("price", 49.99),
                 ("category", "Electronics"),
                 ("inStock", true)
             )),
-            new InMemoryVertexDefinition("book", "product", Props(
+            new ScenarioVertexDefinition("book", "product", Props(
                 ("name", "Programming Guide"),
                 ("price", 29.99),
                 ("category", "Books"),
                 ("inStock", false)
             )),
-            new InMemoryVertexDefinition("order1", "order", Props(
+            new ScenarioVertexDefinition("order1", "order", Props(
                 ("orderNumber", "ORD-001"),
                 ("total", 1349.98),
                 ("status", "shipped"),
@@ -51,14 +51,14 @@ public class SimpleECommerceScenario : InMemoryScenarioProviderBase
             ))
         };
 
-        var edges = new InMemoryEdgeDefinition[]
+        var edges = new SenarioEdgeDefinition[]
         {
-            new InMemoryEdgeDefinition("purchased", "customer1", "laptop"),
-            new InMemoryEdgeDefinition("purchased", "customer1", "mouse"),
-            new InMemoryEdgeDefinition("purchased", "customer2", "book"),
-            new InMemoryEdgeDefinition("contains", "order1", "laptop"),
-            new InMemoryEdgeDefinition("contains", "order1", "mouse"),
-            new InMemoryEdgeDefinition("placed", "customer1", "order1")
+            new SenarioEdgeDefinition("purchased", "customer1", "laptop"),
+            new SenarioEdgeDefinition("purchased", "customer1", "mouse"),
+            new SenarioEdgeDefinition("purchased", "customer2", "book"),
+            new SenarioEdgeDefinition("contains", "order1", "laptop"),
+            new SenarioEdgeDefinition("contains", "order1", "mouse"),
+            new SenarioEdgeDefinition("placed", "customer1", "order1")
         };
 
         return (vertices, edges);

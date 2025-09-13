@@ -63,6 +63,55 @@ public class GremlinResponseObject : DynamicObject
                 return jObject;
             }
             
+            // Handle the exact CosmosDB format: Dictionary<string, List<Dictionary<string, object>>>
+            if (rawProperties is Dictionary<string, List<Dictionary<string, object>>> cosmosPropsDict)
+            {
+                // Check if we're being called from LoadProperties method (GraphContextBase ORM layer)
+                var stackTrace = Environment.StackTrace;
+                if (stackTrace.Contains("LoadProperties") || stackTrace.Contains("GetVertexById"))
+                {
+                    // Return Cosmos DB format for ORM layer
+                    var jObj = new JObject();
+                    
+                    foreach (var kvp in cosmosPropsDict)
+                    {
+                        if (kvp.Value != null && kvp.Value.Count > 0)
+                        {
+                            // Create arrays that can be deserialized to Property[]
+                            var propertyArray = kvp.Value.Select(propDict => new
+                            {
+                                id = propDict.GetValueOrDefault("id"),
+                                key = kvp.Key,
+                                value = propDict.GetValueOrDefault("value")
+                            }).ToArray();
+                            
+                            jObj[kvp.Key] = JArray.FromObject(propertyArray);
+                        }
+                    }
+                    
+                    return jObj;
+                }
+                else
+                {
+                    // Return simple format for direct property access
+                    var jObj = new JObject();
+                    
+                    foreach (var kvp in cosmosPropsDict)
+                    {
+                        if (kvp.Value != null && kvp.Value.Count > 0)
+                        {
+                            var firstProp = kvp.Value[0];
+                            if (firstProp.TryGetValue("value", out var val))
+                            {
+                                jObj[kvp.Key] = JToken.FromObject(val);
+                            }
+                        }
+                    }
+                    
+                    return jObj;
+                }
+            }
+            
             // Convert Dictionary to JObject
             if (rawProperties is Dictionary<string, object> dictProps)
             {
@@ -97,26 +146,6 @@ public class GremlinResponseObject : DynamicObject
                     else
                     {
                         jObj[kvp.Key] = JToken.FromObject(kvp.Value);
-                    }
-                }
-                
-                return jObj;
-            }
-            
-            // Handle the exact CosmosDB format: Dictionary<string, List<Dictionary<string, object>>>
-            if (rawProperties is Dictionary<string, List<Dictionary<string, object>>> cosmosPropsDict)
-            {
-                var jObj = new JObject();
-                
-                foreach (var kvp in cosmosPropsDict)
-                {
-                    if (kvp.Value != null && kvp.Value.Count > 0)
-                    {
-                        var firstProp = kvp.Value[0];
-                        if (firstProp.TryGetValue("value", out var val))
-                        {
-                            jObj[kvp.Key] = JToken.FromObject(val);
-                        }
                     }
                 }
                 

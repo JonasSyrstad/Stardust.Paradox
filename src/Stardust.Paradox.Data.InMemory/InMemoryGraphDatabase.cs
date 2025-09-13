@@ -211,7 +211,9 @@ namespace Stardust.Paradox.Data.InMemory
             }
 
             var edge = new InMemoryEdge(id, label, outVertexId, inVertexId);
-            _edges.TryAdd(id, edge);
+            
+            // Use AddOrUpdate to ensure edge is stored even if ID already exists
+            _edges.AddOrUpdate(id, edge, (key, oldValue) => edge);
             
             // Update indices
             UpdateEdgeLabelIndex(id, label);
@@ -470,6 +472,10 @@ namespace Stardust.Paradox.Data.InMemory
 
         private void UpdateAdjacencyIndices(InMemoryEdge edge)
         {
+            // Ensure vertices have initialized adjacency indices
+            InitializeVertexAdjacencyIndices(edge.OutVertexId);
+            InitializeVertexAdjacencyIndices(edge.InVertexId);
+            
             // Update edge indices
             _outEdgeIndex.AddOrUpdate(edge.OutVertexId,
                 new HashSet<string> { edge.Id },
@@ -731,26 +737,59 @@ namespace Stardust.Paradox.Data.InMemory
         }
 
         /// <summary>
-        /// Get detailed database information including index status
+        /// Export all data from the database for inspection
         /// </summary>
-        public Dictionary<string, object> GetDatabaseInfo()
+        public (IEnumerable<InMemoryVertex> Vertices, IEnumerable<InMemoryEdge> Edges) ExportData()
         {
-            var vertexLabels = _vertexLabelIndex.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Count);
-            var edgeLabels = _edgeLabelIndex.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Count);
+            return (_vertices.Values.ToList(), _edges.Values.ToList());
+        }
 
+        /// <summary>
+        /// Validate database integrity and edge persistence
+        /// </summary>
+        public Dictionary<string, object> ValidateIntegrity()
+        {
+            var issues = new List<string>();
+            var edgeCount = 0;
+            var orphanedEdges = 0;
+            
+            foreach (var edge in _edges.Values)
+            {
+                edgeCount++;
+                
+                // Check if referenced vertices exist
+                if (!_vertices.ContainsKey(edge.OutVertexId))
+                {
+                    issues.Add($"Edge {edge.Id} references non-existent outVertex {edge.OutVertexId}");
+                    orphanedEdges++;
+                }
+                
+                if (!_vertices.ContainsKey(edge.InVertexId))
+                {
+                    issues.Add($"Edge {edge.Id} references non-existent inVertex {edge.InVertexId}");
+                    orphanedEdges++;
+                }
+                
+                // Check if edge is in adjacency indices
+                if (!_outEdgeIndex.ContainsKey(edge.OutVertexId) || 
+                    !_outEdgeIndex[edge.OutVertexId].Contains(edge.Id))
+                {
+                    issues.Add($"Edge {edge.Id} missing from outEdgeIndex for vertex {edge.OutVertexId}");
+                }
+                
+                if (!_inEdgeIndex.ContainsKey(edge.InVertexId) || 
+                    !_inEdgeIndex[edge.InVertexId].Contains(edge.Id))
+                {
+                    issues.Add($"Edge {edge.Id} missing from inEdgeIndex for vertex {edge.InVertexId}");
+                }
+            }
+            
             return new Dictionary<string, object>
             {
-                ["totalVertices"] = _vertices.Count,
-                ["totalEdges"] = _edges.Count,
-                ["vertexLabels"] = vertexLabels,
-                ["edgeLabels"] = edgeLabels,
-                ["vertexPropertyIndices"] = _vertexPropertyIndex.Keys.ToList(),
-                ["edgePropertyIndices"] = _edgePropertyIndex.Keys.ToList(),
-                ["customResponsePatterns"] = _customResponses.Keys.ToList(),
-                ["nextVertexId"] = _vertexIdCounter,
-                ["nextEdgeId"] = _edgeIdCounter,
-                ["indexingEnabled"] = true,
-                ["memoryOptimized"] = true
+                ["totalEdges"] = edgeCount,
+                ["orphanedEdges"] = orphanedEdges,
+                ["integrityIssues"] = issues,
+                ["isValid"] = issues.Count == 0
             };
         }
 
