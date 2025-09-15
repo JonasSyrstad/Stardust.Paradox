@@ -194,16 +194,16 @@ namespace Stardust.Paradox.Data.InMemory
         /// </summary>
         public void AddStepLabel(string label)
         {
-            if (!string.IsNullOrEmpty(label))
+        if (!string.IsNullOrEmpty(label))
+        {
+            StepLabels[label] = Traversers.Select(t => t.Split()).ToList();
+            
+            // Tag traversers with the label
+            foreach (var traverser in Traversers)
             {
-                StepLabels[label] = Traversers.Select(t => t.Split()).ToList();
-                
-                // Tag traversers with the label
-                foreach (var traverser in Traversers)
-                {
-                    traverser.Tags[label] = traverser.Value;
-                }
+                traverser.Tags[label] = traverser.Value;
             }
+        }
         }
 
         /// <summary>
@@ -324,24 +324,45 @@ namespace Stardust.Paradox.Data.InMemory
                 keySelector = t => t.Value;
             }
 
-            var seen = new Dictionary<object, Traverser>();
+            var seen = new HashSet<object>(new ValueEqualityComparer());
+            var dedupedTraversers = new List<Traverser>();
 
             foreach (var traverser in Traversers)
             {
-                var key = keySelector(traverser);
+                var keyValue = keySelector(traverser);
                 
-                if (seen.TryGetValue(key, out var existing))
+                if (!seen.Contains(keyValue))
                 {
-                    // Merge bulk counts for duplicate values
-                    existing.Bulk += traverser.Bulk;
+                    seen.Add(keyValue);
+                    dedupedTraversers.Add(traverser.Split());
                 }
-                else
-                {
-                    seen[key] = traverser.Split();
-                }
+                // If we've seen this value before, don't add it (but we could merge bulk if needed)
             }
 
-            Traversers = seen.Values.ToList();
+            Traversers = dedupedTraversers;
+        }
+
+        /// <summary>
+        /// Custom equality comparer for deduplication that handles various object types
+        /// </summary>
+        private class ValueEqualityComparer : IEqualityComparer<object>
+        {
+            public new bool Equals(object x, object y)
+            {
+                if (ReferenceEquals(x, y)) return true;
+                if (x == null || y == null) return false;
+                
+                // Convert both to strings for comparison
+                var xStr = x.ToString();
+                var yStr = y.ToString();
+                
+                return string.Equals(xStr, yStr, StringComparison.Ordinal);
+            }
+
+            public int GetHashCode(object obj)
+            {
+                return obj?.ToString()?.GetHashCode() ?? 0;
+            }
         }
 
         /// <summary>

@@ -47,19 +47,44 @@ namespace Stardust.Paradox.Data.InMemory
             var context = InitializeTraversalContext(traversal);
 
             // Execute each step in sequence
-            foreach (var step in traversal.Steps)
+            for (int i = 0; i < traversal.Steps.Count; i++)
             {
+                var step = traversal.Steps[i];
+                
                 if (step.IsStartStep)
                     continue; // Start steps already handled in initialization
 
                 ExecuteStep(step, context);
                 
-                // Early termination if no traversers remain
-                if (!context.HasTraversers)
+                // Check if there are any remaining terminal aggregation steps in the pipeline
+                var hasRemainingTerminalSteps = false;
+                for (int j = i + 1; j < traversal.Steps.Count; j++)
+                {
+                    if (IsTerminalAggregationStep(traversal.Steps[j]))
+                    {
+                        hasRemainingTerminalSteps = true;
+                        break;
+                    }
+                }
+                
+                // Early termination if no traversers remain AND no terminal aggregation steps are left
+                if (!context.HasTraversers && !hasRemainingTerminalSteps)
+                {
                     break;
+                }
             }
 
             return context.GetCurrentResults();
+        }
+
+        /// <summary>
+        /// Check if a step is a terminal aggregation step that should run even with empty input
+        /// </summary>
+        private bool IsTerminalAggregationStep(TinkerGraphStep step)
+        {
+            var stepName = step.StepName.ToLower();
+            return stepName == "count" || stepName == "sum" || stepName == "mean" || 
+                   stepName == "min" || stepName == "max" || stepName == "fold";
         }
 
         /// <summary>
@@ -179,6 +204,18 @@ namespace Stardust.Paradox.Data.InMemory
                     break;
                 case "count":
                     ExecuteCountStep(step, context);
+                    break;
+                case "sum":
+                    ExecuteSumStep(step, context);
+                    break;
+                case "mean":
+                    ExecuteMeanStep(step, context);
+                    break;
+                case "min":
+                    ExecuteMinStep(step, context);
+                    break;
+                case "max":
+                    ExecuteMaxStep(step, context);
                     break;
                 case "limit":
                     ExecuteLimitStep(step, context);
@@ -1427,6 +1464,161 @@ namespace Stardust.Paradox.Data.InMemory
             var count = context.Count;
             context.Clear();
             context.Traversers.Add(new Traverser(count));
+        }
+
+        private void ExecuteSumStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            double sum = 0.0;
+            foreach (var traverser in context.Traversers)
+            {
+                for (int i = 0; i < traverser.Bulk; i++)
+                {
+                    var value = traverser.Value;
+                    if (TryConvertToDouble(value, out double doubleValue))
+                    {
+                        sum += doubleValue;
+                    }
+                }
+            }
+            
+            context.Clear();
+            context.Traversers.Add(new Traverser(sum));
+        }
+
+        private void ExecuteMeanStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            double sum = 0.0;
+            long count = 0;
+            
+            foreach (var traverser in context.Traversers)
+            {
+                for (int i = 0; i < traverser.Bulk; i++)
+                {
+                    var value = traverser.Value;
+                    if (TryConvertToDouble(value, out double doubleValue))
+                    {
+                        sum += doubleValue;
+                        count++;
+                    }
+                }
+            }
+            
+            context.Clear();
+            
+            // For mean, if no values were found, don't add a result (return empty)
+            // This matches the behavior expected by tests like Mean_WithEmptyResult_ShouldReturnEmpty
+            if (count > 0)
+            {
+                var mean = sum / count;
+                context.Traversers.Add(new Traverser(mean));
+            }
+        }
+
+        private void ExecuteMinStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            double? min = null;
+            
+            foreach (var traverser in context.Traversers)
+            {
+                for (int i = 0; i < traverser.Bulk; i++)
+                {
+                    var value = traverser.Value;
+                    if (TryConvertToDouble(value, out double doubleValue))
+                    {
+                        if (!min.HasValue || doubleValue < min.Value)
+                        {
+                            min = doubleValue;
+                        }
+                    }
+                }
+            }
+            
+            context.Clear();
+            
+            // For min/max, if no values were found, don't add a result (return empty)
+            // This matches the behavior expected by tests like EmptyMin_ShouldReturnEmpty
+            if (min.HasValue)
+            {
+                context.Traversers.Add(new Traverser(min.Value));
+            }
+        }
+
+        private void ExecuteMaxStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            double? max = null;
+            
+            foreach (var traverser in context.Traversers)
+            {
+                for (int i = 0; i < traverser.Bulk; i++)
+                {
+                    var value = traverser.Value;
+                    if (TryConvertToDouble(value, out double doubleValue))
+                    {
+                        if (!max.HasValue || doubleValue > max.Value)
+                        {
+                            max = doubleValue;
+                        }
+                    }
+                }
+            }
+            
+            context.Clear();
+            
+            // For min/max, if no values were found, don't add a result (return empty)
+            // This matches the behavior expected by tests like EmptyMax_ShouldReturnEmpty
+            if (max.HasValue)
+            {
+                context.Traversers.Add(new Traverser(max.Value));
+            }
+        }
+
+        /// <summary>
+        /// Helper method to convert various numeric types to double
+        /// </summary>
+        private bool TryConvertToDouble(object value, out double result)
+        {
+            result = 0.0;
+            
+            if (value == null)
+                return false;
+                
+            if (value is double d)
+            {
+                result = d;
+                return true;
+            }
+            
+            if (value is float f)
+            {
+                result = f;
+                return true;
+            }
+            
+            if (value is int i)
+            {
+                result = i;
+                return true;
+            }
+            
+            if (value is long l)
+            {
+                result = l;
+                return true;
+            }
+            
+            if (value is decimal dec)
+            {
+                result = (double)dec;
+                return true;
+            }
+            
+            if (value is string str && double.TryParse(str, out double parsed))
+            {
+                result = parsed;
+                return true;
+            }
+            
+            return false;
         }
 
         #endregion
