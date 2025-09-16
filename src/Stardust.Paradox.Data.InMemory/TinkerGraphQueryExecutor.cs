@@ -1794,7 +1794,19 @@ namespace Stardust.Paradox.Data.InMemory
 
         private void ExecuteFoldStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            var results = context.GetCurrentResults().ToList();
+            // Collect all traverser values into a single list
+            var results = new List<dynamic>();
+            
+            foreach (var traverser in context.Traversers)
+            {
+                // Add each bulk instance to the results
+                for (int i = 0; i < traverser.Bulk; i++)
+                {
+                    results.Add(traverser.Value);
+                }
+            }
+            
+            // Clear context and add a single traverser with the collected list
             context.Clear();
             context.Traversers.Add(new Traverser(results));
         }

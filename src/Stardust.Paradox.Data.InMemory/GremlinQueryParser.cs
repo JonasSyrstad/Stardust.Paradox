@@ -117,8 +117,8 @@ namespace Stardust.Paradox.Data.InMemory
             if (value == null) return "null";
             if (value is string) return $"'{value}'";
             if (value is bool) return value.ToString().ToLower();
-            if (value is double d) return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            if (value is float f) return f.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (value is double d) return d.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            if (value is float f) return f.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
             if (value is decimal dec) return dec.ToString(System.Globalization.CultureInfo.InvariantCulture);
             return value.ToString();
         }
@@ -437,6 +437,56 @@ namespace Stardust.Paradox.Data.InMemory
 
         private IEnumerable<dynamic> ExecuteAggregation(string query)
         {
+            // Handle values().fold() aggregation
+            var valuesFoldMatch = Regex.Match(query, @"(.+?)\.values\s*\(\s*['""]([^'""]+)['""]?\s*\)\.fold\s*\(\s*\)", RegexOptions.IgnoreCase);
+            if (valuesFoldMatch.Success)
+            {
+                var baseQuery = valuesFoldMatch.Groups[1].Value;
+                var propertyName = valuesFoldMatch.Groups[2].Value;
+                
+                // Get base vertices/edges
+                IEnumerable<dynamic> baseResults = null;
+                if (IsVertexQuery(baseQuery))
+                {
+                    baseResults = ExecuteVertexQuery(baseQuery);
+                }
+                else if (IsTraversalQuery(baseQuery))
+                {
+                    baseResults = ExecuteTraversalQuery(baseQuery);
+                }
+                
+                if (baseResults != null)
+                {
+                    var values = new List<dynamic>();
+                    foreach (var item in baseResults)
+                    {
+                        if (item is GremlinResponseObject gro && gro.Get<DynamicProperties>("properties") is DynamicProperties props)
+                        {
+                            try
+                            {
+                                dynamic dynamicProps = props;
+                                var value = GetPropertyValue(dynamicProps, propertyName);
+                                if (value != null)
+                                {
+                                    values.Add(value);
+                                }
+                            }
+                            catch
+                            {
+                                // Ignore access errors
+                            }
+                        }
+                    }
+                    // Return a single list containing all values
+                    return new dynamic[] { values };
+                }
+                else
+                {
+                    // Return empty list if no base results
+                    return new dynamic[] { new List<dynamic>() };
+                }
+            }
+
             // Handle values().sum() aggregation
             var valuesSumMatch = Regex.Match(query, @"(.+?)\.values\s*\(\s*['""]([^'""]+)['""]?\s*\)\.sum\s*\(\s*\)", RegexOptions.IgnoreCase);
             if (valuesSumMatch.Success)

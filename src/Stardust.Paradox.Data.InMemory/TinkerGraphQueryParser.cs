@@ -345,8 +345,6 @@ namespace Stardust.Paradox.Data.InMemory
             }
             catch (Exception ex)
             {
-                // Log the error for debugging
-                Console.WriteLine($"Error in ExecuteComplexAddEdge: {ex.Message}");
                 return Enumerable.Empty<dynamic>();
             }
         }
@@ -966,6 +964,25 @@ namespace Stardust.Paradox.Data.InMemory
             if (value == null) return "null";
             if (value is string) return $"'{value}'";
             if (value is bool) return value.ToString().ToLower();
+
+            // Handle numeric types with proper culture formatting
+            if (value is double doubleVal)
+            {
+                return doubleVal.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (value is float floatVal)
+            {
+                return floatVal.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (value is decimal decimalVal)
+            {
+                return decimalVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (value is int || value is long || value is short || value is byte)
+            {
+                return value.ToString();
+            }
+
             return value.ToString();
         }
 

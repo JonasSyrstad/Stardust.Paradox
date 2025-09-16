@@ -124,6 +124,15 @@ namespace Stardust.Paradox.Data.InMemory
                             yield return traverser.Value;
                         }
                     }
+                    // Special handling for fold results - don't flatten List<dynamic> from fold operations
+                    else if (IsFoldResult(traverser.Value))
+                    {
+                        // Return the fold result as a single result, repeated for bulk
+                        for (int i = 0; i < traverser.Bulk; i++)
+                        {
+                            yield return traverser.Value;
+                        }
+                    }
                     else
                     {
                         // If it's already an enumerable (but not a string), flatten it with bulk
@@ -145,6 +154,28 @@ namespace Stardust.Paradox.Data.InMemory
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Check if the value is a fold result that shouldn't be flattened
+        /// </summary>
+        private bool IsFoldResult(dynamic value)
+        {
+            // Fold results are List<dynamic> containing any type of values
+            // We distinguish them from path results by checking if they contain non-graph elements
+            if (value is List<dynamic> list)
+            {
+                // If the list is empty, it's likely a fold result
+                if (!list.Any())
+                {
+                    return true;
+                }
+                
+                // If the list contains simple values (strings, numbers, etc.), it's likely a fold result
+                // Path results typically contain graph elements (vertices/edges)
+                return list.Any() && !IsGraphElement(list[0]);
+            }
+            return false;
         }
 
         /// <summary>

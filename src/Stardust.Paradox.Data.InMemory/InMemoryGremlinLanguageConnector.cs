@@ -323,6 +323,13 @@ namespace Stardust.Paradox.Data.InMemory
         /// </summary>
         private double CalculateRUCost(string query, IEnumerable<dynamic> result)
         {
+            // If SimulatedRUPerQuery is configured and not the default value of 1.0, use it directly
+            if (_options.SimulatedRUPerQuery != 1.0)
+            {
+                return _options.SimulatedRUPerQuery;
+            }
+            
+            // Otherwise, use the complex calculation logic for default behavior
             // Base cost
             double cost = 1.0;
             
