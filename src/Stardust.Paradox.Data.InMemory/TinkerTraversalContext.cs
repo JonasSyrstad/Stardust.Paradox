@@ -106,10 +106,13 @@ namespace Stardust.Paradox.Data.InMemory
         #endregion
 
         /// <summary>
-        /// Get current results as enumerable of dynamic objects
+        /// Get current results as enumerable of dynamic objects with automatic deduplication
         /// </summary>
         public IEnumerable<dynamic> GetCurrentResults()
         {
+            var results = new List<dynamic>();
+            var seen = new HashSet<string>();
+            
             foreach (var traverser in Traversers)
             {
                 // Handle both single values and enumerable values
@@ -121,7 +124,7 @@ namespace Stardust.Paradox.Data.InMemory
                         // Return the path as a single result, repeated for bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            yield return traverser.Value;
+                            results.Add(traverser.Value);
                         }
                     }
                     // Special handling for fold results - don't flatten List<dynamic> from fold operations
@@ -130,7 +133,7 @@ namespace Stardust.Paradox.Data.InMemory
                         // Return the fold result as a single result, repeated for bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            yield return traverser.Value;
+                            results.Add(traverser.Value);
                         }
                     }
                     else
@@ -140,20 +143,64 @@ namespace Stardust.Paradox.Data.InMemory
                         {
                             foreach (var item in enumerable)
                             {
-                                yield return item;
+                                results.Add(item);
                             }
                         }
                     }
                 }
                 else
                 {
-                    // If it's a single value, repeat it according to bulk
-                    for (int i = 0; i < traverser.Bulk; i++)
+                    // For vertex and edge objects, apply simple deduplication based on ID
+                    var valueKey = GetDeduplicationKey(traverser.Value);
+                    if (!seen.Contains(valueKey))
                     {
-                        yield return traverser.Value;
+                        seen.Add(valueKey);
+                        
+                        // If it's a single value, repeat it according to bulk
+                        for (int i = 0; i < traverser.Bulk; i++)
+                        {
+                            results.Add(traverser.Value);
+                        }
                     }
+                    // If already seen, skip to avoid duplicates
                 }
             }
+            
+            return results;
+        }
+
+        /// <summary>
+        /// Get a deduplication key for a traverser value
+        /// </summary>
+        private string GetDeduplicationKey(dynamic value)
+        {
+            if (value == null) return "null";
+            
+            try
+            {
+                // For graph elements, use ID as deduplication key
+                if (value is IDictionary<string, object> dict)
+                {
+                    if (dict.ContainsKey("id"))
+                    {
+                        return $"element_{dict["id"]}";
+                    }
+                }
+                
+                // Try dynamic property access for graph elements
+                var id = value.id;
+                if (id != null)
+                {
+                    return $"element_{id}";
+                }
+            }
+            catch
+            {
+                // Fallback to string representation
+            }
+            
+            // For non-graph elements, use string representation
+            return $"value_{value}";
         }
 
         /// <summary>

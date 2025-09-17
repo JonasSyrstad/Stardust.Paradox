@@ -141,7 +141,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        var groupCounts = result.First() as Dictionary<string, int>;
+        var groupCounts = result.First() as Dictionary<string, long>;
         groupCounts.Should().NotBeNull();
     }
 
@@ -336,7 +336,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        var groupCounts = result.First() as Dictionary<string, int>;
+        var groupCounts = result.First() as Dictionary<string, long>;
         groupCounts.Should().NotBeNull();
         groupCounts.Should().HaveCountGreaterThan(0);
     }
@@ -485,12 +485,12 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        var groupCounts = result.First() as Dictionary<string, int>;
+        var groupCounts = result.First() as Dictionary<string, long>; // Changed from int to long for consistency
         groupCounts.Should().NotBeNull();
         groupCounts.Should().ContainKey("IT");
         groupCounts.Should().ContainKey("HR");
-        groupCounts["IT"].Should().Be(2);
-        groupCounts["HR"].Should().Be(1);
+        groupCounts["IT"].Should().Be(2L); // Changed from 2 to 2L
+        groupCounts["HR"].Should().Be(1L); // Changed from 1 to 1L
     }
 
     [Fact]
