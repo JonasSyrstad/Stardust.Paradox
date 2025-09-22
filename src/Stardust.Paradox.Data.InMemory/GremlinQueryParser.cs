@@ -35,6 +35,12 @@ namespace Stardust.Paradox.Data.InMemory
                 return customResponse;
             }
 
+            // Enhanced inject pattern handling (critical for TinkerPop compatibility)
+            if (IsInjectQuery(processedQuery))
+            {
+                return ExecuteInjectQuery(processedQuery);
+            }
+
             // Basic query patterns - order matters for proper matching
             if (IsAddVertexQuery(processedQuery))
             {
@@ -1289,6 +1295,154 @@ namespace Stardust.Paradox.Data.InMemory
             }
 
             return new List<dynamic>();
+        }
+
+        /// <summary>
+        /// Check if query is an inject query (TinkerPop start step)
+        /// </summary>
+        private bool IsInjectQuery(string query)
+        {
+            return Regex.IsMatch(query, @"g\.inject\s*\(", RegexOptions.IgnoreCase);
+        }
+
+        /// <summary>
+        /// Execute inject query with proper TinkerPop multiple value support
+        /// </summary>
+        private IEnumerable<dynamic> ExecuteInjectQuery(string query)
+        {
+            // Extract inject arguments using proper comma-aware parsing
+            var injectMatch = Regex.Match(query, @"g\.inject\s*\(([^)]*)\)", RegexOptions.IgnoreCase);
+            if (!injectMatch.Success)
+            {
+                return new List<dynamic>();
+            }
+
+            var argsString = injectMatch.Groups[1].Value.Trim();
+            if (string.IsNullOrEmpty(argsString))
+            {
+                return new List<dynamic>();
+            }
+
+            // Parse multiple arguments with proper comma handling
+            var arguments = ParseInjectArguments(argsString);
+            var results = new List<dynamic>();
+
+            // Process each argument and return all values (TinkerPop standard)
+            foreach (var arg in arguments)
+            {
+                var value = ParseValue(arg);
+                results.Add(value);
+            }
+
+            // Handle chained operations after inject
+            var chainedQuery = query.Substring(injectMatch.Index + injectMatch.Length);
+            if (!string.IsNullOrEmpty(chainedQuery) && chainedQuery.StartsWith("."))
+            {
+                return ApplyChainedOperations(results, chainedQuery);
+            }
+
+            return results;
+        }
+
+        /// <summary>
+        /// Parse inject arguments handling comma separation correctly
+        /// </summary>
+        private List<string> ParseInjectArguments(string argsString)
+        {
+            var arguments = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var parenLevel = 0;
+
+            for (int i = 0; i < argsString.Length; i++)
+            {
+                char c = argsString[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    current += c;
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    current += c;
+                }
+                else if (!inQuotes && c == '(')
+                {
+                    parenLevel++;
+                    current += c;
+                }
+                else if (!inQuotes && c == ')')
+                {
+                    parenLevel--;
+                    current += c;
+                }
+                else if (!inQuotes && c == ',' && parenLevel == 0)
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        arguments.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                arguments.Add(current.Trim());
+            }
+
+            return arguments;
+        }
+
+        /// <summary>
+        /// Apply chained operations after inject (like .identity(), .count(), etc.)
+        /// </summary>
+        private IEnumerable<dynamic> ApplyChainedOperations(List<dynamic> baseResults, string chainedQuery)
+        {
+            var results = baseResults.AsEnumerable();
+
+            // identity() - pass through unchanged (TinkerPop standard)
+            if (Regex.IsMatch(chainedQuery, @"\.identity\s*\(\s*\)", RegexOptions.IgnoreCase))
+            {
+                return results;
+            }
+
+            // count() - return count of elements
+            if (Regex.IsMatch(chainedQuery, @"\.count\s*\(\s*\)", RegexOptions.IgnoreCase))
+            {
+                return new dynamic[] { (long)results.Count() };
+            }
+
+            // fold() - return as single list
+            if (Regex.IsMatch(chainedQuery, @"\.fold\s*\(\s*\)", RegexOptions.IgnoreCase))
+            {
+                return new dynamic[] { results.ToList() };
+            }
+
+            // as('label').select('label') pattern
+            var asSelectMatch = Regex.Match(chainedQuery, @"\.as\s*\(\s*['""]([^'""]+)['""]?\s*\)\.select\s*\(\s*['""]([^'""]+)['""]?\s*\)", RegexOptions.IgnoreCase);
+            if (asSelectMatch.Success)
+            {
+                var asLabel = asSelectMatch.Groups[1].Value;
+                var selectLabel = asSelectMatch.Groups[2].Value;
+                
+                // In TinkerPop, as() creates a label for the current traverser, select() retrieves it
+                if (asLabel.Equals(selectLabel, StringComparison.OrdinalIgnoreCase))
+                {
+                    return results; // Return the labeled values
+                }
+            }
+
+            // Default: return unchanged results
+            return results;
         }
     }
 }

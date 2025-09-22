@@ -180,9 +180,27 @@ namespace Stardust.Paradox.Data.InMemory
                     return ExecuteAddVertexStep(step);
                 case "adde":
                     return ExecuteAddEdgeStep(step);
+                case "inject":
+                    return ExecuteInjectStep(step);
                 default:
                     return _database.GetAllVertices().Select(v => v.ToGremlinResponse());
             }
+        }
+
+        /// <summary>
+        /// Execute inject start step with proper TinkerPop multiple value support
+        /// </summary>
+        private IEnumerable<dynamic> ExecuteInjectStep(TinkerGraphStep step)
+        {
+            var results = new List<dynamic>();
+            
+            // Inject each argument as a separate traverser (TinkerPop standard)
+            foreach (var arg in step.Arguments)
+            {
+                results.Add(arg);
+            }
+            
+            return results;
         }
 
         /// <summary>

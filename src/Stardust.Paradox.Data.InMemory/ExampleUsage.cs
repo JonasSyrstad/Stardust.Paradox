@@ -15,12 +15,12 @@ namespace Stardust.Paradox.Data.InMemory.Examples
             // Create a new in-memory database
             var connector = InMemoryGremlinLanguageConnector.Create(options =>
             {
-                options.LogQueries = true;
+                options.EnableQueryLogging = true;
                 options.SimulatedRUPerQuery = 1.5;
             });
 
-            // Add some sample data
-            connector.WithSampleData();
+            // Add some sample data manually
+            AddSampleData(connector);
 
             // Example 1: Basic vertex and edge queries
             Console.WriteLine("=== Basic Queries ===");
@@ -72,7 +72,8 @@ namespace Stardust.Paradox.Data.InMemory.Examples
 
             // Example 6: Database statistics
             Console.WriteLine("\n=== Database Statistics ===");
-            Console.WriteLine(connector.GetSummary());
+            var (vertices, edges) = connector.GetStatistics();
+            Console.WriteLine($"Vertices: {vertices}, Edges: {edges}");
             Console.WriteLine($"Consumed RU: {connector.ConsumedRU:F2}");
         }
 
@@ -122,13 +123,102 @@ namespace Stardust.Paradox.Data.InMemory.Examples
         {
             Console.WriteLine("=== Bulk Data Example ===\n");
 
-            var connector = InMemoryGremlinLanguageConnector.Create()
-                .WithBulkData(1000, 2000)
-                .WithPerformanceSettings();
+            var connector = InMemoryGremlinLanguageConnector.Create(options =>
+            {
+                options.EnableDebugLogging = false; // Disable for performance
+            });
+
+            // Create bulk data manually
+            GenerateBulkData(connector, 1000, 2000);
 
             var (vertexCount, edgeCount) = connector.GetStatistics();
             Console.WriteLine($"Generated {vertexCount} vertices and {edgeCount} edges");
-            Console.WriteLine(connector.GetSummary());
+            
+            var performance = connector.GetPerformanceMetrics();
+            Console.WriteLine($"Total RU consumed: {performance["totalRU"]}");
+            Console.WriteLine($"Memory efficient: {performance["memoryEfficient"]}");
+            Console.WriteLine($"TinkerGraph compatible: {performance["tinkerGraphCompatible"]}");
+        }
+
+        /// <summary>
+        /// Add sample data to the connector
+        /// </summary>
+        private static void AddSampleData(InMemoryGremlinLanguageConnector connector)
+        {
+            // Add sample vertices
+            connector.AddVertex("person", new Dictionary<string, object> 
+            { 
+                { "name", "John Doe" }, 
+                { "age", 30 } 
+            }, "person1");
+            
+            connector.AddVertex("person", new Dictionary<string, object> 
+            { 
+                { "name", "Jane Smith" }, 
+                { "age", 28 } 
+            }, "person2");
+            
+            connector.AddVertex("company", new Dictionary<string, object> 
+            { 
+                { "name", "TechCorp" } 
+            }, "company1");
+
+            // Add sample edges
+            connector.AddEdge("works_for", "person1", "company1", "works1");
+            connector.AddEdge("works_for", "person2", "company1", "works2");
+            connector.AddEdge("knows", "person1", "person2", "knows1");
+        }
+
+        /// <summary>
+        /// Generate bulk data for performance testing
+        /// </summary>
+        private static void GenerateBulkData(InMemoryGremlinLanguageConnector connector, int vertexCount, int edgeCount)
+        {
+            var random = new Random(42); // Use seed for reproducible results
+
+            // Generate vertices
+            for (int i = 0; i < vertexCount; i++)
+            {
+                var label = random.NextDouble() < 0.7 ? "person" : "company";
+                var properties = new Dictionary<string, object>();
+
+                if (label == "person")
+                {
+                    properties["name"] = $"Person_{i}";
+                    properties["age"] = random.Next(18, 80);
+                }
+                else
+                {
+                    properties["name"] = $"Company_{i}";
+                    properties["industry"] = new[] { "Tech", "Finance", "Healthcare", "Retail" }[random.Next(4)];
+                }
+
+                connector.AddVertex(label, properties, $"{label}_{i}");
+            }
+
+            // Generate edges
+            var vertexIds = Enumerable.Range(0, vertexCount)
+                .Select(i => $"{(random.NextDouble() < 0.7 ? "person" : "company")}_{i}")
+                .ToList();
+
+            for (int i = 0; i < edgeCount && i < vertexCount * vertexCount; i++)
+            {
+                var fromId = vertexIds[random.Next(vertexIds.Count)];
+                var toId = vertexIds[random.Next(vertexIds.Count)];
+
+                if (fromId != toId) // Avoid self-loops
+                {
+                    var edgeLabel = new[] { "knows", "works_for", "partner_with" }[random.Next(3)];
+                    try
+                    {
+                        connector.AddEdge(edgeLabel, fromId, toId, $"edge_{i}");
+                    }
+                    catch
+                    {
+                        // Ignore duplicate edges or invalid references
+                    }
+                }
+            }
         }
     }
 }

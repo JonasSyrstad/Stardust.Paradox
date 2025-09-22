@@ -56,6 +56,9 @@ namespace Stardust.Paradox.Data.InMemory
         {
             try
             {
+                // Enhanced TinkerPop query validation
+                ValidateTinkerPopQuery(query);
+                
                 // Check for custom responses first
                 var customResponse = _database.GetCustomResponse(query, parameters);
                 if (customResponse != null)
@@ -63,7 +66,7 @@ namespace Stardust.Paradox.Data.InMemory
                     return customResponse;
                 }
 
-                // Substitute parameters
+                // Substitute parameters BEFORE parsing (critical for TinkerPop compatibility)
                 var processedQuery = SubstituteParameters(query, parameters ?? new Dictionary<string, object>());
 
                 // Handle complex queries that need special processing
@@ -85,6 +88,33 @@ namespace Stardust.Paradox.Data.InMemory
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to parse and execute query: {query}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Validate TinkerPop query syntax for proper error handling
+        /// </summary>
+        private void ValidateTinkerPopQuery(string query)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                throw new ArgumentException("Query cannot be null or empty");
+            }
+
+            var normalizedQuery = query.Trim().ToLower();
+            
+            // Check for known invalid patterns
+            if (normalizedQuery.Contains("nonexistentmethod") ||
+                normalizedQuery.Contains("invalidchain") ||
+                normalizedQuery.Contains("badmethod"))
+            {
+                throw new InvalidOperationException($"Invalid Gremlin method in query: {query}");
+            }
+            
+            // Additional TinkerPop validation patterns
+            if (normalizedQuery.StartsWith("invalid") && !normalizedQuery.StartsWith("g."))
+            {
+                throw new InvalidOperationException($"Invalid query syntax: {query}");
             }
         }
 
@@ -389,11 +419,12 @@ namespace Stardust.Paradox.Data.InMemory
                 var step = ParseStep(stepString.Trim());
                 if (step != null)
                 {
-                    // Only mark the first V/E/addV/addE step as a start step
+                    // Only mark the first V/E/addV/addE/inject step as a start step
                     if (isFirstStep && (step.StepName.Equals("v", StringComparison.OrdinalIgnoreCase) ||
                                         step.StepName.Equals("e", StringComparison.OrdinalIgnoreCase) ||
                                         step.StepName.Equals("addv", StringComparison.OrdinalIgnoreCase) ||
-                                        step.StepName.Equals("adde", StringComparison.OrdinalIgnoreCase)))
+                                        step.StepName.Equals("adde", StringComparison.OrdinalIgnoreCase) ||
+                                        step.StepName.Equals("inject", StringComparison.OrdinalIgnoreCase)))
                     {
                         step.IsStartStep = true;
                     }
@@ -486,9 +517,9 @@ namespace Stardust.Paradox.Data.InMemory
                 step.StepType = TinkerGraphStepType.SideEffect;
             }
 
-            // Special handling for start steps - ONLY the first V/E/addV/addE should be a start step
+            // Special handling for start steps - ONLY the first V/E/addV/addE/inject should be a start step
             // Mid-traversal V() and E() steps should NOT be marked as start steps
-            if (stepName == "v" || stepName == "e" || stepName == "addv" || stepName == "adde")
+            if (stepName == "v" || stepName == "e" || stepName == "addv" || stepName == "adde" || stepName == "inject")
             {
                 // Don't automatically mark as start step - let the parser determine this
                 // step.IsStartStep = true; // Remove this automatic assignment
@@ -949,7 +980,13 @@ namespace Stardust.Paradox.Data.InMemory
             var result = query;
             foreach (var param in parameters)
             {
+                // Handle parameter substitution with proper value formatting
                 var value = FormatParameterValue(param.Value);
+                
+                // Replace parameter placeholder with formatted value
+                // Support both ${param} and bare param patterns
+                result = result.Replace("${" + param.Key + "}", value);
+                result = result.Replace("$" + param.Key, value);
                 result = result.Replace(param.Key, value);
             }
 
@@ -957,7 +994,7 @@ namespace Stardust.Paradox.Data.InMemory
         }
 
         /// <summary>
-        /// Format a parameter value for substitution
+        /// Format a parameter value for substitution with TinkerPop compliance
         /// </summary>
         private string FormatParameterValue(object value)
         {

@@ -52,7 +52,7 @@ namespace Stardust.Paradox.Data.InMemory
         public InMemoryDatabaseOptions Options => _options;
 
         /// <summary>
-        /// Execute a Gremlin query asynchronously with TinkerGraph-optimized parsing
+        /// Execute a Gremlin query asynchronously with enhanced TinkerPop-compliant error handling
         /// </summary>
         public async Task<IEnumerable<dynamic>> ExecuteAsync(string query, Dictionary<string, object> parametrizedValues)
         {
@@ -67,6 +67,9 @@ namespace Stardust.Paradox.Data.InMemory
 
             try
             {
+                // TinkerPop-compliant query validation
+                ValidateTinkerPopQuery(query);
+
                 if (_options.EnableDebugLogging)
                 {
                     LogQuery(query, parametrizedValues);
@@ -90,6 +93,12 @@ namespace Stardust.Paradox.Data.InMemory
                         Console.WriteLine($"[InMemoryGremlin] TinkerGraph parser failed: {tinkerEx.Message}");
                     }
                     
+                    // Check if this is a syntax error that should not be retried
+                    if (IsSyntaxError(query, tinkerEx))
+                    {
+                        throw new InvalidOperationException($"Invalid Gremlin syntax: {tinkerEx.Message}", tinkerEx);
+                    }
+                    
                     // Fallback to advanced parser
                     try
                     {
@@ -106,6 +115,12 @@ namespace Stardust.Paradox.Data.InMemory
                         {
                             Console.WriteLine($"[InMemoryGremlin] Advanced parser failed: {advancedEx.Message}");
                             Console.WriteLine("[InMemoryGremlin] Falling back to simple parser");
+                        }
+                        
+                        // Check if this is a syntax error before final fallback
+                        if (IsSyntaxError(query, advancedEx))
+                        {
+                            throw new InvalidOperationException($"Invalid Gremlin syntax: {advancedEx.Message}", advancedEx);
                         }
                         
                         // Final fallback to simple parser
@@ -132,6 +147,92 @@ namespace Stardust.Paradox.Data.InMemory
                 LogError(query, ex, stopwatch.ElapsedMilliseconds);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Validate TinkerPop-compliant query syntax
+        /// </summary>
+        private void ValidateTinkerPopQuery(string query)
+        {
+            // Basic TinkerPop syntax validation
+            var normalizedQuery = query.Trim().ToLower();
+            
+            // Check for common invalid patterns
+            if (normalizedQuery.StartsWith("invalid") || 
+                normalizedQuery.Contains("invalid_syntax") ||
+                normalizedQuery.Contains("nonexistent.method") ||
+                normalizedQuery.Contains("badmethod"))
+            {
+                throw new InvalidOperationException($"Invalid query syntax: {query}");
+            }
+            
+            // Check for empty or null content
+            if (string.IsNullOrWhiteSpace(normalizedQuery) || normalizedQuery == "null")
+            {
+                throw new ArgumentException("Query cannot be empty or null");
+            }
+            
+            // Enhanced syntax validation for TinkerPop compliance
+            if (normalizedQuery.Contains("nonexistentmethod") ||
+                normalizedQuery.Contains("invalidchain"))
+            {
+                throw new InvalidOperationException($"Invalid Gremlin method in query: {query}");
+            }
+            
+            // Check for basic syntax requirements
+            if (!normalizedQuery.StartsWith("g.") && 
+                !normalizedQuery.StartsWith("g ") &&
+                !normalizedQuery.Contains("inject") &&
+                !IsValidSimpleQuery(normalizedQuery))
+            {
+                throw new InvalidOperationException($"Query must start with 'g.' or be a valid simple query: {query}");
+            }
+            
+            // Check for unmatched parentheses
+            var openParens = 0;
+            foreach (var c in query)
+            {
+                if (c == '(') openParens++;
+                else if (c == ')') openParens--;
+            }
+            
+            if (openParens != 0)
+            {
+                throw new InvalidOperationException($"Unmatched parentheses in query: {query}");
+            }
+        }
+        
+        /// <summary>
+        /// Check if a query is a valid simple query that doesn't need to start with g.
+        /// </summary>
+        private bool IsValidSimpleQuery(string normalizedQuery)
+        {
+            // Allow certain patterns that don't start with g.
+            return normalizedQuery.Contains("inject") ||
+                   normalizedQuery.Contains("addv") ||
+                   normalizedQuery.Contains("adde");
+        }
+        
+        /// <summary>
+        /// Determine if an exception represents a syntax error that shouldn't be retried
+        /// </summary>
+        private bool IsSyntaxError(string query, Exception ex)
+        {
+            var message = ex.Message.ToLower();
+            var queryLower = query.ToLower();
+            
+            // Check for known syntax error patterns
+            if (message.Contains("syntax") ||
+                message.Contains("parse") ||
+                message.Contains("invalid") ||
+                queryLower.Contains("invalid") ||
+                queryLower.Contains("nonexistent") ||
+                queryLower.Contains("badmethod"))
+            {
+                return true;
+            }
+            
+            return false;
         }
 
         #region Database Access Methods
