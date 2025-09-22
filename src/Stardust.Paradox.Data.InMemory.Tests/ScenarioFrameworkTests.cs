@@ -4,6 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 using FluentAssertions;
+using Stardust.Paradox.Data.InMemory;
+using Stardust.Paradox.Data.InMemory.Core;
+using Stardust.Paradox.Data.InMemory.Factory;
+using Stardust.Paradox.Data.InMemory.Extensions;
 using Stardust.Paradox.Data.InMemory.Scenarios;
 
 namespace Stardust.Paradox.Data.InMemory.Tests

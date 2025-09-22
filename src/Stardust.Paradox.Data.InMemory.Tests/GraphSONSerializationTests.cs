@@ -5,6 +5,8 @@ using Xunit;
 using FluentAssertions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.InMemory;
+using Stardust.Paradox.Data.InMemory.Server;
 
 namespace Stardust.Paradox.Data.InMemory.Tests
 {

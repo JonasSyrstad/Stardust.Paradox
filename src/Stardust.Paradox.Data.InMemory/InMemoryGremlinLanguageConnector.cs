@@ -2,13 +2,15 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.InMemory.ExecutionEngine;
+using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory
 {
     /// <summary>
     /// In-memory implementation of IGremlinLanguageConnector with TinkerGraph-inspired optimizations
     /// </summary>
-    public class InMemoryGremlinLanguageConnector : IGremlinLanguageConnector
+    public class InMemoryGremlinLanguageConnector : IGremlinLanguageConnector, IDisposable
     {
         private readonly InMemoryGraphDatabase _database;
         private readonly GremlinQueryParser _simpleParser;
@@ -16,6 +18,7 @@ namespace Stardust.Paradox.Data.InMemory
         private readonly TinkerGraphQueryParser _tinkerParser;
         private readonly InMemoryDatabaseOptions _options;
         private double _consumedRU;
+        private bool _disposed = false;
 
         public InMemoryGremlinLanguageConnector() : this(new InMemoryDatabaseOptions())
         {
@@ -367,14 +370,6 @@ namespace Stardust.Paradox.Data.InMemory
         }
 
         /// <summary>
-        /// Import data into the database
-        /// </summary>
-        public void ImportData(IEnumerable<InMemoryVertex> vertices, IEnumerable<InMemoryEdge> edges)
-        {
-            _database.ImportData(vertices, edges);
-        }
-
-        /// <summary>
         /// Import data from definitions with automatic indexing
         /// </summary>
         public void ImportData(IEnumerable<InMemoryVertexDefinition> vertexDefinitions, IEnumerable<InMemoryEdgeDefinition> edgeDefinitions)
@@ -562,6 +557,35 @@ namespace Stardust.Paradox.Data.InMemory
                 // Add any optimization-specific options
             };
             return new InMemoryGremlinLanguageConnector(options);
+        }
+
+        #endregion
+
+        #region IDisposable Implementation
+
+        /// <summary>
+        /// Dispose of resources
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        /// <summary>
+        /// Protected dispose method
+        /// </summary>
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (disposing)
+                {
+                    // Clear all data and indices
+                    _database?.Clear();
+                }
+                _disposed = true;
+            }
         }
 
         #endregion

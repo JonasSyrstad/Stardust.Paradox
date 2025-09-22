@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Gremlin.Net.Driver;
 using Gremlin.Net.Structure.IO.GraphSON;
 using Newtonsoft.Json;
+using Stardust.Paradox.Data.InMemory.Server;
 
 namespace Stardust.Paradox.Data.InMemory.Demo
 {

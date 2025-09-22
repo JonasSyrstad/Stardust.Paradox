@@ -1,4 +1,6 @@
+using FluentAssertions;
 using Stardust.Paradox.Data.InMemory;
+using Stardust.Paradox.Data.InMemory.Core;
 using Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated;
 using System;
 using System.Collections.Generic;

@@ -1,4 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+using FluentAssertions;
 using Stardust.Paradox.Data.InMemory;
+using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory.Tests;
 
@@ -163,7 +170,8 @@ public class InMemoryGremlinConnectorBasicTests
         // Act
         var (vertices, edges) = connector.ExportData();
         connector.Clear();
-        connector.ImportData(vertices, edges);
+        // Use the extension method ImportData from Extensions namespace which handles IEnumerable<InMemoryVertex>
+        connector.Database.ImportData(vertices, edges);
 
         var (vertexCount, edgeCount) = connector.GetStatistics();
 

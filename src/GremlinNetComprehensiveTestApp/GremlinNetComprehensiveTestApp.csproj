@@ -4,7 +4,6 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <StartupObject>GremlinNetComprehensiveTestApp.SimpleGremlinNetConnectionTest</StartupObject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Program.cs" />
     <Compile Remove="TinkerPopProtocolTests.cs" />
     <Compile Remove="WireProtocolTests.cs" />
     <Compile Remove="GremlinNetDiagnosticTest.cs" />

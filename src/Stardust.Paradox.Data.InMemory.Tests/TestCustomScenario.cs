@@ -1,4 +1,6 @@
+using System;
 using System.Linq;
+using Stardust.Paradox.Data.InMemory.Core;
 using Stardust.Paradox.Data.InMemory.Scenarios;
 
 namespace Stardust.Paradox.Data.InMemory.Tests;

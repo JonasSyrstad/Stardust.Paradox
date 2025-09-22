@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory.Scenarios;
 
