@@ -74,22 +74,28 @@ public class ScenarioExporter
 
         Console.WriteLine($"Executing query to find vertices: {gremlinQuery}");
         
-        // Execute the query to get vertices - first try with properties included
+        // Execute the query to get vertices - use intelligent approach based on query complexity
         var vertices = new List<ExportedVertex>();
         
         try
         {
-            // Try to get vertices with properties in one query
-            var queryWithProperties = $"{gremlinQuery}.valueMap(true)";
-            Console.WriteLine($"Trying query with properties: {queryWithProperties}");
+            // Analyze the query to determine if it's complex
+            bool isComplexQuery = IsComplexQuery(gremlinQuery);
             
-            var queryResults = await _connector.ExecuteAsync(queryWithProperties, new Dictionary<string, object>());
-            var resultsList = queryResults.ToList();
-            
-            // Create consolidated progress bar with estimated counts
-            var estimatedEdgeCount = resultsList.Count * 2; // Rough estimate
-            using (var progress = ConsolidatedProgressBarFactory.CreateScenarioExportProgress(resultsList.Count, estimatedEdgeCount, 2))
+            if (isComplexQuery)
             {
+                Console.WriteLine("Detected complex query - using specialized handling");
+                vertices = await HandleComplexQueryExportAsync(gremlinQuery);
+            }
+            else
+            {
+                // Try to get vertices with properties in one query
+                var queryWithProperties = $"{gremlinQuery}.valueMap(true)";
+                Console.WriteLine($"Trying query with properties: {queryWithProperties}");
+                
+                var queryResults = await _connector.ExecuteAsync(queryWithProperties, new Dictionary<string, object>());
+                var resultsList = queryResults.ToList();
+                
                 foreach (dynamic result in resultsList)
                 {
                     if (EnableDebugLogging)
@@ -110,11 +116,20 @@ public class ScenarioExporter
                     var vertex = ParseVertexFromValueMap(result, vertexId);
                     if (vertex != null)
                         vertices.Add(vertex);
-                    
-                    progress.IncrementVertexProgress(vertexId);
                 }
                 
                 Console.WriteLine($"\nFound {vertices.Count} vertices with properties from enhanced query");
+            }
+
+            // Create consolidated progress bar with estimated counts
+            var estimatedEdgeCount = vertices.Count * 2; // Rough estimate
+            using (var progress = ConsolidatedProgressBarFactory.CreateScenarioExportProgress(vertices.Count, estimatedEdgeCount, 2))
+            {
+                // Mark vertices as processed in progress
+                foreach (var vertex in vertices)
+                {
+                    progress.IncrementVertexProgress(vertex.Id);
+                }
 
                 // Get vertex IDs for edge discovery
                 var vertexIds = vertices.Select(v => v.Id).ToList();
@@ -138,6 +153,7 @@ public class ScenarioExporter
                     {
                         ["vertexCount"] = vertices.Count,
                         ["edgeCount"] = edges.Count,
+                        ["queryType"] = isComplexQuery ? "complex" : "simple",
                         ["exportedBy"] = "Stardust.Paradox.Data.ScenarioConnector"
                     }
                 };
@@ -210,6 +226,427 @@ public class ScenarioExporter
                 return scenario;
             }
         }
+    }
+
+    /// <summary>
+    /// Determine if a query is complex and requires special handling
+    /// </summary>
+    private bool IsComplexQuery(string query)
+    {
+        var lowerQuery = query.ToLowerInvariant();
+
+        // Patterns that indicate complex queries that don't return simple vertices
+        var complexPatterns = new[]
+        {
+            "select(",        // select() operations
+            ".as(",          // as() operations combined with other steps
+            "project(",      // project() operations
+            "group(",        // group() operations
+            "fold(",         // fold() operations
+            "path(",         // path() operations
+            "union(",        // union() operations
+            "coalesce(",     // coalesce() operations
+        };
+
+        // Additional patterns that suggest the query returns processed/transformed data
+        var transformPatterns = new[]
+        {
+            ").select(",
+            ").project(",
+            ").group(",
+            ").fold(",
+            ").path(",
+        };
+
+        // Check for complex patterns
+        foreach (var pattern in complexPatterns)
+        {
+            if (lowerQuery.Contains(pattern))
+            {
+                if (EnableDebugLogging)
+                    Console.WriteLine($"Debug: Detected complex query pattern: {pattern}");
+                return true;
+            }
+        }
+
+        // Check for transformation patterns
+        foreach (var pattern in transformPatterns)
+        {
+            if (lowerQuery.Contains(pattern))
+            {
+                if (EnableDebugLogging)
+                    Console.WriteLine($"Debug: Detected transformation pattern: {pattern}");
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Handle complex queries that might not return simple vertices
+    /// </summary>
+    private async Task<List<ExportedVertex>> HandleComplexQueryExportAsync(string gremlinQuery)
+    {
+        var vertices = new List<ExportedVertex>();
+
+        try
+        {
+            // Step 1: Execute the original query to see what we get
+            Console.WriteLine("Executing original complex query...");
+            var originalResults = await _connector.ExecuteAsync(gremlinQuery, new Dictionary<string, object>());
+            var resultsList = originalResults.ToList();
+
+            if (EnableDebugLogging)
+            {
+                Console.WriteLine($"Debug: Complex query returned {resultsList.Count} results");
+                for (int i = 0; i < Math.Min(3, resultsList.Count); i++)
+                {
+                    Console.WriteLine($"Debug: Result {i}: {JsonConvert.SerializeObject(resultsList[i], Formatting.Indented)}");
+                }
+            }
+
+            // Step 2: Try to extract vertex information from the results
+            var extractedVertexIds = new HashSet<string>();
+
+            foreach (dynamic result in resultsList)
+            {
+                var vertexIds = ExtractVertexIdsFromResult(result);
+                foreach (var id in vertexIds)
+                {
+                    extractedVertexIds.Add(id);
+                }
+            }
+
+            if (EnableDebugLogging)
+            {
+                Console.WriteLine($"Debug: Extracted {extractedVertexIds.Count} unique vertex IDs from complex query results");
+            }
+
+            // Step 3: If we found vertex IDs, fetch the full vertex data
+            if (extractedVertexIds.Count > 0)
+            {
+                Console.WriteLine($"Fetching full vertex data for {extractedVertexIds.Count} vertices...");
+                vertices = await FetchVerticesWithPropertiesAsync(extractedVertexIds.ToList());
+            }
+            else
+            {
+                // Step 4: Fallback - try to modify the query to get vertices
+                Console.WriteLine("No vertex IDs found in results, trying query modification...");
+                var modifiedQuery = ModifyQueryForVertexExtraction(gremlinQuery);
+                
+                if (modifiedQuery != gremlinQuery && !string.IsNullOrEmpty(modifiedQuery))
+                {
+                    Console.WriteLine($"Trying modified query: {modifiedQuery}");
+                    
+                    try
+                    {
+                        var modifiedResults = await _connector.ExecuteAsync(modifiedQuery, new Dictionary<string, object>());
+                        
+                        foreach (dynamic result in modifiedResults)
+                        {
+                            var vertex = ParseVertex(result);
+                            if (vertex != null)
+                                vertices.Add(vertex);
+                        }
+                        
+                        if (vertices.Count > 0)
+                        {
+                            Console.WriteLine($"Success with modified query: found {vertices.Count} vertices");
+                        }
+                    }
+                    catch (Exception modEx)
+                    {
+                        Console.WriteLine($"Modified query failed: {modEx.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Complex query handling failed: {ex.Message}");
+            throw new InvalidOperationException($"Failed to process complex query '{gremlinQuery}': {ex.Message}", ex);
+        }
+
+        return vertices;
+    }
+
+    /// <summary>
+    /// Extract vertex IDs from complex query results
+    /// </summary>
+    private List<string> ExtractVertexIdsFromResult(dynamic result)
+    {
+        var vertexIds = new List<string>();
+
+        try
+        {
+            // Handle different result types
+            if (result is JObject jobj)
+            {
+                ExtractVertexIdsFromJObject(jobj, vertexIds);
+            }
+            else if (result is IDictionary<string, object> dict)
+            {
+                ExtractVertexIdsFromDictionary(dict, vertexIds);
+            }
+            else if (result is JArray jarray)
+            {
+                foreach (var item in jarray)
+                {
+                    var itemIds = ExtractVertexIdsFromResult(item);
+                    vertexIds.AddRange(itemIds);
+                }
+            }
+            else if (result is IEnumerable<object> enumerable && !(result is string))
+            {
+                foreach (var item in enumerable)
+                {
+                    var itemIds = ExtractVertexIdsFromResult(item);
+                    vertexIds.AddRange(itemIds);
+                }
+            }
+            else
+            {
+                // Check if the result itself might be a vertex or contains vertex information
+                var vertex = TryParseAsVertex(result);
+                if (vertex != null && !string.IsNullOrEmpty(vertex.Id))
+                {
+                    vertexIds.Add(vertex.Id);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (EnableDebugLogging)
+                Console.WriteLine($"Debug: Failed to extract vertex IDs from result: {ex.Message}");
+        }
+
+        return vertexIds;
+    }
+
+    /// <summary>
+    /// Extract vertex IDs from JObject
+    /// </summary>
+    private void ExtractVertexIdsFromJObject(JObject jobj, List<string> vertexIds)
+    {
+        // Look for common vertex ID patterns
+        var idProperties = new[] { "id", "vertexId", "@id", "vertex", "v" };
+        
+        foreach (var prop in jobj.Properties())
+        {
+            if (idProperties.Contains(prop.Name.ToLowerInvariant()))
+            {
+                var id = ExtractIdFromValue(prop.Value);
+                if (!string.IsNullOrEmpty(id))
+                    vertexIds.Add(id);
+            }
+            else if (prop.Value is JObject nestedObj)
+            {
+                ExtractVertexIdsFromJObject(nestedObj, vertexIds);
+            }
+            else if (prop.Value is JArray array)
+            {
+                foreach (var item in array)
+                {
+                    if (item is JObject itemObj)
+                        ExtractVertexIdsFromJObject(itemObj, vertexIds);
+                    else
+                    {
+                        var id = ExtractIdFromValue(item);
+                        if (!string.IsNullOrEmpty(id))
+                            vertexIds.Add(id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extract vertex IDs from Dictionary
+    /// </summary>
+    private void ExtractVertexIdsFromDictionary(IDictionary<string, object> dict, List<string> vertexIds)
+    {
+        var idProperties = new[] { "id", "vertexId", "@id", "vertex", "v" };
+        
+        foreach (var kvp in dict)
+        {
+            if (idProperties.Contains(kvp.Key.ToLowerInvariant()))
+            {
+                var id = ExtractIdFromValue(kvp.Value);
+                if (!string.IsNullOrEmpty(id))
+                    vertexIds.Add(id);
+            }
+            else if (kvp.Value is IDictionary<string, object> nestedDict)
+            {
+                ExtractVertexIdsFromDictionary(nestedDict, vertexIds);
+            }
+            else if (kvp.Value is IEnumerable<object> enumerable && !(kvp.Value is string))
+            {
+                foreach (var item in enumerable)
+                {
+                    if (item is IDictionary<string, object> itemDict)
+                        ExtractVertexIdsFromDictionary(itemDict, vertexIds);
+                    else
+                    {
+                        var id = ExtractIdFromValue(item);
+                        if (!string.IsNullOrEmpty(id))
+                            vertexIds.Add(id);
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extract ID from various value types
+    /// </summary>
+    private string ExtractIdFromValue(object value)
+    {
+        if (value == null) return string.Empty;
+
+        if (value is JValue jval)
+            return jval.Value?.ToString() ?? string.Empty;
+
+        if (value is string str)
+            return str;
+
+        if (value is JArray jarray && jarray.Count > 0)
+            return ExtractIdFromValue(jarray[0]);
+
+        if (value is IEnumerable<object> enumerable && !(value is string))
+        {
+            var firstItem = enumerable.FirstOrDefault();
+            if (firstItem != null)
+                return ExtractIdFromValue(firstItem);
+        }
+
+        return value.ToString() ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Try to parse a result as a vertex
+    /// </summary>
+    private ExportedVertex? TryParseAsVertex(dynamic result)
+    {
+        try
+        {
+            // Try standard vertex parsing first
+            var vertex = ParseVertex(result);
+            if (vertex != null && !string.IsNullOrEmpty(vertex.Id))
+                return vertex;
+
+            // If that fails, try to extract vertex information from the structure
+            if (result is JObject jobj)
+            {
+                var id = ExtractIdFromValue(jobj["id"]);
+                if (!string.IsNullOrEmpty(id))
+                {
+                    return new ExportedVertex
+                    {
+                        Id = id,
+                        Label = ExtractIdFromValue(jobj["label"]) ?? string.Empty
+                    };
+                }
+            }
+            else if (result is IDictionary<string, object> dict)
+            {
+                if (dict.ContainsKey("id"))
+                {
+                    var id = ExtractIdFromValue(dict["id"]);
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        return new ExportedVertex
+                        {
+                            Id = id,
+                            Label = dict.ContainsKey("label") ? ExtractIdFromValue(dict["label"]) ?? string.Empty : string.Empty
+                        };
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            if (EnableDebugLogging)
+                Console.WriteLine($"Debug: Failed to parse as vertex: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Modify a complex query to extract vertices
+    /// </summary>
+    private string ModifyQueryForVertexExtraction(string originalQuery)
+    {
+        // Strategy 1: Remove final operations that might prevent vertex extraction
+        var operationsToRemove = new[]
+        {
+            ".select(",
+            ".project(",
+            ".fold(",
+            ".unfold(",
+            ".count()",
+            ".sum()",
+            ".mean()",
+            ".id()",
+            ".label()",
+            ".values(",
+            ".valueMap("
+        };
+
+        var modifiedQuery = originalQuery;
+        
+        foreach (var operation in operationsToRemove)
+        {
+            var index = modifiedQuery.LastIndexOf(operation, StringComparison.OrdinalIgnoreCase);
+            if (index > 0)
+            {
+                if (operation.EndsWith("("))
+                {
+                    // Find the matching closing parenthesis
+                    var openParen = 1;
+                    var closingIndex = index + operation.Length;
+                    while (closingIndex < modifiedQuery.Length && openParen > 0)
+                    {
+                        if (modifiedQuery[closingIndex] == '(') openParen++;
+                        else if (modifiedQuery[closingIndex] == ')') openParen--;
+                        closingIndex++;
+                    }
+                    if (openParen == 0)
+                    {
+                        modifiedQuery = modifiedQuery.Substring(0, index);
+                        break;
+                    }
+                }
+                else
+                {
+                    modifiedQuery = modifiedQuery.Substring(0, index);
+                    break;
+                }
+            }
+        }
+
+        // Strategy 2: If that didn't help, try to extract the base vertex query
+        if (modifiedQuery == originalQuery)
+        {
+            var patterns = new[]
+            {
+                @"g\.V\([^)]*\)",
+                @"g\.V\(\)"
+            };
+
+            foreach (var pattern in patterns)
+            {
+                var match = Regex.Match(originalQuery, pattern, RegexOptions.IgnoreCase);
+                if (match.Success)
+                {
+                    modifiedQuery = match.Value;
+                    break;
+                }
+            }
+        }
+
+        return modifiedQuery;
     }
 
     /// <summary>

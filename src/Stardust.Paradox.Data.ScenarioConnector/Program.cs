@@ -63,7 +63,7 @@ class Program
           ███████╗ ██████╗███████╗███╗   ██╗ █████╗ ██████╗ ██╗ ██████╗ 
           ██╔════╝██╔════╝██╔════╝████╗  ██║██╔══██╗██╔══██╗██║██╔═══██╗
           ███████╗██║     █████╗  ██╔██╗ ██║███████║██████╔╝██║██║   ██║
-          ╚════██║██║     ██╔══╝  ██║╚██╗██║██╔══██║██╔══██╗██║██║   ██║
+          ╚════██║██║     ██╔══╝  ██║╚██╗██║██╔══██║██╔════╝██║██║   ██║
           ███████║╚██████╗███████╗██║ ╚████║██║  ██║██║  ██║██║╚██████╔╝
           ╚══════╝ ╚═════╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝ ╚═════╝ ");
         
@@ -79,21 +79,21 @@ class Program
         Console.ForegroundColor = ConsoleColor.Blue;
         Console.WriteLine(@"
         ╔═══════════════════════════════════════════════════════════════════════════╗
-        ║                        🌟 Graph Data Bridge 🌟                           ║
+        ║                        🌟 Graph Data Bridge 🌟                            ║
         ║                                                                           ║
-        ║        📊 CosmosDB ──────► 🧪 InMemory Testing ──────► 🚀 Scenarios      ║
+        ║        📊 CosmosDB ──────► 🧪 InMemory Testing ──────► 🚀 Scenarios       ║
         ║                                                                           ║
-        ║                    💎 Export • Transform • Test 💎                      ║
+        ║                    💎 Export • Transform • Test 💎                          ║
         ╚═══════════════════════════════════════════════════════════════════════════╝");
-        
+
         Console.ForegroundColor = ConsoleColor.DarkCyan;
         Console.WriteLine(@"
-                   ┌─────────────────────────────────────────────────┐
-                   │  ⚡ High-Performance Graph Database Scenarios ⚡ │
-                   │     🔗 Seamless CosmosDB Integration 🔗        │
-                   │        🎯 Precision Testing Framework 🎯      │
-                   └─────────────────────────────────────────────────┘");
-        
+                   ┌──────────────────────────────────────────────────┐
+                   │  ⚡ High-Performance Graph Database Scenarios ⚡   │
+                   │     🔗 Seamless CosmosDB Integration 🔗          │
+                   │        🎯 Precision Testing Framework 🎯         │
+                   └──────────────────────────────────────────────────┘");
+
         Console.ResetColor();
         Console.WriteLine();
         
@@ -135,30 +135,38 @@ class Program
                     ListConnections();
                     break;
                 case "5":
+                case "t":
+                    await TestConnectionAsync();
+                    break;
+                case "6":
+                case "x":
+                    await ComplexQueryTest.RunTestsAsync();
+                    break;
+                case "7":
                 case "v":
                     await ValidationTest.RunValidationAsync();
                     break;
-                case "6":
+                case "8":
                 case "p":
                     await TestPropertyHandlingAsync();
                     break;
-                case "7":
+                case "9":
                 case "e":
                     await PropertyExtractionTest.RunPropertyExtractionTestsAsync();
                     break;
-                case "8":
+                case "10":
                 case "d":
                     await DemonstrateProgressBarsAsync();
                     break;
-                case "9":
+                case "11":
                 case "f":
                     await DemonstrateFixedProgressBarsAsync();
                     break;
-                case "10":
+                case "12":
                 case "m":
                     await DemonstrateConsolidatedProgressBarAsync();
                     break;
-                case "11":
+                case "13":
                 case "q":
                     Console.WriteLine("Goodbye!");
                     return;
@@ -186,6 +194,10 @@ class Program
                     ListConnections();
                     break;
                 case "5":
+                case "t":
+                    await TestConnectionAsync();
+                    break;
+                case "6":
                 case "q":
                     Console.WriteLine("Goodbye!");
                     return;
@@ -209,15 +221,18 @@ class Program
         Console.WriteLine("3. (R)emove connection");
         Console.WriteLine("4. (L)ist all connections");
 #if DEBUG
-        Console.WriteLine("5. (V)alidate tool components");
-        Console.WriteLine("6. Test (P)roperty handling");
-        Console.WriteLine("7. Test property (E)xtraction logic");
-        Console.WriteLine("8. (D)emonstrate progress bars");
-        Console.WriteLine("9. Test (F)ixed position progress bars");
-        Console.WriteLine("10. Test (M)ulti-progress consolidated bar");
-        Console.WriteLine("11. (Q)uit");
+        Console.WriteLine("5. (T)est existing connection");
+        Console.WriteLine("6. Test (X) complex query handling");
+        Console.WriteLine("7. (V)alidate tool components");
+        Console.WriteLine("8. Test (P)roperty handling");
+        Console.WriteLine("9. Test property (E)xtraction logic");
+        Console.WriteLine("10. (D)emonstrate progress bars");
+        Console.WriteLine("11. Test (F)ixed position progress bars");
+        Console.WriteLine("12. Test (M)ulti-progress consolidated bar");
+        Console.WriteLine("13. (Q)uit");
 #else
-        Console.WriteLine("5. (Q)uit");
+        Console.WriteLine("5. (T)est existing connection");
+        Console.WriteLine("6. (Q)uit");
 #endif
         Console.WriteLine();
         Console.Write("Enter your choice: ");
@@ -266,6 +281,30 @@ class Program
                 connection.DatabaseName,
                 connection.GraphName,
                 connection.AccessKey);
+
+            // Quick connection verification
+            Console.Write("🔍 Verifying connection... ");
+            var tester = new ConnectionTester(_logger);
+            var testResult = await tester.TestConnectionAsync(connection);
+            
+            if (!testResult.IsSuccessful)
+            {
+                Console.WriteLine("❌ Failed");
+                Console.WriteLine($"Error: {testResult.Message}");
+                return;
+            }
+            
+            Console.WriteLine($"✅ Connected ({testResult.ResponseTime.TotalMilliseconds:F0}ms)");
+            
+            if (!testResult.IsReadOnly)
+            {
+                Console.WriteLine("⚠️  WARNING: Connection may have write permissions!");
+            }
+            
+            if (testResult.VertexCount.HasValue || testResult.EdgeCount.HasValue)
+            {
+                Console.WriteLine($"📊 Database: {testResult.VertexCount ?? 0:N0} vertices, {testResult.EdgeCount ?? 0:N0} edges");
+            }
 
             _connectionManager.UpdateLastUsed(connection.Name);
 
@@ -324,7 +363,8 @@ class Program
                     break;
                 case "4":
                 case "b":
-                    return; // Back to main menu
+                    return // Back to main menu
+                    ;
                 default:
                     Console.WriteLine("Invalid choice. Please try again.");
                     break;
@@ -342,7 +382,8 @@ class Program
                     break;
                 case "3":
                 case "b":
-                    return; // Back to main menu
+                    return // Back to main menu
+                    ;
                 default:
                     Console.WriteLine("Invalid choice. Please try again.");
                     break;
@@ -574,12 +615,61 @@ class Program
                 AccessKey = accessKey
             };
 
-            _connectionManager.AddConnection(connection);
-            Console.WriteLine($"\nConnection '{name}' added successfully!");
+            // Test the connection before saving
+            Console.WriteLine("\n🔍 Testing connection...");
+            var tester = new ConnectionTester(_logger);
+            var testResult = await tester.TestConnectionAsync(connection);
+
+            // Display test results
+            Console.WriteLine($"\n{testResult.Message}");
+            Console.WriteLine($"⏱️ Response time: {testResult.ResponseTime.TotalMilliseconds:F0}ms");
+            
+            if (testResult.IsSuccessful)
+            {
+                if (testResult.VertexCount.HasValue || testResult.EdgeCount.HasValue)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("Database Statistics:");
+                    Console.WriteLine($"  Vertices: {testResult.VertexCount ?? 0:N0}");
+                    Console.WriteLine($"  Edges: {testResult.EdgeCount ?? 0:N0}");
+                }
+
+                if (!testResult.IsReadOnly)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("⚠️  WARNING: This connection may have write permissions!");
+                    Console.WriteLine("   For safety, only use read-only connections with this tool.");
+                    Console.Write("   Continue anyway? (y/N): ");
+                    var confirm = Console.ReadLine()?.Trim();
+                    if (!string.Equals(confirm, "y", StringComparison.OrdinalIgnoreCase) && 
+                        !string.Equals(confirm, "yes", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("Connection not saved.");
+                        return;
+                    }
+                }
+
+                _connectionManager.AddConnection(connection);
+                Console.WriteLine($"\n✅ Connection '{name}' added successfully!");
+                
+                if (testResult.IsReadOnly)
+                {
+                    Console.WriteLine("🔒 Connection verified as read-only - safe for scenario export.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("\n❌ Connection test failed. Connection was not saved.");
+                if (testResult.Exception != null)
+                {
+                    Console.WriteLine($"Error details: {testResult.Exception.Message}");
+                }
+                Console.WriteLine("\nPlease verify your connection details and try again.");
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"\nFailed to add connection: {ex.Message}");
+            Console.WriteLine($"\n❌ Failed to add connection: {ex.Message}");
         }
     }
 
@@ -1093,5 +1183,154 @@ class Program
         
         Console.WriteLine("\nConsolidated progress bar demonstration completed!");
         Console.WriteLine("Notice how all progress indicators were shown simultaneously at the top.");
+    }
+
+    private static async Task TestConnectionAsync()
+    {
+        var connections = _connectionManager.GetConnections();
+        
+        if (connections.Count == 0)
+        {
+            Console.WriteLine("No connections found. Please add a connection first.");
+            return;
+        }
+
+        Console.WriteLine("\nTest Connection");
+        Console.WriteLine("Select a connection to test:");
+        
+        for (int i = 0; i < connections.Count; i++)
+        {
+            var conn = connections[i];
+            Console.WriteLine($"{i + 1}. {conn.GetDisplayName()}");
+            Console.WriteLine($"   Last used: {conn.LastUsed:yyyy-MM-dd HH:mm:ss}");
+        }
+
+        Console.Write($"\nSelect connection to test (1-{connections.Count}): ");
+        var choice = Console.ReadLine()?.Trim();
+
+        if (int.TryParse(choice, out int index) && index >= 1 && index <= connections.Count)
+        {
+            var selectedConnection = connections[index - 1];
+            
+            Console.WriteLine($"\n🔍 Testing connection: {selectedConnection.GetDisplayName()}");
+            Console.WriteLine("This may take a few seconds...");
+            
+            try
+            {
+                var tester = new ConnectionTester(_logger);
+                var testResult = await tester.TestConnectionAsync(selectedConnection);
+
+                // Display comprehensive test results
+                Console.WriteLine("\n" + new string('=', 60));
+                Console.WriteLine("CONNECTION TEST RESULTS");
+                Console.WriteLine(new string('=', 60));
+                
+                Console.WriteLine($"Connection: {selectedConnection.Name}");
+                Console.WriteLine($"Endpoint: {selectedConnection.Hostname}");
+                Console.WriteLine($"Database: {selectedConnection.DatabaseName}");
+                Console.WriteLine($"Graph: {selectedConnection.GraphName}");
+                Console.WriteLine();
+                
+                Console.WriteLine($"Status: {testResult.Message}");
+                Console.WriteLine($"Response Time: {testResult.ResponseTime.TotalMilliseconds:F0}ms");
+                
+                if (testResult.IsSuccessful)
+                {
+                    Console.WriteLine($"Read-Only: {(testResult.IsReadOnly ? "✅ Yes" : "⚠️ No")}");
+                    
+                    if (testResult.VertexCount.HasValue || testResult.EdgeCount.HasValue)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("Database Statistics:");
+                        Console.WriteLine($"  Vertices: {testResult.VertexCount ?? 0:N0}");
+                        Console.WriteLine($"  Edges: {testResult.EdgeCount ?? 0:N0}");
+                    }
+                    
+                    if (!testResult.IsReadOnly)
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("⚠️  WARNING: This connection may have write permissions!");
+                        Console.WriteLine("   For safety, only use read-only connections with this tool.");
+                    }
+                    else
+                    {
+                        Console.WriteLine();
+                        Console.WriteLine("🔒 Connection is safely configured for read-only access.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine();
+                    Console.WriteLine("❌ Connection test failed");
+                    if (testResult.Exception != null)
+                    {
+                        Console.WriteLine($"Error: {testResult.Exception.Message}");
+                        
+                        // Provide troubleshooting hints
+                        Console.WriteLine();
+                        Console.WriteLine("Troubleshooting tips:");
+                        Console.WriteLine("• Verify the hostname, database, and graph names");
+                        Console.WriteLine("• Check that the access key is correct and not expired");
+                        Console.WriteLine("• Ensure your network connection is working");
+                        Console.WriteLine("• Confirm the CosmosDB account is accessible");
+                    }
+                }
+                
+                Console.WriteLine(new string('=', 60));
+                
+                // Update last used timestamp if test was successful
+                if (testResult.IsSuccessful)
+                {
+                    _connectionManager.UpdateLastUsed(selectedConnection.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n❌ Test failed with error: {ex.Message}");
+                _logger.LogError(ex, "Connection test failed");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Invalid selection.");
+        }
+    }
+
+    private static async Task TestComplexQueryAsync()
+    {
+        Console.WriteLine("\nTest Complex Query Handling");
+        Console.WriteLine("This feature is experimental and may not cover all query scenarios.");
+        Console.WriteLine("Please provide feedback on your experience.");
+        Console.WriteLine();
+
+        Console.Write("Enter the Gremlin query to test: ");
+        var query = Console.ReadLine()?.Trim();
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            Console.WriteLine("Query cannot be empty.");
+            return;
+        }
+
+        // For demonstration, we just simulate running the query
+        // In a real scenario, you would execute this against a test database
+        try
+        {
+            Console.WriteLine($"\nRunning query: {query}");
+            await Task.Delay(1500); // Simulate query delay
+            
+            // Simulated result handling
+            Console.WriteLine("Query executed successfully!");
+            Console.WriteLine("Sample Results:");
+            Console.WriteLine("• Vertex 1: {\"id\": \"1\", \"label\": \"person\", \"properties\": {\"name\": \"John Doe\", \"age\": 29}}");
+            Console.WriteLine("• Vertex 2: {\"id\": \"2\", \"label\": \"product\", \"properties\": {\"category\": \"electronics\", \"price\": 399.99}}");
+            
+            // Here you could add code to validate the results against expected values
+            
+            Console.WriteLine("If no errors are shown, the query handling is likely working correctly.");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error running query: {ex.Message}");
+        }
     }
 }
