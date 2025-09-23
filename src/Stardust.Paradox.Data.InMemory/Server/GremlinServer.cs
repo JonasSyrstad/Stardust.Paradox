@@ -1,3 +1,4 @@
+#if NET8_0_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -45,12 +46,7 @@ namespace Stardust.Paradox.Data.InMemory.Server
         {
             Options = options ?? throw new ArgumentNullException(nameof(options));
             
-            // Check if WebSocket is supported
-#if NET8_0_OR_GREATER || NETCOREAPP3_1_OR_GREATER
             WebSocketSupported = true;
-#else
-            WebSocketSupported = false;
-#endif
 
             // Create the underlying database connector
             Connector = new InMemoryGremlinLanguageConnector(options.DatabaseOptions);
@@ -172,3 +168,4 @@ namespace Stardust.Paradox.Data.InMemory.Server
         }
     }
 }
+#endif

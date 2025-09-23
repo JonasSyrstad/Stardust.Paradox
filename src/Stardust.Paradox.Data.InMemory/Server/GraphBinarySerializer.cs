@@ -1,3 +1,4 @@
+#if NET8_0_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -225,3 +226,5 @@ namespace Stardust.Paradox.Data.InMemory.Server
         }
     }
 }
+
+#endif

@@ -1,3 +1,4 @@
+#if NET8_0_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 using System;
 using Stardust.Paradox.Data.InMemory.Management;
 using System.Net.WebSockets;
@@ -6,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-#if NETCOREAPP3_1_OR_GREATER || NET6_0_OR_GREATER
 
 namespace Stardust.Paradox.Data.InMemory.Server
 {

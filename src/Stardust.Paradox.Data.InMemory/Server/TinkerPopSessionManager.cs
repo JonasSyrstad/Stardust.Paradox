@@ -1,3 +1,4 @@
+#if NET8_0_OR_GREATER || NETCOREAPP3_1_OR_GREATER
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -564,3 +565,5 @@ namespace Stardust.Paradox.Data.InMemory.Server
         public Dictionary<string, object> Configuration { get; set; } = new Dictionary<string, object>();
     }
 }
+
+#endif
