@@ -1,12 +1,75 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.InMemory.ExecutionEngine;
 using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory
 {
+#if NET8_0_OR_GREATER
+#else
+//#endif
+    public static class NetStandardHelper
+    {
+
+        public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> source, TKey key)
+        {
+            if(source.TryGetValue(key, out var v))
+                return v;
+            return default(TValue);
+        }
+        public static HashSet<T> ToHashSet<T>(this IEnumerable<T> source)
+        {
+            return new HashSet<T>(source);
+        }
+
+        public static IEnumerable<T> TakeLast<T>(this IEnumerable<T> source, int count)
+        {
+            if (null == source)
+                throw new ArgumentNullException(nameof(source));
+            if (count < 0)
+                throw new ArgumentOutOfRangeException(nameof(count));
+
+            if (0 == count)
+                yield break;
+
+            // Optimization (see JonasH's comment)
+            if (source is ICollection<T>)
+            {
+                foreach (T item in source.Skip(((ICollection<T>)source).Count - count))
+                    yield return item;
+
+                yield break;
+            }
+
+            if (source is IReadOnlyCollection<T>)
+            {
+                foreach (T item in source.Skip(((IReadOnlyCollection<T>)source).Count - count))
+                    yield return item;
+
+                yield break;
+            }
+
+            // General case, we have to enumerate source
+            Queue<T> result = new Queue<T>();
+
+            foreach (T item in source)
+            {
+                if (result.Count == count)
+                    result.Dequeue();
+
+                result.Enqueue(item);
+            }
+
+            foreach (T item in result)
+                yield return result.Dequeue();
+
+        }
+    }
+#endif
     /// <summary>
     /// In-memory implementation of IGremlinLanguageConnector with TinkerGraph-inspired optimizations
     /// </summary>
@@ -83,7 +146,7 @@ namespace Stardust.Paradox.Data.InMemory
                 try
                 {
                     result = _tinkerParser.ParseAndExecute(query, parametrizedValues);
-                    
+
                     if (_options.EnableDebugLogging)
                     {
                         Console.WriteLine("[InMemoryGremlin] Used TinkerGraph parser");
@@ -95,18 +158,18 @@ namespace Stardust.Paradox.Data.InMemory
                     {
                         Console.WriteLine($"[InMemoryGremlin] TinkerGraph parser failed: {tinkerEx.Message}");
                     }
-                    
+
                     // Check if this is a syntax error that should not be retried
                     if (IsSyntaxError(query, tinkerEx))
                     {
                         throw new InvalidOperationException($"Invalid Gremlin syntax: {tinkerEx.Message}", tinkerEx);
                     }
-                    
+
                     // Fallback to advanced parser
                     try
                     {
                         result = _advancedParser.ParseAndExecute(query, parametrizedValues);
-                        
+
                         if (_options.EnableDebugLogging)
                         {
                             Console.WriteLine("[InMemoryGremlin] Used advanced parser");
@@ -119,13 +182,13 @@ namespace Stardust.Paradox.Data.InMemory
                             Console.WriteLine($"[InMemoryGremlin] Advanced parser failed: {advancedEx.Message}");
                             Console.WriteLine("[InMemoryGremlin] Falling back to simple parser");
                         }
-                        
+
                         // Check if this is a syntax error before final fallback
                         if (IsSyntaxError(query, advancedEx))
                         {
                             throw new InvalidOperationException($"Invalid Gremlin syntax: {advancedEx.Message}", advancedEx);
                         }
-                        
+
                         // Final fallback to simple parser
                         result = await _simpleParser.ParseAndExecuteAsync(query, parametrizedValues);
                     }
@@ -159,38 +222,38 @@ namespace Stardust.Paradox.Data.InMemory
         {
             // Basic TinkerPop syntax validation
             var normalizedQuery = query.Trim().ToLower();
-            
+
             // Check for common invalid patterns
-            if (normalizedQuery.StartsWith("invalid") || 
+            if (normalizedQuery.StartsWith("invalid") ||
                 normalizedQuery.Contains("invalid_syntax") ||
                 normalizedQuery.Contains("nonexistent.method") ||
                 normalizedQuery.Contains("badmethod"))
             {
                 throw new InvalidOperationException($"Invalid query syntax: {query}");
             }
-            
+
             // Check for empty or null content
             if (string.IsNullOrWhiteSpace(normalizedQuery) || normalizedQuery == "null")
             {
                 throw new ArgumentException("Query cannot be empty or null");
             }
-            
+
             // Enhanced syntax validation for TinkerPop compliance
             if (normalizedQuery.Contains("nonexistentmethod") ||
                 normalizedQuery.Contains("invalidchain"))
             {
                 throw new InvalidOperationException($"Invalid Gremlin method in query: {query}");
             }
-            
+
             // Check for basic syntax requirements
-            if (!normalizedQuery.StartsWith("g.") && 
+            if (!normalizedQuery.StartsWith("g.") &&
                 !normalizedQuery.StartsWith("g ") &&
                 !normalizedQuery.Contains("inject") &&
                 !IsValidSimpleQuery(normalizedQuery))
             {
                 throw new InvalidOperationException($"Query must start with 'g.' or be a valid simple query: {query}");
             }
-            
+
             // Check for unmatched parentheses
             var openParens = 0;
             foreach (var c in query)
@@ -198,13 +261,13 @@ namespace Stardust.Paradox.Data.InMemory
                 if (c == '(') openParens++;
                 else if (c == ')') openParens--;
             }
-            
+
             if (openParens != 0)
             {
                 throw new InvalidOperationException($"Unmatched parentheses in query: {query}");
             }
         }
-        
+
         /// <summary>
         /// Check if a query is a valid simple query that doesn't need to start with g.
         /// </summary>
@@ -215,7 +278,7 @@ namespace Stardust.Paradox.Data.InMemory
                    normalizedQuery.Contains("addv") ||
                    normalizedQuery.Contains("adde");
         }
-        
+
         /// <summary>
         /// Determine if an exception represents a syntax error that shouldn't be retried
         /// </summary>
@@ -223,7 +286,7 @@ namespace Stardust.Paradox.Data.InMemory
         {
             var message = ex.Message.ToLower();
             var queryLower = query.ToLower();
-            
+
             // Check for known syntax error patterns
             if (message.Contains("syntax") ||
                 message.Contains("parse") ||
@@ -234,7 +297,7 @@ namespace Stardust.Paradox.Data.InMemory
             {
                 return true;
             }
-            
+
             return false;
         }
 
@@ -424,24 +487,24 @@ namespace Stardust.Paradox.Data.InMemory
             {
                 return _options.SimulatedRUPerQuery;
             }
-            
+
             // Otherwise, use the complex calculation logic for default behavior
             // Base cost
             double cost = 1.0;
-            
+
             // Increase cost based on query complexity
             if (query.Contains("out(") || query.Contains("in(") || query.Contains("both("))
                 cost += 0.5;
-            
+
             if (query.Contains("has("))
                 cost += 0.2;
-                
+
             if (query.Contains("group") || query.Contains("order"))
                 cost += 1.0;
-                
+
             if (query.Contains("repeat"))
                 cost += 2.0;
-            
+
             // Increase cost based on result count
             if (result != null)
             {
@@ -451,10 +514,10 @@ namespace Stardust.Paradox.Data.InMemory
                     resultCount++;
                     if (resultCount > 1000) break; // Cap the counting for performance
                 }
-                
+
                 cost += Math.Min(resultCount / 100.0, 5.0); // Max 5 RU for result size
             }
-            
+
             return Math.Max(cost, 0.1); // Minimum cost
         }
 
@@ -464,7 +527,7 @@ namespace Stardust.Paradox.Data.InMemory
         public Dictionary<string, object> GetPerformanceMetrics()
         {
             var (vertexCount, edgeCount, indexStats) = _database.GetStatistics();
-            
+
             return new Dictionary<string, object>
             {
                 ["totalRU"] = _consumedRU,
@@ -482,10 +545,10 @@ namespace Stardust.Paradox.Data.InMemory
 
         private void LogQuery(string query, Dictionary<string, object> parameters)
         {
-            var paramString = parameters.Count > 0 
-                ? string.Join(", ", parameters) 
+            var paramString = parameters.Count > 0
+                ? string.Join(", ", parameters)
                 : "none";
-            
+
             Console.WriteLine($"[InMemoryGremlin] Query: {query}");
             Console.WriteLine($"[InMemoryGremlin] Parameters: {paramString}");
         }
@@ -509,7 +572,7 @@ namespace Stardust.Paradox.Data.InMemory
         {
             Console.WriteLine($"[InMemoryGremlin] Query failed after {elapsedMs}ms: {query}");
             Console.WriteLine($"[InMemoryGremlin] Error: {ex.Message}");
-            
+
             if (_options.EnableDebugLogging && ex.InnerException != null)
             {
                 Console.WriteLine($"[InMemoryGremlin] Inner error: {ex.InnerException.Message}");
