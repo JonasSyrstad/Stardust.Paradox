@@ -14,7 +14,7 @@ namespace Stardust.Paradox.Data.InMemory
         public override string ScenarioName => "LibraryManagement";
         public override string Description => "Library system with books, authors, genres, and borrowing relationships";
 
-        protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.SenarioEdgeDefinition[] edges) GetScenarioData()
+        protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.ScenarioEdgeDefinition[] edges) GetScenarioData()
         {
             var vertices = new Scenarios.ScenarioVertexDefinition[]
             {
@@ -73,24 +73,24 @@ namespace Stardust.Paradox.Data.InMemory
                 ))
             };
 
-            var edges = new Scenarios.SenarioEdgeDefinition[]
+            var edges = new Scenarios.ScenarioEdgeDefinition[]
             {
                 // Author-Book relationships
-                new Scenarios.SenarioEdgeDefinition("wrote", "tolkien", "lotr"),
-                new Scenarios.SenarioEdgeDefinition("wrote", "tolkien", "hobbit"),
-                new Scenarios.SenarioEdgeDefinition("wrote", "asimov", "foundation"),
+                new Scenarios.ScenarioEdgeDefinition("wrote", "tolkien", "lotr"),
+                new Scenarios.ScenarioEdgeDefinition("wrote", "tolkien", "hobbit"),
+                new Scenarios.ScenarioEdgeDefinition("wrote", "asimov", "foundation"),
 
                 // Book-Genre relationships
-                new Scenarios.SenarioEdgeDefinition("belongs_to", "lotr", "fantasy"),
-                new Scenarios.SenarioEdgeDefinition("belongs_to", "hobbit", "fantasy"),
-                new Scenarios.SenarioEdgeDefinition("belongs_to", "foundation", "scifi"),
+                new Scenarios.ScenarioEdgeDefinition("belongs_to", "lotr", "fantasy"),
+                new Scenarios.ScenarioEdgeDefinition("belongs_to", "hobbit", "fantasy"),
+                new Scenarios.ScenarioEdgeDefinition("belongs_to", "foundation", "scifi"),
 
                 // Borrowing relationships
-                new Scenarios.SenarioEdgeDefinition("borrowed", "patron1", "lotr", Props(
+                new Scenarios.ScenarioEdgeDefinition("borrowed", "patron1", "lotr", Props(
                     ("borrowDate", DateTime.UtcNow.AddDays(-10)),
                     ("dueDate", DateTime.UtcNow.AddDays(4))
                 )),
-                new Scenarios.SenarioEdgeDefinition("borrowed", "patron2", "foundation", Props(
+                new Scenarios.ScenarioEdgeDefinition("borrowed", "patron2", "foundation", Props(
                     ("borrowDate", DateTime.UtcNow.AddDays(-5)),
                     ("dueDate", DateTime.UtcNow.AddDays(9))
                 ))

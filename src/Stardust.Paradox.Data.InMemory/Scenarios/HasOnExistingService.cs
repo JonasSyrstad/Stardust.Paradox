@@ -9,7 +9,7 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
     public override string ScenarioName { get; } = "hasOneExistingService";
     public override string Description { get; } = "Creates a test service with admin user";
 
-    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         // Test user ID from TestsBase.CreateTestClaimsIdentity() 
         var testUserId = "550e8400-e29b-41d4-a716-446655440000";
@@ -44,9 +44,9 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
         };
 
         // Administrator edge from service to user (IAdministrator : IEdge<IServiceDefinition, IUser>)
-        var edges = new SenarioEdgeDefinition[]
+        var edges = new ScenarioEdgeDefinition[]
         {
-            new SenarioEdgeDefinition("administrators", existingServiceId, testUserId, Props(
+            new ScenarioEdgeDefinition("administrators", existingServiceId, testUserId, Props(
                 ("roles", "MYDNV_ADM_SERVICE"),
                 ("isOwner", true)
             ))

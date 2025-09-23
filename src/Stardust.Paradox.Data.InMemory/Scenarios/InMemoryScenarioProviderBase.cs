@@ -30,7 +30,7 @@ public abstract class InMemoryScenarioProviderBase : IInMemoryScenarioProvider
     /// Override to provide vertex and edge definitions for the scenario
     /// </summary>
     /// <returns>Tuple of vertices and edges</returns>
-    protected virtual (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected virtual (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         return (null, null);
     }
@@ -70,7 +70,7 @@ public abstract class InMemoryScenarioProviderBase : IInMemoryScenarioProvider
     /// </summary>
     protected virtual void PopulateDatabase(InMemoryGraphDatabase database, 
         ScenarioVertexDefinition[] vertices, 
-        SenarioEdgeDefinition[] edges)
+        ScenarioEdgeDefinition[] edges)
     {
         // Add vertices first
         if (vertices != null)

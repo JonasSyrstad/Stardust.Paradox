@@ -4,6 +4,7 @@ using System.Linq;
 
 namespace Stardust.Paradox.Data.InMemory.Scenarios
 {
+
     /// <summary>
     /// Basic social network scenario with users, friendships, and posts
     /// </summary>
@@ -12,7 +13,7 @@ namespace Stardust.Paradox.Data.InMemory.Scenarios
         public override string ScenarioName => "BasicSocialNetwork";
         public override string Description => "Simple social network with users, friendships, and posts for testing traversals";
 
-        protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+        protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
         {
             var vertices = new ScenarioVertexDefinition[]
             {
@@ -54,18 +55,18 @@ namespace Stardust.Paradox.Data.InMemory.Scenarios
                 ))
             };
 
-            var edges = new SenarioEdgeDefinition[]
+            var edges = new ScenarioEdgeDefinition[]
             {
-                new SenarioEdgeDefinition("knows", "john", "jane"),
-                new SenarioEdgeDefinition("knows", "jane", "bob"),
-                new SenarioEdgeDefinition("knows", "john", "alice"),
-                new SenarioEdgeDefinition("knows", "bob", "alice"),
-                new SenarioEdgeDefinition("authored", "john", "post1"),
-                new SenarioEdgeDefinition("authored", "jane", "post2"),
-                new SenarioEdgeDefinition("likes", "jane", "post1"),
-                new SenarioEdgeDefinition("likes", "alice", "post1"),
-                new SenarioEdgeDefinition("likes", "john", "post2"),
-                new SenarioEdgeDefinition("likes", "bob", "post2")
+                new ScenarioEdgeDefinition("knows", "john", "jane"),
+                new ScenarioEdgeDefinition("knows", "jane", "bob"),
+                new ScenarioEdgeDefinition("knows", "john", "alice"),
+                new ScenarioEdgeDefinition("knows", "bob", "alice"),
+                new ScenarioEdgeDefinition("authored", "john", "post1"),
+                new ScenarioEdgeDefinition("authored", "jane", "post2"),
+                new ScenarioEdgeDefinition("likes", "jane", "post1"),
+                new ScenarioEdgeDefinition("likes", "alice", "post1"),
+                new ScenarioEdgeDefinition("likes", "john", "post2"),
+                new ScenarioEdgeDefinition("likes", "bob", "post2")
             };
 
             return (vertices, edges);

@@ -12,7 +12,7 @@ public class SimpleECommerceScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "SimpleECommerce";
     public override string Description => "Basic e-commerce setup with products, customers, and purchase relationships";
 
-    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         var vertices = new ScenarioVertexDefinition[]
         {
@@ -52,14 +52,14 @@ public class SimpleECommerceScenario : InMemoryScenarioProviderBase
             ))
         };
 
-        var edges = new SenarioEdgeDefinition[]
+        var edges = new ScenarioEdgeDefinition[]
         {
-            new SenarioEdgeDefinition("purchased", "customer1", "laptop"),
-            new SenarioEdgeDefinition("purchased", "customer1", "mouse"),
-            new SenarioEdgeDefinition("purchased", "customer2", "book"),
-            new SenarioEdgeDefinition("contains", "order1", "laptop"),
-            new SenarioEdgeDefinition("contains", "order1", "mouse"),
-            new SenarioEdgeDefinition("placed", "customer1", "order1")
+            new ScenarioEdgeDefinition("purchased", "customer1", "laptop"),
+            new ScenarioEdgeDefinition("purchased", "customer1", "mouse"),
+            new ScenarioEdgeDefinition("purchased", "customer2", "book"),
+            new ScenarioEdgeDefinition("contains", "order1", "laptop"),
+            new ScenarioEdgeDefinition("contains", "order1", "mouse"),
+            new ScenarioEdgeDefinition("placed", "customer1", "order1")
         };
 
         return (vertices, edges);

@@ -12,7 +12,7 @@ public class UserRoleManagementScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "UserRoleManagement";
     public override string Description => "User management system with roles, permissions, and access control";
 
-    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         var vertices = new ScenarioVertexDefinition[]
         {
@@ -78,23 +78,23 @@ public class UserRoleManagementScenario : InMemoryScenarioProviderBase
             ))
         };
 
-        var edges = new SenarioEdgeDefinition[]
+        var edges = new ScenarioEdgeDefinition[]
         {
             // User-Role assignments
-            new SenarioEdgeDefinition("has_role", "admin", "admin_role"),
-            new SenarioEdgeDefinition("has_role", "manager", "manager_role"),
-            new SenarioEdgeDefinition("has_role", "developer", "dev_role"),
-            new SenarioEdgeDefinition("has_role", "guest", "guest_role"),
+            new ScenarioEdgeDefinition("has_role", "admin", "admin_role"),
+            new ScenarioEdgeDefinition("has_role", "manager", "manager_role"),
+            new ScenarioEdgeDefinition("has_role", "developer", "dev_role"),
+            new ScenarioEdgeDefinition("has_role", "guest", "guest_role"),
                 
             // Role-Permission assignments
-            new SenarioEdgeDefinition("has_permission", "admin_role", "create_perm"),
-            new SenarioEdgeDefinition("has_permission", "admin_role", "read_perm"),
-            new SenarioEdgeDefinition("has_permission", "admin_role", "update_perm"),
-            new SenarioEdgeDefinition("has_permission", "admin_role", "delete_perm"),
-            new SenarioEdgeDefinition("has_permission", "manager_role", "read_perm"),
-            new SenarioEdgeDefinition("has_permission", "manager_role", "update_perm"),
-            new SenarioEdgeDefinition("has_permission", "dev_role", "read_perm"),
-            new SenarioEdgeDefinition("has_permission", "guest_role", "read_perm")
+            new ScenarioEdgeDefinition("has_permission", "admin_role", "create_perm"),
+            new ScenarioEdgeDefinition("has_permission", "admin_role", "read_perm"),
+            new ScenarioEdgeDefinition("has_permission", "admin_role", "update_perm"),
+            new ScenarioEdgeDefinition("has_permission", "admin_role", "delete_perm"),
+            new ScenarioEdgeDefinition("has_permission", "manager_role", "read_perm"),
+            new ScenarioEdgeDefinition("has_permission", "manager_role", "update_perm"),
+            new ScenarioEdgeDefinition("has_permission", "dev_role", "read_perm"),
+            new ScenarioEdgeDefinition("has_permission", "guest_role", "read_perm")
         };
 
         return (vertices, edges);

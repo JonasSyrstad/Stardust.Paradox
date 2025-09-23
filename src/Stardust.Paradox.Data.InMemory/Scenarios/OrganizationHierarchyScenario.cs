@@ -13,7 +13,7 @@ public class OrganizationHierarchyScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "OrganizationHierarchy";
     public override string Description => "Company structure with employees, departments, and management relationships";
 
-    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         var vertices = new ScenarioVertexDefinition[]
         {
@@ -57,16 +57,16 @@ public class OrganizationHierarchyScenario : InMemoryScenarioProviderBase
             ))
         };
 
-        var edges = new SenarioEdgeDefinition[]
+        var edges = new ScenarioEdgeDefinition[]
         {
-            new SenarioEdgeDefinition("manages", "ceo", "eng_manager"),
-            new SenarioEdgeDefinition("manages", "ceo", "hr_manager"),
-            new SenarioEdgeDefinition("manages", "eng_manager", "dev1"),
-            new SenarioEdgeDefinition("manages", "eng_manager", "dev2"),
-            new SenarioEdgeDefinition("works_for", "eng_manager", "engineering_dept"),
-            new SenarioEdgeDefinition("works_for", "dev1", "engineering_dept"),
-            new SenarioEdgeDefinition("works_for", "dev2", "engineering_dept"),
-            new SenarioEdgeDefinition("works_for", "hr_manager", "hr_dept")
+            new ScenarioEdgeDefinition("manages", "ceo", "eng_manager"),
+            new ScenarioEdgeDefinition("manages", "ceo", "hr_manager"),
+            new ScenarioEdgeDefinition("manages", "eng_manager", "dev1"),
+            new ScenarioEdgeDefinition("manages", "eng_manager", "dev2"),
+            new ScenarioEdgeDefinition("works_for", "eng_manager", "engineering_dept"),
+            new ScenarioEdgeDefinition("works_for", "dev1", "engineering_dept"),
+            new ScenarioEdgeDefinition("works_for", "dev2", "engineering_dept"),
+            new ScenarioEdgeDefinition("works_for", "hr_manager", "hr_dept")
         };
 
         return (vertices, edges);

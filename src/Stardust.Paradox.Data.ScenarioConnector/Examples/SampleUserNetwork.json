@@ -1,0 +1,97 @@
+{
+  "Name": "SampleUserNetwork",
+  "Description": "Sample exported user network scenario for demonstration",
+  "ExportedAt": "2025-01-27T10:00:00.000Z",
+  "SourceConnection": "DemoCosmosDB",
+  "ExportQuery": "g.V().hasLabel('user').limit(3)",
+  "VertexIds": null,
+  "Vertices": [
+    {
+      "Id": "user1",
+      "Label": "user",
+      "Properties": {
+        "name": "Alice Johnson",
+        "email": "alice@example.com",
+        "verified": true,
+        "joinDate": "2023-01-15",
+        "age": 28,
+        "department": "Engineering",
+        "location": "Seattle",
+        "lastLogin": "2025-01-26T15:30:00Z"
+      }
+    },
+    {
+      "Id": "user2",
+      "Label": "user",
+      "Properties": {
+        "name": "Bob Smith",
+        "email": "bob@example.com",
+        "verified": true,
+        "joinDate": "2023-02-20",
+        "age": 35,
+        "department": "Marketing",
+        "location": "San Francisco",
+        "lastLogin": "2025-01-27T09:15:00Z"
+      }
+    },
+    {
+      "Id": "user3",
+      "Label": "user",
+      "Properties": {
+        "name": "Carol Davis",
+        "email": "carol@example.com",
+        "verified": false,
+        "joinDate": "2023-03-10",
+        "age": 31,
+        "department": "Sales",
+        "location": "New York",
+        "lastLogin": "2025-01-25T18:45:00Z"
+      }
+    }
+  ],
+  "Edges": [
+    {
+      "Id": "edge1",
+      "Label": "follows",
+      "OutVertexId": "user1",
+      "InVertexId": "user2",
+      "Properties": {
+        "since": "2023-01-20",
+        "strength": 0.8,
+        "interactionCount": 45,
+        "lastInteraction": "2025-01-26T14:22:00Z",
+        "type": "professional"
+      }
+    },
+    {
+      "Id": "edge2",
+      "Label": "follows",
+      "OutVertexId": "user2",
+      "InVertexId": "user3",
+      "Properties": {
+        "since": "2023-03-15",
+        "strength": 0.6,
+        "interactionCount": 23,
+        "lastInteraction": "2025-01-25T11:30:00Z",
+        "type": "personal"
+      }
+    },
+    {
+      "Id": "edge3",
+      "Label": "collaborates",
+      "OutVertexId": "user1",
+      "InVertexId": "user3",
+      "Properties": {
+        "projectName": "DataMigration2024",
+        "startDate": "2024-06-01",
+        "status": "active",
+        "priority": "high"
+      }
+    }
+  ],
+  "Metadata": {
+    "vertexCount": 3,
+    "edgeCount": 3,
+    "exportedBy": "Stardust.Paradox.Data.ScenarioConnector"
+  }
+}

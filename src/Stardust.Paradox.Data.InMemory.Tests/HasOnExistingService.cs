@@ -10,7 +10,7 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
     public override string ScenarioName { get; } = "hasOneExistingService";
     public override string Description { get; } = "Creates a test service with admin user";
 
-    protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (Scenarios.ScenarioVertexDefinition[] vertices, Scenarios.ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         // Test user ID from TestsBase.CreateTestClaimsIdentity() 
         var testUserId = "550e8400-e29b-41d4-a716-446655440000";
@@ -44,7 +44,7 @@ public class HasOnExistingService : InMemoryScenarioProviderBase
         };
 
         // No edges needed - the scenario provides the service, authorization will be handled via PreAuthenticated
-        var edges = new Scenarios.SenarioEdgeDefinition[0];
+        var edges = new Scenarios.ScenarioEdgeDefinition[0];
 
         return (vertices, edges);
     }

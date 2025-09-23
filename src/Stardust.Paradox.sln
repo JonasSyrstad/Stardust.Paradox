@@ -23,6 +23,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.Data.InMem
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GremlinNetComprehensiveTestApp", "GremlinNetComprehensiveTestApp\GremlinNetComprehensiveTestApp.csproj", "{7095CC05-05F5-2AFD-3937-29B0DD75A0A9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.Data.ScenarioConnector", "Stardust.Paradox.Data.ScenarioConnector\Stardust.Paradox.Data.ScenarioConnector.csproj", "{C8700D34-AD35-488F-A925-B3E3A944E207}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -69,6 +71,10 @@ Global
 		{7095CC05-05F5-2AFD-3937-29B0DD75A0A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{7095CC05-05F5-2AFD-3937-29B0DD75A0A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7095CC05-05F5-2AFD-3937-29B0DD75A0A9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C8700D34-AD35-488F-A925-B3E3A944E207}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C8700D34-AD35-488F-A925-B3E3A944E207}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C8700D34-AD35-488F-A925-B3E3A944E207}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C8700D34-AD35-488F-A925-B3E3A944E207}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

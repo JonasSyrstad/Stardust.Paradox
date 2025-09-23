@@ -11,7 +11,7 @@ public class GraphTraversalTestScenario : InMemoryScenarioProviderBase
     public override string ScenarioName => "GraphTraversalTest";
     public override string Description => "Designed for testing complex graph traversal operations and edge cases";
 
-    protected override (ScenarioVertexDefinition[] vertices, SenarioEdgeDefinition[] edges) GetScenarioData()
+    protected override (ScenarioVertexDefinition[] vertices, ScenarioEdgeDefinition[] edges) GetScenarioData()
     {
         var vertices = new ScenarioVertexDefinition[]
         {
@@ -28,17 +28,17 @@ public class GraphTraversalTestScenario : InMemoryScenarioProviderBase
             new ScenarioVertexDefinition("t3", "typeA", Props(("name", "TypeA-2"))),
         };
 
-        var edges = new SenarioEdgeDefinition[]
+        var edges = new ScenarioEdgeDefinition[]
         {
-            new SenarioEdgeDefinition("connects", "v1", "v2"),
-            new SenarioEdgeDefinition("connects", "v2", "v3"),
-            new SenarioEdgeDefinition("connects", "v3", "v4"),
-            new SenarioEdgeDefinition("connects", "v1", "v3"), // Alternative path
-            new SenarioEdgeDefinition("links", "t1", "t2"),
-            new SenarioEdgeDefinition("links", "t2", "t3"),
+            new ScenarioEdgeDefinition("connects", "v1", "v2"),
+            new ScenarioEdgeDefinition("connects", "v2", "v3"),
+            new ScenarioEdgeDefinition("connects", "v3", "v4"),
+            new ScenarioEdgeDefinition("connects", "v1", "v3"), // Alternative path
+            new ScenarioEdgeDefinition("links", "t1", "t2"),
+            new ScenarioEdgeDefinition("links", "t2", "t3"),
                 
             // Self-loop for testing
-            new SenarioEdgeDefinition("self", "v2", "v2")
+            new ScenarioEdgeDefinition("self", "v2", "v2")
         };
 
         return (vertices, edges);
