@@ -20,11 +20,11 @@ namespace Stardust.Paradox.Data.InMemory.Tests
     {
         private readonly InMemoryGremlinLanguageConnector _connector;
         private readonly TinkerPopSessionManager _sessionManager;
-        private readonly GremlinServerOptions _options;
+        private readonly InMemoryGremlinServerOptions _options;
 
         public TinkerPopProtocolComplianceTests()
         {
-            _options = new GremlinServerOptions
+            _options = new InMemoryGremlinServerOptions
             {
                 EnableLogging = false,
                 EnableDebugLogging = false
@@ -114,7 +114,7 @@ namespace Stardust.Paradox.Data.InMemory.Tests
         public async Task TinkerPopSessionManager_Should_Handle_Authentication_Flow()
         {
             // Arrange
-            var authOptions = new GremlinServerOptions
+            var authOptions = new InMemoryGremlinServerOptions
             {
                 Authentication = new GremlinAuthenticationOptions
                 {

@@ -4,7 +4,7 @@ using System.Linq;
 using Gremlin.Net.Driver;
 using Stardust.Paradox.Data.InMemory;
 using Stardust.Paradox.Data.InMemory.Management;
-using InMemoryGremlinServer = Stardust.Paradox.Data.InMemory.Server.GremlinServer;
+using Stardust.Paradox.Data.InMemory.Server;
 
 namespace GremlinNetComprehensiveTestApp
 {

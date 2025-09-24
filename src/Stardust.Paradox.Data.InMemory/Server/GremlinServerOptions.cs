@@ -8,7 +8,7 @@ namespace Stardust.Paradox.Data.InMemory.Server
     /// <summary>
     /// Configuration options for the Gremlin server endpoint
     /// </summary>
-    public class GremlinServerOptions
+    public class InMemoryGremlinServerOptions
     {
         /// <summary>
         /// The hostname or IP address to bind the server to. Default is "localhost"

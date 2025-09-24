@@ -10,7 +10,7 @@ namespace Stardust.Paradox.Data.InMemory.Server
     /// <summary>
     /// Example console application demonstrating how to start and use the Gremlin server
     /// </summary>
-    public class GremlinServerExample
+    public class InMemoryGremlinServerExample
     {
         public static async Task RunExampleAsync()
         {

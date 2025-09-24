@@ -14,10 +14,10 @@ namespace Stardust.Paradox.Data.InMemory.Server
     public class TinkerPopSessionManager
     {
         private readonly ConcurrentDictionary<string, TinkerPopSession> _sessions;
-        private readonly GremlinServerOptions _serverOptions;
+        private readonly InMemoryGremlinServerOptions _serverOptions;
         private readonly InMemoryGremlinLanguageConnector _connector;
 
-        public TinkerPopSessionManager(GremlinServerOptions serverOptions, InMemoryGremlinLanguageConnector connector)
+        public TinkerPopSessionManager(InMemoryGremlinServerOptions serverOptions, InMemoryGremlinLanguageConnector connector)
         {
             _sessions = new ConcurrentDictionary<string, TinkerPopSession>();
             _serverOptions = serverOptions;

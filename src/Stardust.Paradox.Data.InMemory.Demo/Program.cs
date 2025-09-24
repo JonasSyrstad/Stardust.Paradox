@@ -14,7 +14,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
     /// </summary>
     class Program
     {
-        private static GremlinServer? _server;
+        private static InMemoryGremlinServer? _server;
         private static IGremlinQueryClient? _client;
         private static SocialCommerceScenario? _scenario;
         private static readonly Dictionary<string, string> _exampleQueries = new();

@@ -35,7 +35,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             Console.WriteLine("=" + new string('=', 50));
 
             // Start server
-            GremlinServer? server = null;
+            InMemoryGremlinServer? server = null;
             try
             {
                 Console.WriteLine("\n1??  Starting Gremlin Server...");
@@ -111,7 +111,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             return results;
         }
 
-        private static async Task<GremlinServer> StartTestServerAsync()
+        private static async Task<InMemoryGremlinServer> StartTestServerAsync()
         {
             return await GremlinDatabase.StartAsync(options =>
             {
@@ -128,13 +128,13 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             });
         }
 
-        private static async Task LoadTestScenarioAsync(GremlinServer server)
+        private static async Task LoadTestScenarioAsync(InMemoryGremlinServer server)
         {
             var scenario = new SocialCommerceScenario(server.Connector);
             await scenario.LoadScenarioAsync();
         }
 
-        private static async Task<ProtocolTestResult> TestProtocolAsync(WireProtocol protocol, GremlinServer server)
+        private static async Task<ProtocolTestResult> TestProtocolAsync(WireProtocol protocol, InMemoryGremlinServer server)
         {
             var result = new ProtocolTestResult();
             var stopwatch = Stopwatch.StartNew();
@@ -188,7 +188,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             return result;
         }
 
-        private static async Task<ProtocolTestResult> TestGremlinNetClientAsync(GremlinServer server)
+        private static async Task<ProtocolTestResult> TestGremlinNetClientAsync(InMemoryGremlinServer server)
         {
             var result = new ProtocolTestResult();
             var stopwatch = Stopwatch.StartNew();
@@ -378,7 +378,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             Console.WriteLine("=" + new string('=', 40));
 
             // Start server with TCP only first
-            GremlinServer? server = null;
+            InMemoryGremlinServer? server = null;
             try
             {
                 Console.WriteLine("\n1??  Starting Gremlin Server (TCP only)...");
@@ -452,7 +452,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             return results;
         }
 
-        private static async Task<GremlinServer> StartBasicTestServerAsync()
+        private static async Task<InMemoryGremlinServer> StartBasicTestServerAsync()
         {
             return await GremlinDatabase.StartAsync(options =>
             {
@@ -469,7 +469,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             });
         }
 
-        private static async Task<ProtocolTestResult> TestDirectProtocolAsync(GremlinServer server)
+        private static async Task<ProtocolTestResult> TestDirectProtocolAsync(InMemoryGremlinServer server)
         {
             var result = new ProtocolTestResult();
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -525,7 +525,7 @@ namespace Stardust.Paradox.Data.InMemory.Demo
             return result;
         }
 
-        private static async Task<ProtocolTestResult> TestTcpProtocolAsync(GremlinServer server)
+        private static async Task<ProtocolTestResult> TestTcpProtocolAsync(InMemoryGremlinServer server)
         {
             var result = new ProtocolTestResult();
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();

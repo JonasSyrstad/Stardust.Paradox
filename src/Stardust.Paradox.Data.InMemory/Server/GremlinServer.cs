@@ -8,12 +8,12 @@ namespace Stardust.Paradox.Data.InMemory.Server
     /// <summary>
     /// Main Gremlin server implementation that handles TCP, WebSocket, and HTTP connections
     /// </summary>
-    public class GremlinServer : IDisposable
+    public class InMemoryGremlinServer : IDisposable
     {
         /// <summary>
         /// Server configuration options
         /// </summary>
-        public GremlinServerOptions Options { get; private set; }
+        public InMemoryGremlinServerOptions Options { get; private set; }
 
         /// <summary>
         /// Number of active connections
@@ -42,7 +42,7 @@ namespace Stardust.Paradox.Data.InMemory.Server
         /// Initialize a new Gremlin server with the specified options
         /// </summary>
         /// <param name="options">Server configuration</param>
-        public GremlinServer(GremlinServerOptions options)
+        public InMemoryGremlinServer(InMemoryGremlinServerOptions options)
         {
             Options = options ?? throw new ArgumentNullException(nameof(options));
             
@@ -61,7 +61,7 @@ namespace Stardust.Paradox.Data.InMemory.Server
                 throw new InvalidOperationException("Server is already running");
 
             if (_disposed)
-                throw new ObjectDisposedException(nameof(GremlinServer));
+                throw new ObjectDisposedException(nameof(InMemoryGremlinServer));
 
             try
             {

@@ -12,16 +12,16 @@ namespace Stardust.Paradox.Data.InMemory.Management
     /// </summary>
     public static class GremlinDatabase
     {
-        private static readonly Dictionary<string, GremlinServer> _runningServers = new Dictionary<string, GremlinServer>();
+        private static readonly Dictionary<string, InMemoryGremlinServer> _runningServers = new Dictionary<string, InMemoryGremlinServer>();
         private static readonly object _lockObject = new object();
 
         /// <summary>
         /// Start a Gremlin database server with default options
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartAsync()
+        public static async Task<InMemoryGremlinServer> StartAsync()
         {
-            return await StartAsync(new GremlinServerOptions());
+            return await StartAsync(new InMemoryGremlinServerOptions());
         }
 
         /// <summary>
@@ -29,7 +29,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// </summary>
         /// <param name="options">Server configuration options</param>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartAsync(GremlinServerOptions options)
+        public static async Task<InMemoryGremlinServer> StartAsync(InMemoryGremlinServerOptions options)
         {
             if (options == null)
                 throw new ArgumentNullException(nameof(options));
@@ -44,7 +44,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
                 }
             }
 
-            var server = new GremlinServer(options);
+            var server = new InMemoryGremlinServer(options);
             
             try
             {
@@ -69,9 +69,9 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// </summary>
         /// <param name="configure">Configuration action</param>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartAsync(Action<GremlinServerOptions> configure)
+        public static async Task<InMemoryGremlinServer> StartAsync(Action<InMemoryGremlinServerOptions> configure)
         {
-            var options = new GremlinServerOptions();
+            var options = new InMemoryGremlinServerOptions();
             configure?.Invoke(options);
             return await StartAsync(options);
         }
@@ -80,7 +80,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a simple development server on localhost:8182
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartDevServerAsync()
+        public static async Task<InMemoryGremlinServer> StartDevServerAsync()
         {
             return await StartAsync(options =>
             {
@@ -97,7 +97,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a test server with extensive logging and debugging
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartTestServerAsync()
+        public static async Task<InMemoryGremlinServer> StartTestServerAsync()
         {
             return await StartAsync(options =>
             {
@@ -116,7 +116,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a production-ready server with optimized settings
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartProductionServerAsync(string host = "0.0.0.0", int port = 8182)
+        public static async Task<InMemoryGremlinServer> StartProductionServerAsync(string host = "0.0.0.0", int port = 8182)
         {
             return await StartAsync(options =>
             {
@@ -135,7 +135,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a WebSocket-enabled development server (requires .NET Core 3.1+ or .NET 6+)
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartWebSocketDevServerAsync()
+        public static async Task<InMemoryGremlinServer> StartWebSocketDevServerAsync()
         {
             return await StartAsync(options =>
             {
@@ -156,7 +156,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a WebSocket-only server (requires .NET Core 3.1+ or .NET 6+)
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartWebSocketOnlyServerAsync(string host = "localhost", int port = 8182)
+        public static async Task<InMemoryGremlinServer> StartWebSocketOnlyServerAsync(string host = "localhost", int port = 8182)
         {
             return await StartAsync(options =>
             {
@@ -174,7 +174,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Start a production-ready server with WebSocket support
         /// </summary>
         /// <returns>The running server instance</returns>
-        public static async Task<GremlinServer> StartProductionWebSocketServerAsync(string host = "0.0.0.0", int tcpPort = 8182, int wsPort = 8183)
+        public static async Task<InMemoryGremlinServer> StartProductionWebSocketServerAsync(string host = "0.0.0.0", int tcpPort = 8182, int wsPort = 8183)
         {
             return await StartAsync(options =>
             {
@@ -197,7 +197,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Stop a specific server
         /// </summary>
         /// <param name="server">The server to stop</param>
-        public static async Task StopAsync(GremlinServer server)
+        public static async Task StopAsync(InMemoryGremlinServer server)
         {
             if (server == null)
                 return;
@@ -224,11 +224,11 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// </summary>
         public static async Task StopAllAsync()
         {
-            GremlinServer[] servers;
+            InMemoryGremlinServer[] servers;
 
             lock (_lockObject)
             {
-                servers = new GremlinServer[_runningServers.Values.Count];
+                servers = new InMemoryGremlinServer[_runningServers.Values.Count];
                 _runningServers.Values.CopyTo(servers, 0);
                 _runningServers.Clear();
             }
@@ -258,7 +258,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// <param name="host">Server host</param>
         /// <param name="port">Server port</param>
         /// <returns>The server instance or null if not found</returns>
-        public static GremlinServer GetRunningServer(string host = "localhost", int port = 8182)
+        public static InMemoryGremlinServer GetRunningServer(string host = "localhost", int port = 8182)
         {
             var serverKey = $"{host}:{port}";
 
@@ -273,11 +273,11 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Get all running servers
         /// </summary>
         /// <returns>Array of running server instances</returns>
-        public static GremlinServer[] GetRunningServers()
+        public static InMemoryGremlinServer[] GetRunningServers()
         {
             lock (_lockObject)
             {
-                var servers = new GremlinServer[_runningServers.Values.Count];
+                var servers = new InMemoryGremlinServer[_runningServers.Values.Count];
                 _runningServers.Values.CopyTo(servers, 0);
                 return servers;
             }
@@ -340,7 +340,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Quick start for console applications - starts server and waits for shutdown
         /// </summary>
         /// <param name="configure">Optional configuration action</param>
-        public static async Task RunAsync(Action<GremlinServerOptions> configure = null)
+        public static async Task RunAsync(Action<InMemoryGremlinServerOptions> configure = null)
         {
             var server = await StartAsync(configure ?? (opt => 
             {
@@ -379,7 +379,7 @@ namespace Stardust.Paradox.Data.InMemory.Management
         /// Quick start for unit tests - starts a test server with a unique port
         /// </summary>
         /// <returns>The test server instance and connection details</returns>
-        public static async Task<(GremlinServer Server, string TcpConnectionString, string WebSocketConnectionString)> StartTestInstanceAsync()
+        public static async Task<(InMemoryGremlinServer Server, string TcpConnectionString, string WebSocketConnectionString)> StartTestInstanceAsync()
         {
             var random = new Random();
             var tcpPort = random.Next(9000, 9499); // Use random port to avoid conflicts
