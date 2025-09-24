@@ -999,21 +999,6 @@ dotnet run
 6. **Validate Solution**: Verify the fix works with the production scenario
 7. **Deploy Confidently**: Deploy knowing the fix handles the specific production data
 
-### Best Practices for Production Debugging
-
-#### Security and Privacy
-```csharp
-// Always use read-only access keys for production exports
-var readOnlyConnector = new GremlinNetLanguageConnector(
-    hostname: "production.gremlin.cosmosdb.azure.com",
-    databaseName: "ProductionDB",
-    graphName: "MainGraph",
-    accessKey: "readonly-access-key" // Use read-only key
-);
-
-// Sanitize sensitive data before export
-var sanitizedScenario = SanitizeScenario(originalScenario);
-```
 
 #### Performance Optimization
 ```csharp
