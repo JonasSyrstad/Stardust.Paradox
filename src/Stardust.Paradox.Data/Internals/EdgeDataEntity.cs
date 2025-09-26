@@ -279,6 +279,11 @@ namespace Stardust.Paradox.Data.Internals
 #pragma warning restore 618
         }
 
+        public void AddToUpdateStatement(string partitionKeyName, string partitionKey)
+        {
+			//does not apply to edges
+        }
+
         private void Notifiable_PropertyChanged(object sender, PropertyChangedEventArgs e, string propName)
         {
             OnPropertyChanged(sender, propName);

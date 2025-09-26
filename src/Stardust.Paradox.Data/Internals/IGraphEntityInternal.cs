@@ -1,5 +1,6 @@
-﻿using System.Collections.Generic;
-using Stardust.Paradox.Data.Annotations;
+﻿using Stardust.Paradox.Data.Annotations;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Internals
@@ -23,5 +24,7 @@ namespace Stardust.Paradox.Data.Internals
 	    Dictionary<string, object> GetParameterizedValues();
         
         void RegisterNotifiable(string propName, IComplexProperty notifiable);
+
+        void AddToUpdateStatement(string partitionKeyName, string partitionKey);
     }
 }

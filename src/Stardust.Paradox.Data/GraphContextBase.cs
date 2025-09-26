@@ -29,7 +29,7 @@ namespace Stardust.Paradox.Data
 
         protected internal static string PartitionKeyName { get; set; }
 
-        public double ConsumedRU => _connector?.ConsumedRU??0;
+        public double ConsumedRU => _connector?.ConsumedRU ?? 0;
 
         private bool Initialized
         {
@@ -50,7 +50,7 @@ namespace Stardust.Paradox.Data
             else Logging.Exception(ex, GetType().FullName);
         }
 
-        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider, ILogging logger=null)
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider, ILogging logger = null)
         {
             _connector = connector;
             ServiceProvider = serviceProvider;
@@ -110,12 +110,19 @@ namespace Stardust.Paradox.Data
 
         public T CreateEntity<T>(string id) where T : IGraphEntity
         {
+            return CreateEntity<T>(id, null);
+        }
+
+        public T CreateEntity<T>(string id, string partitionKey) where T : IGraphEntity
+        {
             var item = Create<T>();
             var i = item as IGraphEntityInternal;
             i.EntityKey = id;
             i.SetContext(this, _connector.CanParameterizeQueries);
             i.Reset(true);
             _trackedEntities.TryAdd(id, i);
+            if (partitionKey.ContainsCharacters() && PartitionKeyName.ContainsCharacters())
+                i.AddToUpdateStatement(PartitionKeyName, partitionKey);
             return item;
         }
 
@@ -161,7 +168,7 @@ namespace Stardust.Paradox.Data
         {
             var i = await VAsync<T>(id, partitionKey).ConfigureAwait(false);
             if (i == null)
-                return CreateEntity<T>(id);
+                return CreateEntity<T>(id, partitionKey);
             return i;
         }
 
@@ -320,8 +327,8 @@ namespace Stardust.Paradox.Data
             {
                 var tasks = new List<Task>();
                 foreach (var graphDataEntity in from i in _trackedEntities
-                         where i.Value.IsDirty && i.Value._EntityType == type
-                         select i)
+                                                where i.Value.IsDirty && i.Value._EntityType == type
+                                                select i)
                 {
                     var updateStatement = graphDataEntity.Value.GetUpdateStatement(_connector.CanParameterizeQueries);
                     if (GremlinContext.ParallelSaveExecution)
@@ -661,7 +668,6 @@ namespace Stardust.Paradox.Data
             {
                 Disposing?.Invoke(this);
                 _trackedEntities.Clear();
-                _connector.TryDispose();
             }
         }
 

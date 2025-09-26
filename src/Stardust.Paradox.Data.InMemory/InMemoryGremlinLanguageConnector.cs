@@ -142,10 +142,10 @@ namespace Stardust.Paradox.Data.InMemory
                 }
 
                 // Try TinkerGraph parser first for best performance and compatibility
-                IEnumerable<dynamic> result;
+                IEnumerable<dynamic> rawResult = null;
                 try
                 {
-                    result = _tinkerParser.ParseAndExecute(query, parametrizedValues);
+                    rawResult = _tinkerParser.ParseAndExecute(query, parametrizedValues);
 
                     if (_options.EnableDebugLogging)
                     {
@@ -168,7 +168,7 @@ namespace Stardust.Paradox.Data.InMemory
                     // Fallback to advanced parser
                     try
                     {
-                        result = _advancedParser.ParseAndExecute(query, parametrizedValues);
+                        rawResult = _advancedParser.ParseAndExecute(query, parametrizedValues);
 
                         if (_options.EnableDebugLogging)
                         {
@@ -190,22 +190,25 @@ namespace Stardust.Paradox.Data.InMemory
                         }
 
                         // Final fallback to simple parser
-                        result = await _simpleParser.ParseAndExecuteAsync(query, parametrizedValues);
+                        rawResult = await _simpleParser.ParseAndExecuteAsync(query, parametrizedValues);
                     }
                 }
 
+                // Materialize results once to avoid double-enumeration/iterator exhaustion
+                var results = rawResult?.ToList() ?? new List<dynamic>();
+
                 // Simulate RU consumption based on query complexity
-                var ruCost = CalculateRUCost(query, result);
+                var ruCost = CalculateRUCost(query, results);
                 _consumedRU += ruCost;
 
                 stopwatch.Stop();
 
                 if (_options.EnableDebugLogging)
                 {
-                    LogQueryExecution(query, stopwatch.ElapsedMilliseconds, result, ruCost);
+                    LogQueryExecution(query, stopwatch.ElapsedMilliseconds, results, ruCost);
                 }
 
-                return result;
+                return results;
             }
             catch (Exception ex)
             {

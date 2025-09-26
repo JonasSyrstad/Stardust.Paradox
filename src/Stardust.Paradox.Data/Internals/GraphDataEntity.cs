@@ -296,6 +296,11 @@ namespace Stardust.Paradox.Data.Internals
 #pragma warning restore 618
         }
 
+        public void AddToUpdateStatement(string partitionKeyName, string partitionKey)
+        {
+            SetProperty(partitionKeyName,partitionKey);
+        }
+
         private void Notifiable_PropertyChanged(object sender, PropertyChangedEventArgs e, string propName)
         {
            OnPropertyChanged(sender,propName);

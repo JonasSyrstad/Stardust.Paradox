@@ -20,6 +20,7 @@ using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
 using System.ComponentModel;
+using NuGet.Frameworks;
 
 namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
 {
@@ -602,6 +603,40 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
                 }
             }
         }
+        [Fact]
+        public async Task TestAutoSetPartitionKeyOnGetOrCreate()
+        {
+            using (var tc = TestContext())
+            {
+                var leah = await tc.GetOrCreate<IProfile>("Leah","Leah");
+                leah.Adult = true;
+                leah.Email = "leah@test.com";
+                leah.FirstName="Leah";
+                leah.LastName = "Something";
+                leah.Description="Just a test";
+                Assert.NotNull(leah);
+                Assert.NotEqual(leah.Pk, "Leah");
+            }
+        }
+
+        [Fact]
+        public async Task TestAutoSetPartitionKeyOnGetOrCreate_MissingPartitionKeyName()
+        {
+            using (var tc = TestContext())
+            {
+                tc.NullPkName();
+                var leah = await tc.GetOrCreate<IProfile>("Leah", "Leah");
+                tc.ResetPkName();
+                leah.Adult = true;
+                leah.Email = "leah@test.com";
+                leah.FirstName = "Leah";
+                leah.LastName = "Something";
+                leah.Description = "Just a test";
+                Assert.NotNull(leah);
+                Assert.Null(leah.Pk);
+                await tc.SaveChangesAsync();
+            }
+        }
 
         [Fact]
         public async Task GraphSetTests()
@@ -1014,6 +1049,8 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
         {
             // Don't dispose the shared connector as it's used across all tests
             // The shared connector will be disposed when the test run ends
+            _sharedConnector.Dispose();
+            _sharedConnector = null;
         }
 
         /// <summary>

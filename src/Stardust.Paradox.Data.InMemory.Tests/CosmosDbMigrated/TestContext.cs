@@ -83,6 +83,15 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
         public IGraphSet<ICompany> Companies => GraphSet<ICompany>();
 
         public IEdgeGraphSet<IEmployment> Employments => EdgeGraphSet<IEmployment>();
+
+        public void NullPkName()
+        {
+            PartitionKeyName=null;
+        }
+        public void ResetPkName()
+        {
+            PartitionKeyName = "pk";
+        }
     }
 
     [EdgeLabel("employer")]
