@@ -1,4 +1,0 @@
-1
-examples
-5
-exit

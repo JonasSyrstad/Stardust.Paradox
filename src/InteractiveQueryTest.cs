@@ -1,8 +1,10 @@
 using System;
 using System.Threading.Tasks;
 using System.Linq;
+using Gremlin.Net.Driver;
 using Stardust.Paradox.Data.InMemory;
 using Stardust.Paradox.Data.InMemory.Demo;
+using Stardust.Paradox.Data.InMemory.Management;
 
 /// <summary>
 /// Interactive Gremlin Query Execution Test - demonstrates enhanced query execution and response display
