@@ -26,8 +26,18 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         {
             await Task.Delay(1); // Simulate async operation
 
+            // Debug: Log the incoming query and parameters
+            Console.WriteLine($"=== PARSING QUERY ===");
+            Console.WriteLine($"Raw Query: {query}");
+            if (parameters != null && parameters.Any())
+            {
+                Console.WriteLine($"Parameters: {string.Join(", ", parameters.Select(p => $"{p.Key}={p.Value}"))}");
+            }
+            Console.WriteLine($"===================");
+
             // Handle parameterized queries
             var processedQuery = SubstituteParameters(query, parameters);
+            Console.WriteLine($"Processed Query: {processedQuery}");
 
             // Check for custom responses first (before parameter substitution to allow pattern matching)
             var customResponse = _database.GetCustomResponse(query, parameters);
@@ -85,7 +95,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             }
             else if (IsVertexQuery(processedQuery))
             {
-                return ExecuteVertexQuery(processedQuery);
+                return ExecuteVertexQuery(processedQuery, parameters);
             }
             else if (IsEdgeQuery(processedQuery))
             {
@@ -748,7 +758,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return new dynamic[] { 0L };
         }
 
-        private IEnumerable<dynamic> ExecuteVertexQuery(string query)
+        private IEnumerable<dynamic> ExecuteVertexQuery(string query, Dictionary<string, object> parameters = null)
         {
             // g.V() - get all vertices
             if (Regex.IsMatch(query, @"^g\.V\s*\(\s*\)$", RegexOptions.IgnoreCase))
@@ -776,43 +786,52 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 var label = labelMatch.Groups[1].Value;
                 var vertices = _database.GetVerticesByLabel(label);
                 
-                return ApplyVertexFilters(vertices, query);
+                return ApplyVertexFilters(vertices, query, parameters);
             }
 
-            // g.V().has() patterns
-            var hasDirectMatch = Regex.Match(query, @"g\.V\s*\(\s*\)\.has\s*\(\s*['""]([^'""]+)['""](?:,\s*([^)]+))?\)", RegexOptions.IgnoreCase);
-            if (hasDirectMatch.Success)
+            // g.V().has() patterns (including complex patterns with hasLabel)
+            var hasMatch = Regex.Match(query, @"g\.V\s*\(\s*\)(?:\.hasLabel\s*\(\s*['""]([^'""]+)['""]?\s*\))?.*\.has\s*\(\s*['""]([^'""]+)['""](?:,\s*([^)]+))?\)", RegexOptions.IgnoreCase);
+            if (hasMatch.Success)
             {
-                var key = hasDirectMatch.Groups[1].Value;
-                var vertices = _database.GetAllVertices();
+                var label = hasMatch.Groups[1].Success ? hasMatch.Groups[1].Value : null;
+                var key = hasMatch.Groups[2].Value;
                 
-                if (hasDirectMatch.Groups[2].Success)
+                IEnumerable<InMemoryVertex> vertices;
+                if (!string.IsNullOrEmpty(label))
                 {
-                    // has(key, value)
-                    var valueStr = hasDirectMatch.Groups[2].Value.Trim();
-                    if ((valueStr.StartsWith("'") && valueStr.EndsWith("'")) || 
-                        (valueStr.StartsWith("\"") && valueStr.EndsWith("\"")))
-                    {
-                        valueStr = valueStr.Substring(1, valueStr.Length - 2);
-                    }
-                    vertices = vertices.Where(v => v.Properties.ContainsKey(key) && 
-                                                  v.Properties[key]?.ToString() == valueStr);
+                    vertices = _database.GetVerticesByLabel(label);
+                }
+                else
+                {
+                    vertices = _database.GetAllVertices();
+                }
+                
+                if (hasMatch.Groups[3].Success)
+                {
+                    // has(key, value) or has(key, predicate)
+                    return ApplyVertexFilters(vertices, query, parameters);
                 }
                 else
                 {
                     // has(key) - check if property exists
                     vertices = vertices.Where(v => v.Properties.ContainsKey(key));
+                    return vertices.Select(v => v.ToGremlinResponse());
                 }
-
-                return vertices.Select(v => v.ToGremlinResponse());
             }
 
             return new List<dynamic>();
         }
 
-        private IEnumerable<dynamic> ApplyVertexFilters(IEnumerable<InMemoryVertex> vertices, string query)
+        private IEnumerable<dynamic> ApplyVertexFilters(IEnumerable<InMemoryVertex> vertices, string query, Dictionary<string, object> parameters = null)
         {
             var filteredVertices = vertices;
+            
+            System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Starting with {vertices.Count()} vertices");
+            System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Query: {query}");
+            if (parameters != null)
+            {
+                System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Parameters: {string.Join(", ", parameters.Select(p => $"{p.Key}={p.Value}"))}");
+            }
 
             // Apply has(key) filter - check for property existence
             var hasExistsMatches = Regex.Matches(query, @"\.has\s*\(\s*['""]([^'""]+)['""](?!\s*,)", RegexOptions.IgnoreCase);
@@ -820,24 +839,115 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             {
                 var key = match.Groups[1].Value;
                 filteredVertices = filteredVertices.Where(v => v.Properties.ContainsKey(key));
+                System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Applied has('{key}') filter, now {filteredVertices.Count()} vertices");
             }
 
             // Apply has(key, value) filter
             var hasValueMatches = Regex.Matches(query, @"\.has\s*\(\s*['""]([^'""]+)['""],\s*([^)]+)\)", RegexOptions.IgnoreCase);
+            System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Found {hasValueMatches.Count} has(key, value) patterns");
+            
             foreach (Match match in hasValueMatches)
             {
                 var key = match.Groups[1].Value;
                 var valueStr = match.Groups[2].Value.Trim();
+                
+                System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Processing has('{key}', '{valueStr}')");
+                
+                // Check if this is a within() predicate
+                if (valueStr.Contains("within"))
+                {
+                    System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Detected within predicate");
+                    var withinValues = ExtractWithinValues(valueStr, parameters);
+                    if (withinValues.Any())
+                    {
+                        var beforeCount = filteredVertices.Count();
+                        filteredVertices = filteredVertices.Where(v => 
+                            v.Properties.ContainsKey(key) && 
+                            withinValues.Contains(v.Properties[key]?.ToString()));
+                        var afterCount = filteredVertices.Count();
+                        System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Within filter reduced vertices from {beforeCount} to {afterCount}");
+                        continue; // Skip the standard value comparison
+                    }
+                    // If no values extracted from within(), this filter didn't match - return no results
+                    System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: No within values found, returning empty result");
+                    return new List<dynamic>();
+                }
+                
+                // Standard value comparison
                 if ((valueStr.StartsWith("'") && valueStr.EndsWith("'")) || 
                     (valueStr.StartsWith("\"") && valueStr.EndsWith("\"")))
                 {
                     valueStr = valueStr.Substring(1, valueStr.Length - 2);
                 }
+                var beforeStandardCount = filteredVertices.Count();
                 filteredVertices = filteredVertices.Where(v => v.Properties.ContainsKey(key) && 
                                                               v.Properties[key]?.ToString() == valueStr);
+                var afterStandardCount = filteredVertices.Count();
+                System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Standard filter for '{key}'='{valueStr}' reduced vertices from {beforeStandardCount} to {afterStandardCount}");
             }
 
-            return filteredVertices.Select(v => v.ToGremlinResponse());
+            var finalResult = filteredVertices.Select(v => v.ToGremlinResponse()).ToList();
+            System.Diagnostics.Debug.WriteLine($"ApplyVertexFilters: Final result: {finalResult.Count} vertices");
+            return finalResult;
+        }
+
+        /// <summary>
+        /// Extract values from within() predicate expressions
+        /// </summary>
+        private List<string> ExtractWithinValues(string withinExpression, Dictionary<string, object> parameters = null)
+        {
+            var values = new List<string>();
+            
+            // Debug logging to understand what we're processing
+            System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Processing '{withinExpression}'");
+            
+            // Pattern to match within(__p0,__p1,...) or within('value1','value2',...)
+            var withinMatch = Regex.Match(withinExpression, @"within\s*\(([^)]+)\)", RegexOptions.IgnoreCase);
+            if (withinMatch.Success)
+            {
+                var paramList = withinMatch.Groups[1].Value;
+                System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Found within parameters: '{paramList}'");
+                
+                // Split by comma and process each parameter
+                var parts = SplitParameters(paramList);
+                System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Split into {parts.Count} parts: {string.Join(", ", parts)}");
+                
+                foreach (var part in parts)
+                {
+                    var trimmedPart = part.Trim();
+                    
+                    // Check if it's a parameter reference (__p0, __p1, etc.)
+                    if (trimmedPart.StartsWith("__p") && parameters != null && parameters.ContainsKey(trimmedPart))
+                    {
+                        // Look up the parameter value
+                        var paramValue = parameters[trimmedPart];
+                        if (paramValue != null)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Resolved {trimmedPart} to '{paramValue}'");
+                            values.Add(paramValue.ToString());
+                        }
+                    }
+                    else
+                    {
+                        // Direct value - remove quotes
+                        var value = trimmedPart;
+                        if ((value.StartsWith("'") && value.EndsWith("'")) || 
+                            (value.StartsWith("\"") && value.EndsWith("\"")))
+                        {
+                            value = value.Substring(1, value.Length - 2);
+                        }
+                        System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Added direct value '{value}'");
+                        values.Add(value);
+                    }
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: No within() pattern found in '{withinExpression}'");
+            }
+            
+            System.Diagnostics.Debug.WriteLine($"ExtractWithinValues: Final values: [{string.Join(", ", values)}]");
+            return values;
         }
 
         private IEnumerable<dynamic> ExecuteEdgeQuery(string query)
@@ -1245,6 +1355,64 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return results;
         }
 
+        /// <summary>
+        /// Split parameter list by comma, respecting quotes and nested parentheses
+        /// </summary>
+        private List<string> SplitParameters(string paramList)
+        {
+            var parts = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var parenLevel = 0;
+
+            for (int i = 0; i < paramList.Length; i++)
+            {
+                char c = paramList[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    current += c;
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    current += c;
+                }
+                else if (!inQuotes && c == '(')
+                {
+                    parenLevel++;
+                    current += c;
+                }
+                else if (!inQuotes && c == ')')
+                {
+                    parenLevel--;
+                    current += c;
+                }
+                else if (!inQuotes && c == ',' && parenLevel == 0)
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        parts.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                parts.Add(current.Trim());
+            }
+
+            return parts;
+        }
+
         private object GetPropertyValue(dynamic props, string propertyName)
         {
             try
@@ -1291,8 +1459,41 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             if (query.Contains(".dedup()"))
             {
                 var baseQuery = query.Replace(".dedup()", "");
-                var baseResults = ExecuteComplexTraversal(baseQuery);
-                return baseResults.Distinct();
+                
+                // FIXED: Use appropriate base query execution method instead of recursive call
+                IEnumerable<dynamic> baseResults = null;
+                
+                if (IsVertexQuery(baseQuery))
+                {
+                    baseResults = ExecuteVertexQuery(baseQuery);
+                }
+                else if (IsTraversalQuery(baseQuery))
+                {
+                    baseResults = ExecuteTraversalQuery(baseQuery);
+                }
+                else if (IsEdgeQuery(baseQuery))
+                {
+                    baseResults = ExecuteEdgeQuery(baseQuery);
+                }
+                else if (IsAggregationQuery(baseQuery))
+                {
+                    baseResults = ExecuteAggregation(baseQuery);
+                }
+                else if (IsValueQuery(baseQuery))
+                {
+                    baseResults = ExecuteValueQuery(baseQuery);
+                }
+                else if (IsLimitingQuery(baseQuery))
+                {
+                    baseResults = ExecuteLimitingQuery(baseQuery);
+                }
+                else
+                {
+                    // Fallback for unrecognized queries
+                    baseResults = new List<dynamic>();
+                }
+                
+                return baseResults?.Distinct() ?? new List<dynamic>();
             }
 
             return new List<dynamic>();

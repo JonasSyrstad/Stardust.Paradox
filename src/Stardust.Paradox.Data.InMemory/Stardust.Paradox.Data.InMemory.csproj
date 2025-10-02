@@ -10,7 +10,7 @@
 		
 		<!-- Package Information -->
 		<PackageId>Stardust.Paradox.Data.InMemory</PackageId>
-		<Version>1.0.0</Version>
+		<Version>1.0.3-rc1</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<Authors>Stardust</Authors>
@@ -66,11 +66,6 @@
 	<!-- Package Content -->
 	<ItemGroup>
 		<None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
-		<None Include="SCENARIO_FRAMEWORK_README.md" Pack="true" PackagePath="docs\" Condition="Exists('SCENARIO_FRAMEWORK_README.md')" />
-		<None Include="SCENARIO_FRAMEWORK_IMPLEMENTATION_SUMMARY.md" Pack="true" PackagePath="docs\" Condition="Exists('SCENARIO_FRAMEWORK_IMPLEMENTATION_SUMMARY.md')" />
-		<None Include="TESTING_GUIDE.md" Pack="true" PackagePath="docs\" Condition="Exists('TESTING_GUIDE.md')" />
-		<None Include="NUGET_PUBLISHING_GUIDE.md" Pack="true" PackagePath="docs\" Condition="Exists('NUGET_PUBLISHING_GUIDE.md')" />
-		<None Include="GREMLIN_SERVER_USAGE.md" Pack="true" PackagePath="docs\" Condition="Exists('GREMLIN_SERVER_USAGE.md')" />
 	</ItemGroup>
 
 	<!-- Conditional Framework References -->

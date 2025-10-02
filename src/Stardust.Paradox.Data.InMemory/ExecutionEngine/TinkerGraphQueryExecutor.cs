@@ -455,7 +455,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                         {
                             var newTraverser = existingTraverser.Split();
                             newTraverser.Value = vertex.ToGremlinResponse();
-                            
+                             
                             // Add to path for path tracking
                             newTraverser.AddToPath(vertex.ToGremlinResponse());
                             
@@ -877,9 +877,39 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
         private void ExecuteOtherVStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            // OtherV step needs context about which vertex we came from
-            // For simplicity, implement as OutV for now
-            ExecuteOutVStep(step, context);
+            // OtherV step needs to work differently from OutV/InV
+            // It returns the vertex at the "other end" of the edge
+            // For an outgoing edge, otherV returns the inV
+            // For an incoming edge, otherV returns the outV
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                var edgeId = ExtractEdgeId(traverser.Value);
+                if (!string.IsNullOrEmpty(edgeId))
+                {
+                    var edge = _database.GetEdge(edgeId);
+                    if (edge != null)
+                    {
+                        // For otherV, we need to determine which vertex is the "other" one
+                        // Since we don't have context about which vertex we came from,
+                        // we'll return the inV (target vertex) by default for outgoing edges
+                        var vertex = _database.GetVertex(edge.InVertexId);
+                        if (vertex != null)
+                        {
+                            var newTraverser = traverser.Split();
+                            newTraverser.Value = vertex.ToGremlinResponse();
+                            
+                            // Add to path for path tracking
+                            newTraverser.AddToPath(vertex.ToGremlinResponse());
+                            
+                            newTraversers.Add(newTraverser);
+                        }
+                    }
+                }
+            }
+
+            context.Traversers = newTraversers;
         }
 
         #endregion
@@ -1106,7 +1136,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     var valueStr = expectedValue?.ToString() ?? "";
                     if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
                         valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
-                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq("))
+                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
+                        valueStr.StartsWith("within("))
                     {
                         // Parse and apply predicate
                         context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
@@ -1244,6 +1275,20 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     // String comparison
                     return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
                 }
+            }
+            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
+            {
+                // within(value1, value2, value3, ...) predicate
+                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
+                var withinValues = SplitWithinValues(valuesStr);
+                
+                var actualValueStr = actualValue?.ToString();
+                if (actualValueStr != null)
+                {
+                    // Check if the actual value matches any of the within values
+                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
+                }
+                return false;
             }
             
             return false;
@@ -2347,9 +2392,52 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return false;
         }
 
-        #endregion
+        /// <summary>
+        /// Split within() predicate values by comma while respecting quotes
+        /// </summary>
+        private List<string> SplitWithinValues(string valuesStr)
+        {
+            var values = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
 
-        #region Missing Methods - Added to fix compilation
+            for (int i = 0; i < valuesStr.Length; i++)
+            {
+                char c = valuesStr[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    // Don't include the quote in the value
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    // Don't include the quote in the value
+                }
+                else if (!inQuotes && c == ',')
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        values.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else if (c != '\'' && c != '"') // Skip quotes entirely
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                values.Add(current.Trim());
+            }
+
+            return values;
+        }
 
         private void ExecuteHasLabelStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
@@ -2371,6 +2459,70 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 var id = ExtractId(traverser.Value);
                 return id != null && expectedIds.Contains(id);
             });
+        }
+
+        private void ExecuteRepeatStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            // Store the repeat pattern for later execution with times()
+            // For now, we'll implement a simplified version that just stores the step
+            context.SetMetadata("repeat_step", step);
+            context.SetMetadata("repeat_traversers", new List<Traverser>(context.Traversers));
+        }
+
+        private void ExecuteTimesStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (!step.Arguments.Any())
+                return;
+
+            var times = Convert.ToInt32(step.Arguments[0]);
+            var repeatStep = context.GetMetadata<TinkerGraphStep>("repeat_step");
+            var originalTraversers = context.GetMetadata<List<Traverser>>("repeat_traversers");
+
+            if (repeatStep == null || originalTraversers == null)
+                return;
+
+            // For the specific test case "g.V('node_0').repeat(g.out('next')).times(10).values('level')"
+            // We need to navigate 10 steps through the 'next' edges
+            var newTraversers = new List<Traverser>();
+
+            foreach (var originalTraverser in originalTraversers)
+            {
+                var currentTraversers = new List<Traverser> { originalTraverser };
+                
+                // Repeat the navigation 'times' number of times
+                for (int i = 0; i < times; i++)
+                {
+                    var nextTraversers = new List<Traverser>();
+                    
+                    foreach (var traverser in currentTraversers)
+                    {
+                        var vertexId = ExtractId(traverser.Value);
+                        if (vertexId != null)
+                        {
+                            // Navigate out via 'next' edges (hard-coded for now)
+                            var outVertices = _database.GetOutVertices(vertexId, "next");
+                            
+                            foreach (var vertex in outVertices)
+                            {
+                                var newTraverser = traverser.Split();
+                                newTraverser.Value = vertex.ToGremlinResponse();
+                                nextTraversers.Add(newTraverser);
+                            }
+                        }
+                    }
+                    
+                    if (!nextTraversers.Any())
+                        break; // No more vertices to traverse
+                        
+                    currentTraversers = nextTraversers;
+                }
+                
+                newTraversers.AddRange(currentTraversers);
+            }
+
+            context.Traversers = newTraversers;
+            context.RemoveMetadata("repeat_step");
+            context.RemoveMetadata("repeat_traversers");
         }
 
         private void ExecuteFoldStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -2498,14 +2650,67 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
             var predicate = step.Arguments[0].ToString();
             
-            // Basic where implementation with common patterns
-            // In a full implementation, this would parse the predicate properly
-            context.Filter(traverser =>
+            // Parse common where predicate patterns
+            if (predicate.Contains("__.otherV().hasId(") || predicate.Contains("otherV().hasId("))
             {
-                // For now, implement basic predicate evaluation
+                // Handle __.otherV().hasId('vertexId') pattern
+                // Look for the vertex ID after hasId(
+                var hasIdPattern = @"hasId\(['""]?([^'"")\s,]+)['""]?\)";
+                var match = System.Text.RegularExpressions.Regex.Match(predicate, hasIdPattern);
+                
+                if (match.Success)
+                {
+                    var targetVertexId = match.Groups[1].Value.Trim();
+                    
+                    var newTraversers = new List<Traverser>();
+                    
+                    foreach (var traverser in context.Traversers)
+                    {
+                        // This filter should only apply to edges
+                        var edgeId = ExtractEdgeId(traverser.Value);
+                        if (!string.IsNullOrEmpty(edgeId))
+                        {
+                            var edge = _database.GetEdge(edgeId);
+                            if (edge != null)
+                            {
+                                // Check if the edge connects to the target vertex
+                                // For outgoing edges (outE), otherV would be the inV
+                                var matches = edge.InVertexId.Equals(targetVertexId, StringComparison.OrdinalIgnoreCase);
+                                
+                                if (matches)
+                                {
+                                    newTraversers.Add(traverser);
+                                }
+                            }
+                        }
+                    }
+                    
+                    context.Traversers = newTraversers;
+                }
+            }
+            else if (predicate.Contains("hasId("))
+            {
+                // Handle direct hasId('vertexId') pattern
+                var hasIdPattern = @"hasId\(['""]?([^'"")\s,]+)['""]?\)";
+                var match = System.Text.RegularExpressions.Regex.Match(predicate, hasIdPattern);
+                
+                if (match.Success)
+                {
+                    var targetId = match.Groups[1].Value.Trim();
+                    
+                    context.Filter(traverser =>
+                    {
+                        var id = ExtractId(traverser.Value);
+                        return id != null && id.Equals(targetId, StringComparison.OrdinalIgnoreCase);
+                    });
+                }
+            }
+            else
+            {
+                // For other predicates, implement basic evaluation
                 // This would need to be enhanced to handle complex predicates
-                return true; // Placeholder
-            });
+                // Leave traversers unchanged - don't filter anything for unknown patterns
+            }
         }
 
         private void ExecutePropertyStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -2600,70 +2805,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             // Note: .by() steps don't modify the traversers directly
             // They store metadata that affects how the previous step operates
-        }
-
-        private void ExecuteRepeatStep(TinkerGraphStep step, TinkerTraversalContext context)
-        {
-            // Store the repeat pattern for later execution with times()
-            // For now, we'll implement a simplified version that just stores the step
-            context.SetMetadata("repeat_step", step);
-            context.SetMetadata("repeat_traversers", new List<Traverser>(context.Traversers));
-        }
-
-        private void ExecuteTimesStep(TinkerGraphStep step, TinkerTraversalContext context)
-        {
-            if (!step.Arguments.Any())
-                return;
-
-            var times = Convert.ToInt32(step.Arguments[0]);
-            var repeatStep = context.GetMetadata<TinkerGraphStep>("repeat_step");
-            var originalTraversers = context.GetMetadata<List<Traverser>>("repeat_traversers");
-
-            if (repeatStep == null || originalTraversers == null)
-                return;
-
-            // For the specific test case "g.V('node_0').repeat(g.out('next')).times(10).values('level')"
-            // We need to navigate 10 steps through the 'next' edges
-            var newTraversers = new List<Traverser>();
-
-            foreach (var originalTraverser in originalTraversers)
-            {
-                var currentTraversers = new List<Traverser> { originalTraverser };
-                
-                // Repeat the navigation 'times' number of times
-                for (int i = 0; i < times; i++)
-                {
-                    var nextTraversers = new List<Traverser>();
-                    
-                    foreach (var traverser in currentTraversers)
-                    {
-                        var vertexId = ExtractId(traverser.Value);
-                        if (vertexId != null)
-                        {
-                            // Navigate out via 'next' edges (hard-coded for now)
-                            var outVertices = _database.GetOutVertices(vertexId, "next");
-                            
-                            foreach (var vertex in outVertices)
-                            {
-                                var newTraverser = traverser.Split();
-                                newTraverser.Value = vertex.ToGremlinResponse();
-                                nextTraversers.Add(newTraverser);
-                            }
-                        }
-                    }
-                    
-                    if (!nextTraversers.Any())
-                        break; // No more vertices to traverse
-                        
-                    currentTraversers = nextTraversers;
-                }
-                
-                newTraversers.AddRange(currentTraversers);
-            }
-
-            context.Traversers = newTraversers;
-            context.RemoveMetadata("repeat_step");
-            context.RemoveMetadata("repeat_traversers");
         }
 
         #endregion

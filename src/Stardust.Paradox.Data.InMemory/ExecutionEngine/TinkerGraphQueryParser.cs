@@ -281,7 +281,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                         return Enumerable.Empty<dynamic>();
                     }
 
-                    var edge = _database.AddEdge(edgeLabel, fromId, toId);
+                    var edge = _database.AddEdge(edgeLabel, fromId, toVertex.Id);
                     if (edge != null)
                     {
                         // Parse any additional properties from the remaining query
@@ -454,23 +454,30 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             var parts = SplitChainedMethods(stepString);
             var mainPart = parts[0];
 
-            // Extract step name and arguments
-            var match = Regex.Match(mainPart, @"^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\([^)]*\))?");
-            if (!match.Success)
+            // FIXED: Extract step name and arguments properly handling nested parentheses
+            // The previous regex @"^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\([^)]*\))?" was too simplistic
+            // It would match the first closing parenthesis, not accounting for nested structures
+            
+            var stepNameMatch = Regex.Match(mainPart, @"^([a-zA-Z_][a-zA-Z0-9_]*)\s*");
+            if (!stepNameMatch.Success)
             {
                 return null;
             }
 
-            var stepName = match.Groups[1].Value;
+            var stepName = stepNameMatch.Groups[1].Value;
             var step = new TinkerGraphStep(stepName);
 
-            // Parse arguments if present
-            if (match.Groups[2].Success)
+            // Extract the arguments part by finding the balanced parentheses
+            var startIndex = stepNameMatch.Length;
+            if (startIndex < mainPart.Length && mainPart[startIndex] == '(')
             {
-                var argsString = match.Groups[2].Value.Trim('(', ')');
+                // Find the matching closing parenthesis
+                var argsString = ExtractBalancedParenthesesContent(mainPart, startIndex);
+                
                 if (!string.IsNullOrWhiteSpace(argsString))
                 {
-                    step.Arguments.AddRange(ParseArguments(argsString));
+                    var arguments = ParseArguments(argsString);
+                    step.Arguments.AddRange(arguments);
                 }
             }
 
@@ -484,6 +491,59 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             ClassifyStep(step);
 
             return step;
+        }
+
+        /// <summary>
+        /// Extract content within balanced parentheses starting at the given index
+        /// </summary>
+        private string ExtractBalancedParenthesesContent(string text, int startIndex)
+        {
+            if (startIndex >= text.Length || text[startIndex] != '(')
+                return string.Empty;
+
+            var parenLevel = 0;
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var content = "";
+
+            for (int i = startIndex + 1; i < text.Length; i++) // Start after the opening parenthesis
+            {
+                char c = text[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    content += c;
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    content += c;
+                }
+                else if (!inQuotes && c == '(')
+                {
+                    parenLevel++;
+                    content += c;
+                }
+                else if (!inQuotes && c == ')')
+                {
+                    if (parenLevel == 0)
+                    {
+                        // This is the matching closing parenthesis
+                        return content;
+                    }
+                    parenLevel--;
+                    content += c;
+                }
+                else
+                {
+                    content += c;
+                }
+            }
+
+            // If we reach here, parentheses were not balanced
+            return content;
         }
 
         /// <summary>

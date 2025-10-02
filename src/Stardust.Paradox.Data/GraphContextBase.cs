@@ -49,8 +49,10 @@ namespace Stardust.Paradox.Data
             if (_logger != null) _logger.Exception(ex, GetType().FullName);
             else Logging.Exception(ex, GetType().FullName);
         }
-
-        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider, ILogging logger = null)
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider): this(connector, serviceProvider, null)
+        {
+        }
+        protected GraphContextBase(IGremlinLanguageConnector connector, IServiceProvider serviceProvider, ILogging logger)
         {
             _connector = connector;
             ServiceProvider = serviceProvider;
@@ -673,6 +675,7 @@ namespace Stardust.Paradox.Data
 
         public void Dispose()
         {
+            
             Dispose(true);
             GC.SuppressFinalize(this);
         }

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <!-- Multi-target to support netstandard2.0 and .NET 6+ -->
     <TargetFrameworks>netstandard2.0;net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
-    <Version>2.3.17</Version>
+    <Version>2.3.18</Version>
     <Authors>Stardust</Authors>
     <Description>Entityframework styled tool for accessing gremlin based graph databases like CosmosDB and Apache Tinkerpop</Description>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
@@ -14,10 +14,11 @@
     <RepositoryType>GIT</RepositoryType>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
-    <PackageReleaseNotes>Fixed an issue with Or query steps</PackageReleaseNotes>
+    <PackageReleaseNotes>added full support for the partitionKey when creating a vertex with GetOrCreate</PackageReleaseNotes>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <!-- Cross-targeted packages: keep cross-targeted dependencies that are broadly compatible here -->
@@ -59,6 +60,7 @@
 
   <ItemGroup>
     <None Include="logo_smal.png" Pack="true" PackagePath="\" />
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
