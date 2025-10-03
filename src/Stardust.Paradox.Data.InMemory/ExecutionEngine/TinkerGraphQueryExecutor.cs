@@ -2825,7 +2825,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // If there are no traversers, we still need to return an empty tree
             if (!context.Traversers.Any())
             {
-                var emptyTree = new JObject();
+                var emptyTree = new Dictionary<string, object>();
                 context.Clear();
                 context.Traversers.Add(new Traverser(emptyTree));
                 return;
@@ -2848,8 +2848,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 }
             }
             
-            // Build tree structure as a JObject compatible with VertexTreeRoot
-            var treeStructure = BuildJObjectTreeStructure(allPaths);
+            // Build tree structure as a Dictionary compatible with VertexTreeRoot deserialization
+            var treeStructure = BuildCosmosDBCompatibleTreeStructure(allPaths);
             
             // Tree step always returns one result, even if empty
             context.Clear();
@@ -2857,22 +2857,34 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         /// <summary>
-        /// Build a JObject tree structure that matches TinkerPop/CosmosDB output format exactly
-        /// Based on the response format from CosmosDB TreeStepFormatTest
+        /// Build a tree structure that exactly matches CosmosDB vertex tree format
+        /// This must be compatible with deserialization into List<Dictionary<string, Vertex>>
+        /// Based on the Vertex and Key classes from the test
         /// </summary>
-        private JObject BuildJObjectTreeStructure(List<List<dynamic>> paths)
+        private Dictionary<string, object> BuildCosmosDBCompatibleTreeStructure(List<List<dynamic>> paths)
         {
-            var result = new JObject();
+            var result = new Dictionary<string, object>();
             
             if (!paths.Any())
             {
                 return result;
             }
             
-            // CosmosDB tree format analysis from the sample response:
-            // {"vertex_id": [vertex_object, children_object]}
-            // where vertex_object contains id, label, type, etc.
-            // and children_object is either {} for leaf nodes or contains more nested structures
+            // CosmosDB tree format analysis:
+            // Each node should have structure compatible with Vertex class:
+            // {
+            //   "vertex_id": {
+            //     "key": {
+            //       "id": "vertex_id",
+            //       "label": "label",
+            //       "type": "vertex",
+            //       "properties": { ... }
+            //     },
+            //     "value": {
+            //       "child_id": { ... child_vertex_structure ... }
+            //     }
+            //   }
+            // }
             
             foreach (var path in paths)
             {
@@ -2887,33 +2899,37 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     
                     if (!currentLevel.ContainsKey(vertexId))
                     {
-                        // Create vertex data object that matches CosmosDB format
-                        var vertexData = CreateCosmosDBCompatibleVertexData(vertex);
-                        var children = new JObject();
+                        // Create vertex structure compatible with Vertex class
+                        var vertexKey = CreateCosmosDBCompatibleVertexKey(vertex);
+                        var vertexValue = new Dictionary<string, object>();
                         
-                        // CosmosDB format: [vertex_data, children_object]
-                        var nodeArray = new JArray(vertexData, children);
-                        currentLevel[vertexId] = nodeArray;
+                        var vertexStructure = new Dictionary<string, object>
+                        {
+                            ["key"] = vertexKey,
+                            ["value"] = vertexValue
+                        };
+                        
+                        currentLevel[vertexId] = vertexStructure;
                     }
                     
                     // Move to the children level for the next iteration
                     if (i < path.Count - 1)
                     {
-                        var nodeArray = currentLevel[vertexId] as JArray;
-                        if (nodeArray != null && nodeArray.Count > 1)
+                        var vertexStructure = currentLevel[vertexId] as Dictionary<string, object>;
+                        if (vertexStructure != null && vertexStructure.ContainsKey("value"))
                         {
-                            currentLevel = nodeArray[1] as JObject;
+                            currentLevel = vertexStructure["value"] as Dictionary<string, object>;
                             if (currentLevel == null)
                             {
                                 // This shouldn't happen, but handle it gracefully
-                                currentLevel = new JObject();
-                                nodeArray[1] = currentLevel;
+                                currentLevel = new Dictionary<string, object>();
+                                vertexStructure["value"] = currentLevel;
                             }
                         }
                         else
                         {
-                            // Fallback: create new children object
-                            currentLevel = new JObject();
+                            // Fallback: create new children dictionary
+                            currentLevel = new Dictionary<string, object>();
                         }
                     }
                 }
@@ -2923,50 +2939,122 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         /// <summary>
-        /// Create vertex data that exactly matches CosmosDB format
-        /// Based on the sample: {"id":"550e8324-e29b-41d4-a716-446655440324","label":"tenantEntity","type":"vertex"}
+        /// Create vertex key data that exactly matches CosmosDB Key class format
+        /// Based on the Key class: id, label, type, properties
         /// </summary>
-        private JObject CreateCosmosDBCompatibleVertexData(dynamic vertex)
+        private Dictionary<string, object> CreateCosmosDBCompatibleVertexKey(dynamic vertex)
         {
-            var vertexData = new JObject();
+            var vertexKey = new Dictionary<string, object>();
             
             try
             {
-                // Extract core vertex properties in CosmosDB order: id, label, type
+                // Extract core vertex properties for Key class
                 var id = ExtractId(vertex);
                 var label = ExtractLabel(vertex);
                 var type = ExtractType(vertex);
-                
-                // Always include these core properties to match CosmosDB format
-                vertexData["id"] = id ?? "unknown";
-                vertexData["label"] = label ?? "vertex";
-                vertexData["type"] = type ?? "vertex";
-                
-                // Add any additional properties from the vertex
                 var properties = ExtractProperties(vertex);
-                if (properties != null)
-                {
-                    foreach (var kvp in properties)
-                    {
-                        // Skip core properties to avoid duplication
-                        if (kvp.Key != "id" && kvp.Key != "label" && kvp.Key != "type")
-                        {
-                            vertexData[kvp.Key] = JToken.FromObject(kvp.Value);
-                        }
-                    }
-                }
+                
+                // Always include these core properties to match Key class
+                vertexKey["id"] = id ?? "unknown";
+                vertexKey["label"] = label ?? "vertex";
+                vertexKey["type"] = type ?? "vertex";
+                
+                // Convert properties to CosmosDB format for Properties class
+                var cosmosDbProperties = ConvertToCosmosDBPropertiesFormat(properties);
+                vertexKey["properties"] = cosmosDbProperties;
             }
             catch (Exception)
             {
-                // Fallback: create minimal vertex data matching CosmosDB structure
-                vertexData["id"] = vertex?.ToString() ?? "unknown";
-                vertexData["label"] = "vertex";
-                vertexData["type"] = "vertex";
+                // Fallback: create minimal vertex key data matching Key class structure
+                vertexKey["id"] = vertex?.ToString() ?? "unknown";
+                vertexKey["label"] = "vertex";
+                vertexKey["type"] = "vertex";
+                vertexKey["properties"] = new Dictionary<string, object>();
             }
             
-            return vertexData;
+            return vertexKey;
         }
 
-        #endregion
+        /// <summary>
+        /// Convert properties to CosmosDB format that matches the Properties class structure
+        /// Based on StringValueList, LongValueList, BoolValueList patterns from the test
+        /// </summary>
+        private Dictionary<string, object> ConvertToCosmosDBPropertiesFormat(Dictionary<string, object> properties)
+        {
+            var cosmosDbProperties = new Dictionary<string, object>();
+            
+            if (properties == null)
+            {
+                return cosmosDbProperties;
+            }
+            
+            foreach (var kvp in properties)
+            {
+                var key = kvp.Key;
+                var value = kvp.Value;
+                
+                // Convert each property to CosmosDB value list format
+                if (value is string stringValue)
+                {
+                    cosmosDbProperties[key] = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["id"] = Guid.NewGuid().ToString(),
+                            ["value"] = stringValue
+                        }
+                    };
+                }
+                else if (value is long longValue)
+                {
+                    cosmosDbProperties[key] = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["id"] = Guid.NewGuid().ToString(),
+                            ["value"] = longValue
+                        }
+                    };
+                }
+                else if (value is int intValue)
+                {
+                    cosmosDbProperties[key] = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["id"] = Guid.NewGuid().ToString(),
+                            ["value"] = (long)intValue
+                        }
+                    };
+                }
+                else if (value is bool boolValue)
+                {
+                    cosmosDbProperties[key] = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["id"] = Guid.NewGuid().ToString(),
+                            ["value"] = boolValue
+                        }
+                    };
+                }
+                else
+                {
+                    // Default to string representation
+                    cosmosDbProperties[key] = new List<Dictionary<string, object>>
+                    {
+                        new Dictionary<string, object>
+                        {
+                            ["id"] = Guid.NewGuid().ToString(),
+                            ["value"] = value?.ToString() ?? ""
+                        }
+                    };
+                }
+            }
+            
+            return cosmosDbProperties;
+        }
     }
+
+    #endregion
 }

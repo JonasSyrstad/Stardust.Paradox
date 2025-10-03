@@ -1,13 +1,15 @@
-using Xunit;
 using FluentAssertions;
-using Stardust.Paradox.Data.InMemory;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Linq;
-using System;
+using Microsoft.VisualStudio.TestPlatform.Utilities;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.InMemory;
 using Stardust.Paradox.Data.Tree;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+using Xunit.Abstractions;
 
 namespace Stardust.Paradox.Data.InMemory.Tests
 {
@@ -16,6 +18,11 @@ namespace Stardust.Paradox.Data.InMemory.Tests
     /// </summary>
     public class TreeStepTests
     {
+        private readonly ITestOutputHelper _output;
+        public TreeStepTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
         [Fact]
         public async Task Tree_Simple_ShouldReturnTreeStructure()
         {
@@ -180,7 +187,10 @@ namespace Stardust.Paradox.Data.InMemory.Tests
 
             // Act - Use the exact pattern from GraphContextBase.GetTreeAsync
             var result = await connector.ExecuteAsync("g.V('parent').repeat(__.out('parent')).until(__.outE('parent').count().is(0)).tree()", new Dictionary<string, object>());
-
+            var json = JsonConvert.SerializeObject(result,Formatting.Indented);
+            _output.WriteLine(json);
+            var data = JsonConvert.DeserializeObject<List<Dictionary<string, Vertex>>>(json);
+            //_output.WriteLine("serialization and deserialization works");
             // Assert
             Assert.NotNull(result);
             Assert.Equal(1, result.Count());
@@ -244,5 +254,107 @@ namespace Stardust.Paradox.Data.InMemory.Tests
             // The result should be in a format that can be consumed by VertexTreeRoot constructor
             // which expects IEnumerable<dynamic> where each dynamic contains JProperty-like structures
         }
+    }
+    public class Key
+    {
+        public string id { get; set; }
+        public string label { get; set; }
+        public string type { get; set; }
+        public Properties properties { get; set; }
+    }
+    public class Vertex
+    {
+        public Key key { get; set; }
+        public Dictionary<string, Vertex> value { get; set; }
+    }
+
+
+
+
+    public class StringValue
+    {
+        public string id { get; set; }
+        public string value { get; set; }
+
+
+    }
+
+    public class LongValue
+    {
+        public string id { get; set; }
+        public long value { get; set; }
+
+
+    }
+
+    public class BoolValue
+    {
+        public string id { get; set; }
+        public object value { get; set; }
+    }
+    public class BoolValueList : List<BoolValue>
+    {
+        public static implicit operator BoolValueList(string d) => new BoolValueList { new BoolValue { value = d } };
+
+        public static implicit operator BoolValueList(bool d) => new BoolValueList { new BoolValue { value = d } };
+
+        public string GetValue()
+        {
+            return this.FirstOrDefault()?.value?.ToString();
+        }
+    }
+    public class StringValueList : List<StringValue>
+    {
+        public static implicit operator StringValueList(string d) => new StringValueList { new StringValue { value = d } };
+
+        public string GetValue()
+        {
+            return this.FirstOrDefault()?.value;
+        }
+    }
+
+    public class LongValueList : List<LongValue>
+    {
+        public static implicit operator LongValueList(long d) => new LongValueList { new LongValue { value = d } };
+
+        public long? GetValue()
+        {
+            return this.FirstOrDefault()?.value;
+        }
+    }
+
+    public class Properties
+    {
+        public StringValueList production;
+        public StringValueList autoAssignSubscription;
+        public LongValueList modifiedDateTime;
+        public StringValueList assetExternalId;
+        public StringValueList prefix { get; set; }
+        public StringValueList pk { get; set; }
+        public StringValueList entityType { get; set; }
+        public LongValueList createDateTime { get; set; }
+        public StringValueList createdBy { get; set; }
+        public StringValueList serviceId { get; set; }
+
+        public string ServiceId() => serviceId?.GetValue();
+
+        public StringValueList name { get; set; }
+
+        public string Name() => name?.GetValue() ?? ServiceId();
+        public StringValueList modifiedBy { get; set; }
+        public StringValueList email { get; set; }
+        public string Email() => email.GetValue();
+        public StringValueList principalId { get; set; }
+        public string PrincipalId() => principalId.GetValue();
+
+        public BoolValueList isServicePrincipal { get; set; }
+
+        public StringValueList vtm_locked { get; set; }
+
+        public StringValueList accessLevel { get; set; }
+
+        public StringValueList subscriptionState { get; set; }
+
+        public ReadOnlySpan<char> Pk() => pk.GetValue();
     }
 }

@@ -1,7 +1,10 @@
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using Stardust.Nucleus;
 using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.Annotations.DataTypes;
+using Stardust.Paradox.Data.Internals;
 using Stardust.Paradox.Data.Providers.Gremlin;
 using Stardust.Paradox.Data.Traversals;
 using Stardust.Paradox.Data.Traversals.Helpers;
@@ -14,8 +17,6 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Threading.Tasks;
-using Stardust.Paradox.Data.Annotations.DataTypes;
-using Stardust.Paradox.Data.Internals;
 using Xunit;
 using Xunit.Abstractions;
 using static Stardust.Paradox.Data.Traversals.GremlinFactory;
@@ -90,13 +91,16 @@ namespace Stardust.Paradox.CosmosDbTest
                 _output.WriteLine($"Result Count: {result?.Count()}");
                 _output.WriteLine("Raw Result:");
                 _output.WriteLine(JsonConvert.SerializeObject(result, Formatting.Indented));
-                
+                var json = JsonConvert.SerializeObject(result);
+                var data = JsonConvert.DeserializeObject<List<Dictionary<string, Vertex>>>(json);
+                _output.WriteLine("serialization and deserialization works");
                 if (result?.Any() == true)
                 {
                     var firstResult = result.First();
                     _output.WriteLine($"First Result Type: {firstResult?.GetType()?.FullName}");
                     _output.WriteLine("First Result:");
                     _output.WriteLine(JsonConvert.SerializeObject(firstResult, Formatting.Indented));
+                    
                 }
             }
             catch (Exception ex)
@@ -231,5 +235,107 @@ namespace Stardust.Paradox.CosmosDbTest
         {
             _scope.TryDispose();
         }
+    }
+    public class Key
+    {
+        public string id { get; set; }
+        public string label { get; set; }
+        public string type { get; set; }
+        public Properties properties { get; set; }
+    }
+    public class Vertex
+    {
+        public Key key { get; set; }
+        public Dictionary<string, Vertex> value { get; set; }
+    }
+
+
+
+
+    public class StringValue
+    {
+        public string id { get; set; }
+        public string value { get; set; }
+
+
+    }
+
+    public class LongValue
+    {
+        public string id { get; set; }
+        public long value { get; set; }
+
+
+    }
+
+    public class BoolValue
+    {
+        public string id { get; set; }
+        public object value { get; set; }
+    }
+    public class BoolValueList : List<BoolValue>
+    {
+        public static implicit operator BoolValueList(string d) => new BoolValueList { new BoolValue { value = d } };
+
+        public static implicit operator BoolValueList(bool d) => new BoolValueList { new BoolValue { value = d } };
+
+        public string GetValue()
+        {
+            return this.FirstOrDefault()?.value?.ToString();
+        }
+    }
+    public class StringValueList : List<StringValue>
+    {
+        public static implicit operator StringValueList(string d) => new StringValueList { new StringValue { value = d } };
+
+        public string GetValue()
+        {
+            return this.FirstOrDefault()?.value;
+        }
+    }
+
+    public class LongValueList : List<LongValue>
+    {
+        public static implicit operator LongValueList(long d) => new LongValueList { new LongValue { value = d } };
+
+        public long? GetValue()
+        {
+            return this.FirstOrDefault()?.value;
+        }
+    }
+
+    public class Properties
+    {
+        public StringValueList production;
+        public StringValueList autoAssignSubscription;
+        public LongValueList modifiedDateTime;
+        public StringValueList assetExternalId;
+        public StringValueList prefix { get; set; }
+        public StringValueList pk { get; set; }
+        public StringValueList entityType { get; set; }
+        public LongValueList createDateTime { get; set; }
+        public StringValueList createdBy { get; set; }
+        public StringValueList serviceId { get; set; }
+
+        public string ServiceId() => serviceId?.GetValue();
+
+        public StringValueList name { get; set; }
+
+        public string Name() => name?.GetValue() ?? ServiceId();
+        public StringValueList modifiedBy { get; set; }
+        public StringValueList email { get; set; }
+        public string Email() => email.GetValue();
+        public StringValueList principalId { get; set; }
+        public string PrincipalId() => principalId.GetValue();
+
+        public BoolValueList isServicePrincipal { get; set; }
+
+        public StringValueList vtm_locked { get; set; }
+
+        public StringValueList accessLevel { get; set; }
+
+        public StringValueList subscriptionState { get; set; }
+
+        public ReadOnlySpan<char> Pk() => pk.GetValue();
     }
 }
