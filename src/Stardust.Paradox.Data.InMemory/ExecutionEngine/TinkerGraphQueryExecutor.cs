@@ -2857,9 +2857,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         /// <summary>
-        /// Build a JObject tree structure that matches TinkerPop/CosmosDB output format
-        /// This returns a JObject that can be enumerated as JProperty objects for VertexTreeRoot compatibility
-        /// The format should match what VertexTree expects: each node as [vertex, children] structure
+        /// Build a JObject tree structure that matches TinkerPop/CosmosDB output format exactly
+        /// Based on the response format from CosmosDB TreeStepFormatTest
         /// </summary>
         private JObject BuildJObjectTreeStructure(List<List<dynamic>> paths)
         {
@@ -2870,8 +2869,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 return result;
             }
             
-            // Build a tree where each level follows TinkerPop tree format
-            // Each vertex should be represented as [vertex_data, children_object]
+            // CosmosDB tree format analysis from the sample response:
+            // {"vertex_id": [vertex_object, children_object]}
+            // where vertex_object contains id, label, type, etc.
+            // and children_object is either {} for leaf nodes or contains more nested structures
+            
             foreach (var path in paths)
             {
                 if (!path.Any()) continue;
@@ -2885,9 +2887,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     
                     if (!currentLevel.ContainsKey(vertexId))
                     {
-                        // Create TinkerPop-style tree node: [vertex_data, children_object]
-                        var vertexData = CreateVertexData(vertex);
+                        // Create vertex data object that matches CosmosDB format
+                        var vertexData = CreateCosmosDBCompatibleVertexData(vertex);
                         var children = new JObject();
+                        
+                        // CosmosDB format: [vertex_data, children_object]
                         var nodeArray = new JArray(vertexData, children);
                         currentLevel[vertexId] = nodeArray;
                     }
@@ -2919,45 +2923,45 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         /// <summary>
-        /// Create vertex data in the format expected by VertexTree
+        /// Create vertex data that exactly matches CosmosDB format
+        /// Based on the sample: {"id":"550e8324-e29b-41d4-a716-446655440324","label":"tenantEntity","type":"vertex"}
         /// </summary>
-        private JObject CreateVertexData(dynamic vertex)
+        private JObject CreateCosmosDBCompatibleVertexData(dynamic vertex)
         {
             var vertexData = new JObject();
             
             try
             {
-                // Extract vertex properties
-                if (vertex is IDictionary<string, object> dict)
+                // Extract core vertex properties in CosmosDB order: id, label, type
+                var id = ExtractId(vertex);
+                var label = ExtractLabel(vertex);
+                var type = ExtractType(vertex);
+                
+                // Always include these core properties to match CosmosDB format
+                vertexData["id"] = id ?? "unknown";
+                vertexData["label"] = label ?? "vertex";
+                vertexData["type"] = type ?? "vertex";
+                
+                // Add any additional properties from the vertex
+                var properties = ExtractProperties(vertex);
+                if (properties != null)
                 {
-                    foreach (var kvp in dict)
+                    foreach (var kvp in properties)
                     {
-                        vertexData[kvp.Key] = JToken.FromObject(kvp.Value);
-                    }
-                }
-                else if (vertex != null)
-                {
-                    // Try to extract common vertex properties
-                    try
-                    {
-                        if (vertex.id != null)
-                            vertexData["id"] = JToken.FromObject(vertex.id);
-                        if (vertex.label != null)
-                            vertexData["label"] = JToken.FromObject(vertex.label);
-                        if (vertex.type != null)
-                            vertexData["type"] = JToken.FromObject(vertex.type);
-                    }
-                    catch
-                    {
-                        // If dynamic property access fails, use string representation
-                        vertexData["id"] = vertex?.ToString() ?? "unknown";
+                        // Skip core properties to avoid duplication
+                        if (kvp.Key != "id" && kvp.Key != "label" && kvp.Key != "type")
+                        {
+                            vertexData[kvp.Key] = JToken.FromObject(kvp.Value);
+                        }
                     }
                 }
             }
-            catch
+            catch (Exception)
             {
-                // Fallback: create minimal vertex data
+                // Fallback: create minimal vertex data matching CosmosDB structure
                 vertexData["id"] = vertex?.ToString() ?? "unknown";
+                vertexData["label"] = "vertex";
+                vertexData["type"] = "vertex";
             }
             
             return vertexData;

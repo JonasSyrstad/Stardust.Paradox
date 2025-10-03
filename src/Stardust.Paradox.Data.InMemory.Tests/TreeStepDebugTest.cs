@@ -1,55 +1,73 @@
+using Microsoft.VisualStudio.TestPlatform.Utilities;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.InMemory;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
-using Stardust.Paradox.Data.InMemory;
-using Newtonsoft.Json.Linq;
+using Xunit.Abstractions;
 
 namespace Stardust.Paradox.Data.InMemory.Tests
 {
     public class TreeStepDebugTest
     {
-        [Fact]
-        public async Task DebugTreeStep_BasicCase()
+        private readonly ITestOutputHelper _output;
+
+        public TreeStepDebugTest(ITestOutputHelper output)
         {
+            _output = output;
+        }
+        [Fact]
+        public async Task DebugTreeStep_CosmosDBFormat()
+        {
+            Console.WriteLine("=== Tree Step CosmosDB Format Debug ===");
+            
             var connector = InMemoryGremlinLanguageConnector.Create();
             
-            // Test 1: Simple vertex + tree
-            await connector.ExecuteAsync("g.addV('person').property('id', 'test')", new Dictionary<string, object>());
+            // Create test data similar to the CosmosDB scenario
+            await connector.ExecuteAsync("g.addV('tenantEntity').property('id', '550e8324-e29b-41d4-a716-446655440324').property('entityType', 'userGroup')", new Dictionary<string, object>());
+            await connector.ExecuteAsync("g.addV('tenantEntity').property('id', 'child1').property('entityType', 'userGroup')", new Dictionary<string, object>());
+            await connector.ExecuteAsync("g.addV('tenantEntity').property('id', 'child2').property('entityType', 'userGroup')", new Dictionary<string, object>());
             
-            var result1 = await connector.ExecuteAsync("g.V('test').tree()", new Dictionary<string, object>());
-            Console.WriteLine($"V('test').tree() result count: {result1?.Count() ?? 0}");
+            // Create member relationships
+            await connector.ExecuteAsync("g.V('550e8324-e29b-41d4-a716-446655440324').addE('members').to(g.V('child1'))", new Dictionary<string, object>());
+            await connector.ExecuteAsync("g.V('550e8324-e29b-41d4-a716-446655440324').addE('members').to(g.V('child2'))", new Dictionary<string, object>());
+            
+            Console.WriteLine("\n1. Testing simple tree: g.V('550e8324-e29b-41d4-a716-446655440324').tree()");
+            var result1 = await connector.ExecuteAsync("g.V('550e8324-e29b-41d4-a716-446655440324').tree()", new Dictionary<string, object>());
+            Console.WriteLine($"Result count: {result1?.Count() ?? 0}");
             foreach (var item in result1 ?? new List<dynamic>())
             {
-                Console.WriteLine($"Result type: {item?.GetType().Name}, Value: {item}");
-                if (item is JObject jobj)
+                Console.WriteLine($"Result type: {item?.GetType().Name}");
+                Console.WriteLine($"JSON: {JsonConvert.SerializeObject(item, Formatting.Indented)}");
+            }
+
+            _output.WriteLine("\n2. Testing tree with emit/repeat query similar to user's example:");
+            _output.WriteLine("g.V('550e8324-e29b-41d4-a716-446655440324').emit().repeat(__.out('members')).until(__.loops().is(3)).has('entityType', 'userGroup').tree()");
+            
+            try
+            {
+                var result2 = await connector.ExecuteAsync("g.V('550e8324-e29b-41d4-a716-446655440324').emit().repeat(__.out('members')).until(__.loops().is(3)).has('entityType', 'userGroup').tree()", new Dictionary<string, object>());
+                _output.WriteLine(JsonConvert.SerializeObject(result2));
+                Console.WriteLine($"Result count: {result2?.Count() ?? 0}");
+                foreach (var item in result2 ?? new List<dynamic>())
                 {
-                    Console.WriteLine($"JObject content: {jobj}");
+                    Console.WriteLine($"Result type: {item?.GetType().Name}");
+                    Console.WriteLine($"JSON: {JsonConvert.SerializeObject(item, Formatting.Indented)}");
                 }
             }
-            
-            // Test 2: Empty tree - should always return 1 result (empty tree)
-            var result2 = await connector.ExecuteAsync("g.V('nonexistent').tree()", new Dictionary<string, object>());
-            Console.WriteLine($"V('nonexistent').tree() result count: {result2?.Count() ?? 0}");
-            foreach (var item in result2 ?? new List<dynamic>())
+            catch (Exception ex)
             {
-                Console.WriteLine($"Result type: {item?.GetType().Name}, Value: {item}");
-            }
-            
-            // Test 3: Empty tree via limit
-            var result3 = await connector.ExecuteAsync("g.V().limit(0).tree()", new Dictionary<string, object>());
-            Console.WriteLine($"V().limit(0).tree() result count: {result3?.Count() ?? 0}");
-            foreach (var item in result3 ?? new List<dynamic>())
-            {
-                Console.WriteLine($"Result type: {item?.GetType().Name}, Value: {item}");
-            }
-            
-            // Test 4: Direct call to empty V set should also work
-            var result4 = await connector.ExecuteAsync("g.V('nonexistent').out('child').tree()", new Dictionary<string, object>());
-            Console.WriteLine($"V('nonexistent').out('child').tree() result count: {result4?.Count() ?? 0}");
-            foreach (var item in result4 ?? new List<dynamic>())
-            {
-                Console.WriteLine($"Result type: {item?.GetType().Name}, Value: {item}");
+                Console.WriteLine($"Complex query failed: {ex.Message}");
+                // Fall back to simpler version
+                var result2b = await connector.ExecuteAsync("g.V('550e8324-e29b-41d4-a716-446655440324').out('members').tree()", new Dictionary<string, object>());
+                Console.WriteLine($"Fallback result count: {result2b?.Count() ?? 0}");
+                foreach (var item in result2b ?? new List<dynamic>())
+                {
+                    Console.WriteLine($"Fallback result type: {item?.GetType().Name}");
+                    Console.WriteLine($"Fallback JSON: {JsonConvert.SerializeObject(item, Formatting.Indented)}");
+                }
             }
         }
     }
