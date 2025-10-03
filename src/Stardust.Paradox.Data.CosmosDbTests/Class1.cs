@@ -22,7 +22,7 @@ namespace Stardust.Paradox.CosmosDbTest
         {
             if (_client == null)
                 _client = new DocumentClient(
-                    new Uri($"https://{ConfigurationManagerHelper.GetValueOnKey("cosmosDbAccount")}.documents.azure.com:443/"),
+                    new Uri($"https://jonas-playground.documents.azure.com:443/"),
                     ConfigurationManagerHelper.GetValueOnKey("cosmosDbKey"));
         }
 
@@ -59,7 +59,7 @@ namespace Stardust.Paradox.CosmosDbTest
             Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = "graphTest" }).ConfigureAwait(false);
             _graph = await _client.CreateDocumentCollectionIfNotExistsAsync(
                 UriFactory.CreateDatabaseUri("graphTest"),
-                new DocumentCollection { Id = "services" },
+                new DocumentCollection { Id = "graphTest" },
                 new RequestOptions { OfferThroughput = 1000 }).ConfigureAwait(false);
             return _graph;
         }

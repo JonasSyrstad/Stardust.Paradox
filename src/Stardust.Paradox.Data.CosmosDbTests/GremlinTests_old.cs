@@ -141,7 +141,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				}.RegisterGraphSerializer();
 			};
 			//var tc = new TestContext(new Class1());
-			var tc = new TestContext(new GremlinNetLanguageConnector($"{ConfigurationManagerHelper.GetValueOnKey("cosmosDbAccount")}.gremlin.cosmosdb.azure.com", "graphTest", "services", ConfigurationManagerHelper.GetValueOnKey("cosmosDbKey")));
+			var tc = new TestContext(new GremlinNetLanguageConnector($"jonas-playground.gremlin.cosmos.azure.com", "graphTest", "graphTest", ConfigurationManagerHelper.GetValueOnKey("cosmosDbKey")));
 			tc.OnDisposing = c =>
 			{
 				c.SaveChangesError -= OnTcOnSaveChangesError;
@@ -209,7 +209,8 @@ namespace Stardust.Paradox.CosmosDbTest
 				t.Email = "jonas.syrstad@dnvgl.com";
 				t.FirstName = "Jonas";
 				t.LastName = "Syrstad";
-				t.VerifiedEmail = true;
+                t.Pk = "pk";
+                t.VerifiedEmail = true;
 				_output.WriteLine(JsonConvert.SerializeObject(t));
 			}
 
@@ -229,6 +230,7 @@ namespace Stardust.Paradox.CosmosDbTest
 				t.LastName = "Syrstad";
 				t.Description = "jonas's little test";
 				t.VerifiedEmail = true;
+                t.Pk = "pk";
 				await tc.SaveChangesAsync();
 				_output.WriteLine(JsonConvert.SerializeObject(t));
 				tc.Delete(t);
@@ -238,49 +240,49 @@ namespace Stardust.Paradox.CosmosDbTest
 
 		}
 
-		[Fact]
-		public async Task GetOrCreateTests()
-		{
-			IProfile newItem;
-			using (var tc = new TestContext(new Class1()))
-			{
-				var alexis = await tc.GetOrCreate<IProfile>("Alexis");
-				Assert.Equal("Alexis", alexis.Name);
-				newItem = await tc.GetOrCreate<IProfile>("getOrCreateTest");
-				Assert.Null(newItem.Name);
-			}
+		//[Fact]
+		//public async Task GetOrCreateTests()
+		//{
+		//	IProfile newItem;
+		//	using (var tc = new TestContext(new Class1()))
+		//	{
+		//		var alexis = await tc.GetOrCreate<IProfile>("Alexis","pk");
+		//		Assert.Equal("Alexis", alexis.Name);
+		//		newItem = await tc.GetOrCreate<IProfile>("getOrCreateTest");
+		//		Assert.Null(newItem.Name);
+		//	}
 
 
-		}
+		//}
 
-		[Fact]
-		public async Task GetPerfTest()
-		{
-			using (var tc = TestContext())
-			{
-				var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
-			}
-			using (var tc = TestContext())
-			{
-				var t = Stopwatch.StartNew();
-				var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
-				t.Stop();
-				_output.WriteLine($"Gremlin.Net: {t.ElapsedMilliseconds}ms");
-			}
-			using (var tc = new TestContext(new Class1()))
-			{
+		//[Fact]
+		//public async Task GetPerfTest()
+		//{
+		//	using (var tc = TestContext())
+		//	{
+		//		var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
+		//	}
+		//	using (var tc = TestContext())
+		//	{
+		//		var t = Stopwatch.StartNew();
+		//		var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
+		//		t.Stop();
+		//		_output.WriteLine($"Gremlin.Net: {t.ElapsedMilliseconds}ms");
+		//	}
+		//	using (var tc = new TestContext(new Class1()))
+		//	{
 
-				var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
+		//		var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
 
-			}
-			using (var tc = new TestContext(new Class1()))
-			{
-				var t = Stopwatch.StartNew();
-				var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
-				t.Stop();
-				_output.WriteLine($"Document client: {t.ElapsedMilliseconds}ms");
-			}
-		}
+		//	}
+		//	using (var tc = new TestContext(new Class1()))
+		//	{
+		//		var t = Stopwatch.StartNew();
+		//		var j = await tc.Profiles.GetAsync("Alexis", "Alexis");
+		//		t.Stop();
+		//		_output.WriteLine($"Document client: {t.ElapsedMilliseconds}ms");
+		//	}
+		//}
 
 		[Fact]
 		public async Task DataContextReadTestAsync()

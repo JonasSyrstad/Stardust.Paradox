@@ -21,6 +21,7 @@ namespace Stardust.Paradox.Data.Traversals
         {
             return new ComposedGremlinQuery(queryBase, $".explain()");
         }
+
         public static GremlinQuery Cap(this GremlinQuery queryBase, params string[] values)
         {
             return queryBase.Params("cap", values);

@@ -22,7 +22,7 @@ namespace Stardust.Paradox.CosmosDbTest
 	        //var cosmosDbKey = keyVaultClient
 		       // .GetSecretAsync("https://stardust-test-vault.vault.azure.net/", "cosmosAccountKey").Result;
 
-               var cosmosDbAccount = "jonas-playground";
+               var cosmosDbAccount = "jonas-playground.gremlin.cosmos.azure.com";
                var cosmosDbKey =
                    "9PjaiGNCsv7zTE1PU02FRR0sw1h1gp0qwnVzSRYFRed5gz1NrXGJpK9112nADL6kyCZSVWIeRkGPACDbPOHhBA==";
                configuration.AddEntityBinding((type, type1) =>
@@ -31,8 +31,8 @@ namespace Stardust.Paradox.CosmosDbTest
                     
                 })
                 .Bind<IGremlinLanguageConnector>()
-				.ToConstructor(s=>new GremlinNetLanguageConnector($"{cosmosDbAccount}.gremlin.cosmosdb.azure.com", "graphTest", "services", cosmosDbKey));
-            GremlinFactory.SetActivatorFactory(()=> new GremlinNetLanguageConnector($"{cosmosDbAccount}.gremlin.cosmosdb.azure.com", "graphTest", "services", cosmosDbKey));
+				.ToConstructor(s=>new GremlinNetLanguageConnector($"{cosmosDbAccount}", "graphTest", "graphTest", cosmosDbKey));
+            GremlinFactory.SetActivatorFactory(()=> new GremlinNetLanguageConnector($"{cosmosDbAccount}", "graphTest", "graphTest", cosmosDbKey));
 			ConfigurationManagerHelper.SetValueOnKey("cosmosDbAccount",cosmosDbAccount);
 	        ConfigurationManagerHelper.SetValueOnKey("cosmosDbKey", cosmosDbKey);
 		}

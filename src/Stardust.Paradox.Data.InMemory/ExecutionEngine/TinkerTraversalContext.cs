@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
@@ -115,6 +116,17 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             foreach (var traverser in Traversers)
             {
+                // Special handling for JObject - don't flatten tree results
+                if (traverser.Value is JObject)
+                {
+                    // Return JObject as-is, repeated for bulk
+                    for (int i = 0; i < traverser.Bulk; i++)
+                    {
+                        results.Add(traverser.Value);
+                    }
+                    continue;
+                }
+                
                 // Handle both single values and enumerable values
                 if (traverser.Value is IEnumerable<dynamic> enumerable && !(traverser.Value is string))
                 {

@@ -41,7 +41,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         private static readonly HashSet<string> CollectingBarrierSteps =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "group", "groupCount", "order", "dedup", "barrier"
+                "group", "groupCount", "order", "dedup", "barrier", "tree"
             };
 
         public TinkerGraphQueryParser(InMemoryGraphDatabase database)

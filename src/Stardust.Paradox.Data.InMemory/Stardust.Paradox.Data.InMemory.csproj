@@ -10,7 +10,7 @@
 		
 		<!-- Package Information -->
 		<PackageId>Stardust.Paradox.Data.InMemory</PackageId>
-		<Version>1.0.3-rc1</Version>
+		<Version>1.0.3-rc3</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<Authors>Stardust</Authors>

@@ -2,6 +2,7 @@ using System;
 using Stardust.Paradox.Data.InMemory.Core;
 using System.Collections.Generic;
 using System.Linq;
+using Newtonsoft.Json.Linq;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
@@ -97,6 +98,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 for (int j = i + 1; j < traversal.Steps.Count; j++)
                 {
                     if (IsTerminalAggregationStep(traversal.Steps[j]))
+                    {
+                        hasRemainingTerminalSteps = true;
+                        break;
+                    }
+                    // Tree step should also always execute
+                    if (traversal.Steps[j].StepName.Equals("tree", StringComparison.OrdinalIgnoreCase))
                     {
                         hasRemainingTerminalSteps = true;
                         break;
@@ -354,6 +361,9 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     break;
                 case "by":
                     ExecuteByStep(step, context);
+                    break;
+                case "tree":
+                    ExecuteTreeStep(step, context);
                     break;
                 default:
                     // Unknown step - pass through
@@ -748,21 +758,21 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             var newTraversers = new List<Traverser>();
 
             foreach (var traverser in context.Traversers)
-            {
-                var vertexId = ExtractVertexId(traverser.Value);
-                if (!string.IsNullOrEmpty(vertexId))
-                {
-                    var inEdges = _database.GetInEdges(vertexId, edgeLabel);
-                    foreach (var edge in inEdges)
-                    {
-                        var newTraverser = traverser.Split();
-                        newTraverser.Value = edge.ToGremlinResponse();
-                        newTraversers.Add(newTraverser);
-                    }
-                }
-            }
+			{
+				var vertexId = ExtractVertexId(traverser.Value);
+				if (!string.IsNullOrEmpty(vertexId))
+				{
+					var inEdges = _database.GetInEdges(vertexId, edgeLabel);
+					foreach (var edge in inEdges)
+					{
+						var newTraverser = traverser.Split();
+						newTraverser.Value = edge.ToGremlinResponse();
+						newTraversers.Add(newTraverser);
+					}
+				}
+			}
 
-            context.Traversers = newTraversers;
+			context.Traversers = newTraversers;
         }
 
         private void ExecuteBothEStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -2805,6 +2815,152 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             // Note: .by() steps don't modify the traversers directly
             // They store metadata that affects how the previous step operates
+        }
+
+        private void ExecuteTreeStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            // Tree step creates a hierarchical structure based on the paths taken through the graph
+            // The result format should match CosmosDB/TinkerPop format for VertexTreeRoot compatibility
+            
+            // If there are no traversers, we still need to return an empty tree
+            if (!context.Traversers.Any())
+            {
+                var emptyTree = new JObject();
+                context.Clear();
+                context.Traversers.Add(new Traverser(emptyTree));
+                return;
+            }
+            
+            // Collect all paths and organize them into a tree structure
+            var allPaths = new List<List<dynamic>>();
+            
+            foreach (var traverser in context.Traversers)
+            {
+                var path = traverser.GetPath();
+                if (path.Any())
+                {
+                    allPaths.Add(path);
+                }
+                else
+                {
+                    // If no path, create a single-element path with current value
+                    allPaths.Add(new List<dynamic> { traverser.Value });
+                }
+            }
+            
+            // Build tree structure as a JObject compatible with VertexTreeRoot
+            var treeStructure = BuildJObjectTreeStructure(allPaths);
+            
+            // Tree step always returns one result, even if empty
+            context.Clear();
+            context.Traversers.Add(new Traverser(treeStructure));
+        }
+
+        /// <summary>
+        /// Build a JObject tree structure that matches TinkerPop/CosmosDB output format
+        /// This returns a JObject that can be enumerated as JProperty objects for VertexTreeRoot compatibility
+        /// The format should match what VertexTree expects: each node as [vertex, children] structure
+        /// </summary>
+        private JObject BuildJObjectTreeStructure(List<List<dynamic>> paths)
+        {
+            var result = new JObject();
+            
+            if (!paths.Any())
+            {
+                return result;
+            }
+            
+            // Build a tree where each level follows TinkerPop tree format
+            // Each vertex should be represented as [vertex_data, children_object]
+            foreach (var path in paths)
+            {
+                if (!path.Any()) continue;
+                
+                var currentLevel = result;
+                
+                for (int i = 0; i < path.Count; i++)
+                {
+                    var vertex = path[i];
+                    var vertexId = ExtractId(vertex) ?? vertex?.ToString() ?? "null";
+                    
+                    if (!currentLevel.ContainsKey(vertexId))
+                    {
+                        // Create TinkerPop-style tree node: [vertex_data, children_object]
+                        var vertexData = CreateVertexData(vertex);
+                        var children = new JObject();
+                        var nodeArray = new JArray(vertexData, children);
+                        currentLevel[vertexId] = nodeArray;
+                    }
+                    
+                    // Move to the children level for the next iteration
+                    if (i < path.Count - 1)
+                    {
+                        var nodeArray = currentLevel[vertexId] as JArray;
+                        if (nodeArray != null && nodeArray.Count > 1)
+                        {
+                            currentLevel = nodeArray[1] as JObject;
+                            if (currentLevel == null)
+                            {
+                                // This shouldn't happen, but handle it gracefully
+                                currentLevel = new JObject();
+                                nodeArray[1] = currentLevel;
+                            }
+                        }
+                        else
+                        {
+                            // Fallback: create new children object
+                            currentLevel = new JObject();
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        /// <summary>
+        /// Create vertex data in the format expected by VertexTree
+        /// </summary>
+        private JObject CreateVertexData(dynamic vertex)
+        {
+            var vertexData = new JObject();
+            
+            try
+            {
+                // Extract vertex properties
+                if (vertex is IDictionary<string, object> dict)
+                {
+                    foreach (var kvp in dict)
+                    {
+                        vertexData[kvp.Key] = JToken.FromObject(kvp.Value);
+                    }
+                }
+                else if (vertex != null)
+                {
+                    // Try to extract common vertex properties
+                    try
+                    {
+                        if (vertex.id != null)
+                            vertexData["id"] = JToken.FromObject(vertex.id);
+                        if (vertex.label != null)
+                            vertexData["label"] = JToken.FromObject(vertex.label);
+                        if (vertex.type != null)
+                            vertexData["type"] = JToken.FromObject(vertex.type);
+                    }
+                    catch
+                    {
+                        // If dynamic property access fails, use string representation
+                        vertexData["id"] = vertex?.ToString() ?? "unknown";
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback: create minimal vertex data
+                vertexData["id"] = vertex?.ToString() ?? "unknown";
+            }
+            
+            return vertexData;
         }
 
         #endregion
