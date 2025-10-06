@@ -10,7 +10,7 @@
 		
 		<!-- Package Information -->
 		<PackageId>Stardust.Paradox.Data.InMemory</PackageId>
-		<Version>1.0.3-rc6</Version>
+		<Version>1.0.3</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<Authors>Stardust</Authors>
@@ -67,6 +67,7 @@
 	<!-- Package Content -->
 	<ItemGroup>
 		<None Include="README.md" Pack="true" PackagePath="\" Condition="Exists('README.md')" />
+		<None Include="logo_smal.png" Pack="true" PackagePath="\" />
 	</ItemGroup>
 
 	<!-- Conditional Framework References -->
