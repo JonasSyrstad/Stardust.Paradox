@@ -1078,236 +1078,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
         #endregion
 
-        #region Filter Steps - Fixed property access
-
-        private void ExecuteHasStep(TinkerGraphStep step, TinkerTraversalContext context)
-        {
-            if (step.Arguments.Count < 1)
-                return;
-
-            var key = step.Arguments[0].ToString();
-            
-            if (step.Arguments.Count == 1)
-            {
-                // has(key) - check if property exists
-                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('label') - check if element has a label (all elements do)
-                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractLabel(traverser.Value)));
-                }
-                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('id') - check if element has an ID (all elements do)
-                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractId(traverser.Value)));
-                }
-                else
-                {
-                    // Normal case: check if property exists
-                    context.Filter(traverser =>
-                    {
-                        var properties = ExtractProperties(traverser.Value);
-                        return properties != null && properties.ContainsKey(key);
-                    });
-                }
-            }
-            else if (step.Arguments.Count >= 2)
-            {
-                // has(key, value) - check property value
-                var expectedValue = step.Arguments[1];
-                
-                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('label', value) - check element label
-                    context.Filter(traverser =>
-                    {
-                        var actualLabel = ExtractLabel(traverser.Value);
-                        if (expectedValue is string expectedStr && actualLabel is string actualStr)
-                        {
-                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                        }
-                        return Equals(actualLabel, expectedValue);
-                    });
-                }
-                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('id', value) - check element ID
-                    context.Filter(traverser =>
-                    {
-                        var actualId = ExtractId(traverser.Value);
-                        if (expectedValue is string expectedStr && actualId is string actualStr)
-                        {
-                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                        }
-                        return Equals(actualId, expectedValue);
-                    });
-                }
-                else
-                {
-                    // Check if this is a predicate (starts with known predicate functions)
-                    var valueStr = expectedValue?.ToString() ?? "";
-                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
-                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
-                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
-                        valueStr.StartsWith("within("))
-                    {
-                        // Parse and apply predicate
-                        context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
-                    }
-                    else
-                    {
-                        // Normal case: check property value
-                        context.Filter(traverser =>
-                        {
-                            var properties = ExtractProperties(traverser.Value);
-                            if (properties != null && properties.ContainsKey(key))
-                            {
-                                var actualValue = properties[key];
-                                
-                                // Handle different value types and comparisons
-                                if (expectedValue is string expectedStr && actualValue is string actualStr)
-                                {
-                                    return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                                }
-                                else if (expectedValue is double && actualValue != null)
-                                {
-                                    // Handle numeric comparisons (for weight properties)
-                                    if (double.TryParse(actualValue.ToString(), out double actualDouble))
-                                    {
-                                        var expectedDouble = (double)expectedValue;
-                                        return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
-                                    }
-                                }
-                                else if (expectedValue is int && actualValue != null)
-                                {
-                                    if (int.TryParse(actualValue.ToString(), out int actualInt))
-                                    {
-                                        var expectedInt = (int)expectedValue;
-                                        return expectedInt == actualInt;
-                                    }
-                                }
-                                
-                                return Equals(actualValue, expectedValue);
-                            }
-                            return false;
-                        });
-                    }
-                }
-            }
-        }
-        
-        private bool EvaluatePredicate(Traverser traverser, string propertyKey, string predicate)
-        {
-            var properties = ExtractProperties(traverser.Value);
-            if (properties == null || !properties.ContainsKey(propertyKey))
-                return false;
-            
-            var actualValue = properties[propertyKey];
-            
-            // Handle incomplete predicates (missing closing parenthesis due to parsing)
-            var normalizedPredicate = predicate;
-            if (!normalizedPredicate.EndsWith(")"))
-            {
-                normalizedPredicate += ")";
-            }
-            
-            // Parse predicate (e.g., "gt(80000)", "gte(100)", etc.)
-            if (normalizedPredicate.StartsWith("gt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual > threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("gte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual >= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual < threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual <= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("neq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual != threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return !valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("eq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual == threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
-            {
-                // within(value1, value2, value3, ...) predicate
-                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
-                var withinValues = SplitWithinValues(valuesStr);
-                
-                var actualValueStr = actualValue?.ToString();
-                if (actualValueStr != null)
-                {
-                    // Check if the actual value matches any of the within values
-                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
-                }
-                return false;
-            }
-            
-            return false;
-        }
-
-        #endregion
-
-        #region Property Steps - Fixed property access
+        #region Property Steps
 
         private void ExecutePropertiesStep(TinkerGraphStep step, TinkerTraversalContext context)
         {
@@ -1521,318 +1292,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
         #endregion
 
-        #region Utility Methods for Data Extraction
-
-        /// <summary>
-        /// Extract vertex ID from various data structures
-        /// </summary>
-        private string ExtractVertexId(dynamic value)
-        {
-            return ExtractId(value);
-        }
-
-        /// <summary>
-        /// Extract edge ID from various data structures  
-        /// </summary>
-        private string ExtractEdgeId(dynamic value)
-        {
-            return ExtractId(value);
-        }
-
-        /// <summary>
-        /// Extract ID from various data structures
-        /// </summary>
-        private string ExtractId(dynamic value)
-        {
-            if (value == null) return null;
-            
-            try
-            {
-                // Handle GremlinResponseObject (the actual response type)
-                if (value is GremlinResponseObject responseObj)
-                {
-                    return responseObj.id?.ToString();
-                }
-                
-                // Handle dictionary format
-                if (value is IDictionary<string, object> dict)
-                {
-                    if (dict.TryGetValue("id", out var id))
-                    {
-                        return id?.ToString();
-                    }
-                }
-                
-                // Handle dynamic object with id property
-                try
-                {
-                    var dynamicId = value.id;
-                    if (dynamicId != null)
-                    {
-                        return dynamicId.ToString();
-                    }
-                }
-                catch
-                {
-                    // Ignore dynamic access errors
-                }
-                
-                // Handle direct ID value
-                if (value is string strValue)
-                {
-                    return strValue;
-                }
-                
-                // Handle numeric ID
-                if (value is int || value is long)
-                {
-                    return value.ToString();
-                }
-            }
-            catch (Exception)
-            {
-                // If all else fails, return null
-            }
-            
-            return null;
-        }
-
-        /// <summary>
-        /// Extract label from various data structures
-        /// </summary>
-        private string ExtractLabel(dynamic value)
-        {
-            if (value == null) return null;
-            
-            try
-            {
-                // Handle GremlinResponseObject (the actual response type)
-                if (value is GremlinResponseObject responseObj)
-                {
-                    return responseObj.label?.ToString();
-                }
-                
-                // Handle dictionary format
-                if (value is IDictionary<string, object> dict)
-                {
-                    if (dict.TryGetValue("label", out var label))
-                    {
-                        return label?.ToString();
-                    }
-                }
-                
-                // Handle dynamic object with label property
-                try
-                {
-                    var dynamicLabel = value.label;
-                    if (dynamicLabel != null)
-                    {
-                        return dynamicLabel.ToString();
-                    }
-                }
-                catch
-                {
-                    // Ignore dynamic access errors
-                }
-            }
-            catch (Exception)
-            {
-                // If all else fails, return null
-            }
-            
-            return null;
-        }
-
-        /// <summary>
-        /// Extract type from various data structures  
-        /// </summary>
-        private string ExtractType(dynamic value)
-        {
-            if (value == null) return null;
-            
-            try
-            {
-                // Check for direct type property
-                if (value is IDictionary<string, object> dict)
-                {
-                    if (dict.ContainsKey("type"))
-                        return dict["type"]?.ToString();
-                }
-                
-                // Try dynamic property access
-                var type = value.type;
-                if (type != null)
-                    return type.ToString();
-                    
-                // Check if it's likely a vertex or edge based on structure
-                if (value is IDictionary<string, object> dictCheck)
-                {
-                    if (dictCheck.ContainsKey("outV") || dictCheck.ContainsKey("inV"))
-                        return "edge";
-                    if (dictCheck.ContainsKey("properties") || dictCheck.ContainsKey("label"))
-                        return "vertex";
-                }
-                
-                // Default to vertex for backward compatibility
-                return "vertex";
-            }
-            catch
-            {
-                return "vertex"; // Default fallback
-            }
-        }
-
-        /// <summary>
-        /// Extract properties from various data structures
-        /// </summary>
-        private Dictionary<string, object> ExtractProperties(dynamic value)
-        {
-            if (value == null) return new Dictionary<string, object>();
-            
-            try
-            {
-                // Handle GremlinResponseObject (the actual response type)
-                if (value is GremlinResponseObject responseObj)
-                {
-                    // Access the underlying properties data directly
-                    var properties = new Dictionary<string, object>();
-                    
-                    try
-                    {
-                        // Get the raw properties object
-                        var rawProperties = responseObj.Get<object>("properties");
-                        
-                        // Handle the exact CosmosDB format: Dictionary<string, List<Dictionary<string, object>>>
-                        if (rawProperties is Dictionary<string, List<Dictionary<string, object>>> cosmosPropsDict)
-                        {
-                            foreach (var kvp in cosmosPropsDict)
-                            {
-                                if (kvp.Value != null && kvp.Value.Count > 0)
-                                {
-                                    var firstProp = kvp.Value[0];
-                                    if (firstProp.TryGetValue("value", out var val))
-                                    {
-                                        properties[kvp.Key] = val;
-                                    }
-                                }
-                            }
-                        }
-                        // Handle other possible formats
-                        else if (rawProperties is Dictionary<string, object> propsDict)
-                        {
-                            foreach (var kvp in propsDict)
-                            {
-                                // Handle CosmosDB-style property format: [{"value": actualValue}]
-                                if (kvp.Value is List<object> list && list.Count > 0)
-                                {
-                                    var first = list[0];
-                                    if (first is Dictionary<string, object> firstDict && firstDict.TryGetValue("value", out var val))
-                                    {
-                                        properties[kvp.Key] = val;
-                                    }
-                                    else
-                                    {
-                                        properties[kvp.Key] = first;
-                                    }
-                                }
-                                else if (kvp.Value is IEnumerable<dynamic> enumerable)
-                                {
-                                    var first = enumerable.FirstOrDefault();
-                                    if (first is IDictionary<string, object> firstDict && firstDict.TryGetValue("value", out var val))
-                                    {
-                                        properties[kvp.Key] = val;
-                                    }
-                                    else
-                                    {
-                                        properties[kvp.Key] = first;
-                                    }
-                                }
-                                else
-                                {
-                                    properties[kvp.Key] = kvp.Value;
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        // If property access fails, try to access properties dynamically
-                        try
-                        {
-                            dynamic dynamicResponse = responseObj;
-                            var dynamicProps = dynamicResponse.properties;
-                            if (dynamicProps != null)
-                            {
-                                // Handle the DynamicProperties case
-                                if (dynamicProps is DynamicProperties dynProps)
-                                {
-                                    return dynProps.GetProperties();
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // Fallback to empty dictionary
-                        }
-                    }
-                    
-                    return properties;
-                }
-                
-                // Handle dictionary format
-                if (value is IDictionary<string, object> dict)
-                {
-                    if (dict.TryGetValue("properties", out var propsObj))
-                    {
-                        if (propsObj is IDictionary<string, object> props)
-                        {
-                            return new Dictionary<string, object>(props);
-                        }
-                    }
-                    
-                    // If no explicit properties key, treat the whole dict as properties
-                    // but exclude special keys
-                    var result = new Dictionary<string, object>();
-                    foreach (var kvp in dict)
-                    {
-                        if (kvp.Key != "id" && kvp.Key != "label" && kvp.Key != "type")
-                        {
-                            result[kvp.Key] = kvp.Value;
-                        }
-                    }
-                    return result;
-                }
-                
-                // Handle dynamic object with properties
-                try
-                {
-                    var dynamicProps = value.properties;
-                    if (dynamicProps is IDictionary<string, object> propsDict)
-                    {
-                        return new Dictionary<string, object>(propsDict);
-                    }
-                    
-                    // Handle DynamicProperties
-                    if (dynamicProps is DynamicProperties dynProps)
-                    {
-                        return dynProps.GetProperties();
-                    }
-                }
-                catch
-                {
-                    // Ignore dynamic access errors
-                }
-            }
-            catch (Exception)
-            {
-                // If all else fails, return empty dictionary
-            }
-            
-            return new Dictionary<string, object>();
-        }
-
-        #endregion
-
         #region Terminal Steps
 
         private void ExecuteCountStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -1914,9 +1373,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // For min/max, if no values were found, don't add a result (return empty)
             // This matches the behavior expected by tests like EmptyMin_ShouldReturnEmpty
             if (min.HasValue)
-            {
-                context.Traversers.Add(new Traverser(min.Value));
-            }
+            context.Traversers.Add(new Traverser(min.Value));
         }
 
         private void ExecuteMaxStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -2023,10 +1480,54 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         {
             if (step.Arguments.Count >= 2)
             {
-                var low = Convert.ToInt32(step.Arguments[0]);
-                var high = Convert.ToInt32(step.Arguments[1]);
-                context.Range(low, high);
+                // Safely convert arguments to integers with better error handling
+                if (TryConvertToInt(step.Arguments[0], out int low) && 
+                    TryConvertToInt(step.Arguments[1], out int high))
+                {
+                    context.Range(low, high);
+                }
+                else
+                {
+                    throw new InvalidOperationException($"Range step requires integer arguments, but got: {step.Arguments[0]} and {step.Arguments[1]}");
+                }
             }
+        }
+        
+        /// <summary>
+        /// Safely convert an object to integer
+        /// </summary>
+        private bool TryConvertToInt(object value, out int result)
+        {
+            result = 0;
+            
+            if (value == null)
+                return false;
+            
+            if (value is int intValue)
+            {
+                result = intValue;
+                return true;
+            }
+            
+            if (value is long longValue && longValue >= int.MinValue && longValue <= int.MaxValue)
+            {
+                result = (int)longValue;
+                return true;
+            }
+            
+            if (value is double doubleValue && doubleValue >= int.MinValue && doubleValue <= int.MaxValue && doubleValue == Math.Floor(doubleValue))
+            {
+                result = (int)doubleValue;
+                return true;
+            }
+            
+            if (value is string stringValue && int.TryParse(stringValue, out int parsedValue))
+            {
+                result = parsedValue;
+                return true;
+            }
+            
+            return false;
         }
 
         #endregion
@@ -2401,53 +1902,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             }
             
             return false;
-        }
-
-        /// <summary>
-        /// Split within() predicate values by comma while respecting quotes
-        /// </summary>
-        private List<string> SplitWithinValues(string valuesStr)
-        {
-            var values = new List<string>();
-            var current = "";
-            var inQuotes = false;
-            var quoteChar = '\0';
-
-            for (int i = 0; i < valuesStr.Length; i++)
-            {
-                char c = valuesStr[i];
-
-                if (!inQuotes && (c == '\'' || c == '"'))
-                {
-                    inQuotes = true;
-                    quoteChar = c;
-                    // Don't include the quote in the value
-                }
-                else if (inQuotes && c == quoteChar)
-                {
-                    inQuotes = false;
-                    // Don't include the quote in the value
-                }
-                else if (!inQuotes && c == ',')
-                {
-                    if (!string.IsNullOrWhiteSpace(current))
-                    {
-                        values.Add(current.Trim());
-                        current = "";
-                    }
-                }
-                else if (c != '\'' && c != '"') // Skip quotes entirely
-                {
-                    current += c;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                values.Add(current.Trim());
-            }
-
-            return values;
         }
 
         private void ExecuteHasLabelStep(TinkerGraphStep step, TinkerTraversalContext context)
@@ -3059,7 +2513,604 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             return cosmosDbProperties;
         }
-    }
 
-    #endregion
+        #endregion
+
+        #region Utility Methods for Data Extraction
+
+        /// <summary>
+        /// Extract vertex ID from various data structures
+        /// </summary>
+        private string ExtractVertexId(dynamic value)
+        {
+            return ExtractId(value);
+        }
+
+        /// <summary>
+        /// Extract edge ID from various data structures  
+        /// </summary>
+        private string ExtractEdgeId(dynamic value)
+        {
+            return ExtractId(value);
+        }
+
+        /// <summary>
+        /// Extract ID from various data structures
+        /// </summary>
+        private string ExtractId(dynamic value)
+        {
+            if (value == null) return null;
+            
+            try
+            {
+                // Handle GremlinResponseObject (the actual response type)
+                if (value is GremlinResponseObject responseObj)
+                {
+                    return responseObj.id?.ToString();
+                }
+                
+                // Handle dictionary format
+                if (value is IDictionary<string, object> dict)
+                {
+                    if (dict.TryGetValue("id", out var id))
+                    {
+                        return id?.ToString();
+                    }
+                }
+                
+                // Handle dynamic object with id property
+                try
+                {
+                    var dynamicId = value.id;
+                    if (dynamicId != null)
+                    {
+                        return dynamicId.ToString();
+                    }
+                }
+                catch
+                {
+                    // Ignore dynamic access errors
+                }
+                
+                // Handle direct ID value
+                if (value is string strValue)
+                {
+                    return strValue;
+                }
+                
+                // Handle numeric ID
+                if (value is int || value is long)
+                {
+                    return value.ToString();
+                }
+            }
+            catch (Exception)
+            {
+                // If all else fails, return null
+            }
+            
+            return null;
+        }
+
+        /// <summary>
+        /// Extract label from various data structures
+        /// </summary>
+        private string ExtractLabel(dynamic value)
+        {
+            if (value == null) return null;
+            
+            try
+            {
+                // Handle GremlinResponseObject (the actual response type)
+                if (value is GremlinResponseObject responseObj)
+                {
+                    return responseObj.label?.ToString();
+                }
+                
+                // Handle dictionary format
+                if (value is IDictionary<string, object> dict)
+                {
+                    if (dict.TryGetValue("label", out var label))
+                    {
+                        return label?.ToString();
+                    }
+                }
+                
+                // Handle dynamic object with label property
+                try
+                {
+                    var dynamicLabel = value.label;
+                    if (dynamicLabel != null)
+                    {
+                        return dynamicLabel.ToString();
+                    }
+                }
+                catch
+                {
+                    // Ignore dynamic access errors
+                }
+            }
+            catch (Exception)
+            {
+                // If all else fails, return null
+            }
+            
+            return null;
+        }
+
+        /// <summary>
+        /// Extract type from various data structures  
+        /// </summary>
+        private string ExtractType(dynamic value)
+        {
+            if (value == null) return null;
+            
+            try
+            {
+                // Check for direct type property
+                if (value is IDictionary<string, object> dict)
+                {
+                    if (dict.ContainsKey("type"))
+                        return dict["type"]?.ToString();
+                }
+                
+                // Try dynamic property access
+                var type = value.type;
+                if (type != null)
+                    return type.ToString();
+                    
+                // Check if it's likely a vertex or edge based on structure
+                if (value is IDictionary<string, object> dictCheck)
+                {
+                    if (dictCheck.ContainsKey("outV") || dictCheck.ContainsKey("inV"))
+                        return "edge";
+                    if (dictCheck.ContainsKey("properties") || dictCheck.ContainsKey("label"))
+                        return "vertex";
+                }
+                
+                // Default to vertex for backward compatibility
+                return "vertex";
+            }
+            catch
+            {
+                return "vertex"; // Default fallback
+            }
+        }
+
+        /// <summary>
+        /// Extract properties from various data structures
+        /// </summary>
+        private Dictionary<string, object> ExtractProperties(dynamic value)
+        {
+            if (value == null) return new Dictionary<string, object>();
+            
+            try
+            {
+                // Handle GremlinResponseObject (the actual response type)
+                if (value is GremlinResponseObject responseObj)
+                {
+                    // Access the underlying properties data directly
+                    var properties = new Dictionary<string, object>();
+                    
+                    try
+                    {
+                        // Get the raw properties object
+                        var rawProperties = responseObj.Get<object>("properties");
+                        
+                        // Handle the exact CosmosDB format: Dictionary<string, List<Dictionary<string, object>>>
+                        if (rawProperties is Dictionary<string, List<Dictionary<string, object>>> cosmosPropsDict)
+                        {
+                            foreach (var kvp in cosmosPropsDict)
+                            {
+                                if (kvp.Value != null && kvp.Value.Count > 0)
+                                {
+                                    var firstProp = kvp.Value[0];
+                                    if (firstProp.TryGetValue("value", out var val))
+                                    {
+                                        properties[kvp.Key] = val;
+                                    }
+                                }
+                            }
+                        }
+                        // Handle other possible formats
+                        else if (rawProperties is Dictionary<string, object> propsDict)
+                        {
+                            foreach (var kvp in propsDict)
+                            {
+                                // Handle CosmosDB-style property format: [{"value": actualValue}]
+                                if (kvp.Value is List<object> list && list.Count > 0)
+                                {
+                                    var first = list[0];
+                                    if (first is Dictionary<string, object> firstDict && firstDict.TryGetValue("value", out var val))
+                                    {
+                                        properties[kvp.Key] = val;
+                                    }
+                                    else
+                                    {
+                                        properties[kvp.Key] = first;
+                                    }
+                                }
+                                else if (kvp.Value is IEnumerable<dynamic> enumerable)
+                                {
+                                    var first = enumerable.FirstOrDefault();
+                                    if (first is IDictionary<string, object> firstDict && firstDict.TryGetValue("value", out var val))
+                                    {
+                                        properties[kvp.Key] = val;
+                                    }
+                                    else
+                                    {
+                                        properties[kvp.Key] = first;
+                                    }
+                                }
+                                else
+                                {
+                                    properties[kvp.Key] = kvp.Value;
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // If property access fails, try to access properties dynamically
+                        try
+                        {
+                            dynamic dynamicResponse = responseObj;
+                            var dynamicProps = dynamicResponse.properties;
+                            if (dynamicProps != null)
+                            {
+                                // Handle the DynamicProperties case
+                                if (dynamicProps is DynamicProperties dynProps)
+                                {
+                                    return dynProps.GetProperties();
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Fallback to empty dictionary
+                        }
+                    }
+                    
+                    return properties;
+                }
+                
+                // Handle dictionary format
+                if (value is IDictionary<string, object> dict)
+                {
+                    if (dict.TryGetValue("properties", out var propsObj))
+                    {
+                        if (propsObj is IDictionary<string, object> props)
+                        {
+                            return new Dictionary<string, object>(props);
+                        }
+                    }
+                    
+                    // If no explicit properties key, treat the whole dict as properties
+                    // but exclude special keys
+                    var result = new Dictionary<string, object>();
+                    foreach (var kvp in dict)
+                    {
+                        if (kvp.Key != "id" && kvp.Key != "label" && kvp.Key != "type")
+                        {
+                            result[kvp.Key] = kvp.Value;
+                        }
+                    }
+                    return result;
+                }
+                
+                // Handle dynamic object with properties
+                try
+                {
+                    var dynamicProps = value.properties;
+                    if (dynamicProps is IDictionary<string, object> propsDict)
+                    {
+                        return new Dictionary<string, object>(propsDict);
+                    }
+                    
+                    // Handle DynamicProperties
+                    if (dynamicProps is DynamicProperties dynProps)
+                    {
+                        return dynProps.GetProperties();
+                    }
+                }
+                catch
+                {
+                    // Ignore dynamic access errors
+                }
+            }
+            catch (Exception)
+            {
+                // If all else fails, return empty dictionary
+            }
+            
+            return new Dictionary<string, object>();
+        }
+
+        #endregion
+
+        #region Filter Steps
+
+        private void ExecuteHasStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (step.Arguments.Count < 1)
+                return;
+
+            var key = step.Arguments[0].ToString();
+            
+            if (step.Arguments.Count == 1)
+            {
+                // has(key) - check if property exists
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('label') - check if element has a label (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractLabel(traverser.Value)));
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id') - check if element has an ID (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractId(traverser.Value)));
+                }
+                else
+                {
+                    // Normal case: check if property exists
+                    context.Filter(traverser =>
+                    {
+                        var properties = ExtractProperties(traverser.Value);
+                        return properties != null && properties.ContainsKey(key);
+                    });
+                }
+            }
+            else if (step.Arguments.Count >= 2)
+            {
+                // has(key, value) - check property value
+                var expectedValue = step.Arguments[1];
+                
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('label', value) - check element label
+                    context.Filter(traverser =>
+                    {
+                        var actualLabel = ExtractLabel(traverser.Value);
+                        if (expectedValue is string expectedStr && actualLabel is string actualStr)
+                        {
+                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return Equals(actualLabel, expectedValue);
+                    });
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id', value) - check element ID
+                    context.Filter(traverser =>
+                    {
+                        var actualId = ExtractId(traverser.Value);
+                        if (expectedValue is string expectedStr && actualId is string actualStr)
+                        {
+                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return Equals(actualId, expectedValue);
+                    });
+                }
+                else
+                {
+                    // Check if this is a predicate (starts with known predicate functions)
+                    var valueStr = expectedValue?.ToString() ?? "";
+                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
+                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
+                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
+                        valueStr.StartsWith("within("))
+                    {
+                        // Parse and apply predicate
+                        context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
+                    }
+                    else
+                    {
+                        // Normal case: check property value
+                        context.Filter(traverser =>
+                        {
+                            var properties = ExtractProperties(traverser.Value);
+                            if (properties != null && properties.ContainsKey(key))
+                            {
+                                var actualValue = properties[key];
+                                
+                                // Handle different value types and comparisons
+                                if (expectedValue is string expectedStr && actualValue is string actualStr)
+                                {
+                                    return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                                }
+                                else if (expectedValue is double && actualValue != null)
+                                {
+                                    // Handle numeric comparisons (for weight properties)
+                                    if (double.TryParse(actualValue.ToString(), out double actualDouble))
+                                    {
+                                        var expectedDouble = (double)expectedValue;
+                                        return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
+                                    }
+                                }
+                                else if (expectedValue is int && actualValue != null)
+                                {
+                                    if (int.TryParse(actualValue.ToString(), out int actualInt))
+                                    {
+                                        var expectedInt = (int)expectedValue;
+                                        return expectedInt == actualInt;
+                                    }
+                                }
+                                else if (expectedValue is bool && actualValue != null)
+                                {
+                                    if (bool.TryParse(actualValue.ToString(), out bool actualBool))
+                                    {
+                                        var expectedBool = (bool)expectedValue;
+                                        return expectedBool == actualBool;
+                                    }
+                                }
+                                
+                                return Equals(actualValue, expectedValue);
+                            }
+                            return false;
+                        });
+                    }
+                }
+            }
+        }
+        
+        private bool EvaluatePredicate(Traverser traverser, string propertyKey, string predicate)
+        {
+            var properties = ExtractProperties(traverser.Value);
+            if (properties == null || !properties.ContainsKey(propertyKey))
+                return false;
+            
+            var actualValue = properties[propertyKey];
+            
+            // Handle incomplete predicates (missing closing parenthesis due to parsing)
+            var normalizedPredicate = predicate;
+            if (!normalizedPredicate.EndsWith(")"))
+            {
+                normalizedPredicate += ")";
+            }
+            
+            // Parse predicate (e.g., "gt(80000)", "gte(100)", etc.)
+            if (normalizedPredicate.StartsWith("gt(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual > threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("gte(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual >= threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("lt(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual < threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("lte(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual <= threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("neq(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual != threshold;
+                    }
+                }
+                else
+                {
+                    // String comparison
+                    return !valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else if (normalizedPredicate.StartsWith("eq(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual == threshold;
+                    }
+                }
+                else
+                {
+                    // String comparison
+                    return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
+            {
+                // within(value1, value2, value3, ...) predicate
+                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
+                var withinValues = SplitWithinValues(valuesStr);
+                
+                var actualValueStr = actualValue?.ToString();
+                if (actualValueStr != null)
+                {
+                    // Check if the actual value matches any of the within values
+                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
+                }
+                return false;
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Split within() predicate values by comma while respecting quotes
+        /// Updated to handle parameter-substituted values correctly
+        /// </summary>
+        private List<string> SplitWithinValues(string valuesStr)
+        {
+            var values = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
+
+            for (int i = 0; i < valuesStr.Length; i++)
+            {
+                char c = valuesStr[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    // Don't include the quote in the value
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    // Don't include the quote in the value
+                }
+                else if (!inQuotes && c == ',')
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        values.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else if (c != '\'' && c != '"') // Skip quotes entirely
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                values.Add(current.Trim());
+            }
+
+            return values;
+        }
+
+        #endregion
+    }
 }

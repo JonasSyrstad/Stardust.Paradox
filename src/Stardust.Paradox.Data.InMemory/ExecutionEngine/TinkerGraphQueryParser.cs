@@ -1039,16 +1039,20 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 return query;
 
             var result = query;
-            foreach (var param in parameters)
+            
+            // Sort parameters by key length (descending) to avoid partial replacements
+            // For example, replace __p10 before __p1 to avoid __p10 becoming __p1'0'
+            var sortedParameters = parameters.OrderByDescending(p => p.Key.Length).ToList();
+            
+            foreach (var param in sortedParameters)
             {
                 // Handle parameter substitution with proper value formatting
                 var value = FormatParameterValue(param.Value);
                 
                 // Replace parameter placeholder with formatted value
-                // Support both ${param} and bare param patterns
-                result = result.Replace("${" + param.Key + "}", value);
-                result = result.Replace("$" + param.Key, value);
-                result = result.Replace(param.Key, value);
+                // Use word boundary to ensure exact parameter matching
+                var pattern = @"\b" + Regex.Escape(param.Key) + @"\b";
+                result = Regex.Replace(result, pattern, value);
             }
 
             return result;
