@@ -3,6 +3,7 @@ using Stardust.Paradox.Data.InMemory.Core;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
@@ -2825,7 +2826,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // If there are no traversers, we still need to return an empty tree
             if (!context.Traversers.Any())
             {
-                var emptyTree = new Dictionary<string, object>();
+                var emptyTree = new JObject();
                 context.Clear();
                 context.Traversers.Add(new Traverser(emptyTree));
                 return;
@@ -2851,9 +2852,13 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // Build tree structure as a Dictionary compatible with VertexTreeRoot deserialization
             var treeStructure = BuildCosmosDBCompatibleTreeStructure(allPaths);
             
+            // Convert to JObject for compatibility with VertexTreeRoot
+            var json = JsonConvert.SerializeObject(treeStructure);
+            var treeJObject = JsonConvert.DeserializeObject<JObject>(json);
+            
             // Tree step always returns one result, even if empty
             context.Clear();
-            context.Traversers.Add(new Traverser(treeStructure));
+            context.Traversers.Add(new Traverser(treeJObject));
         }
 
         /// <summary>
