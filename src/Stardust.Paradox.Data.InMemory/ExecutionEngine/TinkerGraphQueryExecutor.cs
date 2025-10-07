@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using Stardust.Paradox.Data.InMemory.Core;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,29 +9,19 @@ using Newtonsoft.Json;
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
     /// <summary>
-    /// Wrapper for path objects to prevent them from being flattened in results
-    /// </summary>
-    public class PathWrapper
-    {
-        public List<dynamic> Path { get; }
-        
-        public PathWrapper(List<dynamic> path)
-        {
-            Path = path ?? new List<dynamic>();
-        }
-        
-        public override string ToString()
-        {
-            return $"path[{string.Join(", ", Path.Select(p => p?.ToString() ?? "null"))}]";
-        }
-    }
-
-    /// <summary>
     /// TinkerGraph-inspired query executor with optimized traversal strategies
     /// Based on Apache TinkerPop's TinkerGraph execution model
     /// </summary>
     public class TinkerGraphQueryExecutor
     {
+        private static ConcurrentDictionary<string,IStepExecutor> _StepExecutors = new ConcurrentDictionary<string, IStepExecutor>(StringComparer.OrdinalIgnoreCase);
+        static TinkerGraphQueryExecutor()
+        {
+            var thisAssembly = typeof(TinkerGraphQueryExecutor).Assembly;
+            var stepExecutorTypes = thisAssembly.GetTypes()
+                .Where(type => typeof(IStepExecutor).IsAssignableFrom(type) && !type.IsInterface && !type.IsAbstract);
+        }
+
         private readonly InMemoryGraphDatabase _database;
 
         public TinkerGraphQueryExecutor(InMemoryGraphDatabase database)
