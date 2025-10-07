@@ -366,6 +366,18 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 case "tree":
                     ExecuteTreeStep(step, context);
                     break;
+                case "and":
+                    ExecuteAndStep(step, context);
+                    break;
+                case "or":
+                    ExecuteOrStep(step, context);
+                    break;
+                case "not":
+                    ExecuteNotStep(step, context);
+                    break;
+                case "without":
+                    ExecuteWithoutStep(step, context);
+                    break;
                 default:
                     // Unknown step - pass through
                     break;
@@ -2516,6 +2528,599 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
         #endregion
 
+        #region Logical Steps
+
+        /// <summary>
+        /// Execute and() step - all conditions must pass
+        /// </summary>
+        private void ExecuteAndStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (!step.Arguments.Any())
+            {
+                // and() with no arguments passes all through
+                return;
+            }
+
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                bool allConditionsMet = true;
+
+                // Evaluate each condition
+                foreach (var arg in step.Arguments)
+                {
+                    var conditionStr = arg.ToString();
+                    
+                    // Parse and evaluate the condition
+                    if (!EvaluateLogicalCondition(traverser, conditionStr))
+                    {
+                        allConditionsMet = false;
+                        break;
+                    }
+                }
+
+                // Only keep traversers where all conditions are met
+                if (allConditionsMet)
+                {
+                    newTraversers.Add(traverser);
+                }
+            }
+
+            context.Traversers = newTraversers;
+        }
+
+        /// <summary>
+        /// Execute or() step - at least one condition must pass
+        /// </summary>
+        private void ExecuteOrStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (!step.Arguments.Any())
+            {
+                // or() with no arguments filters all out
+                context.Traversers = new List<Traverser>();
+                return;
+            }
+
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                bool anyConditionMet = false;
+
+                // Evaluate each condition
+                foreach (var arg in step.Arguments)
+                {
+                    var conditionStr = arg.ToString();
+                    
+                    // Parse and evaluate the condition
+                    if (EvaluateLogicalCondition(traverser, conditionStr))
+                    {
+                        anyConditionMet = true;
+                        break;
+                    }
+                }
+
+                // Only keep traversers where at least one condition is met
+                if (anyConditionMet)
+                {
+                    newTraversers.Add(traverser);
+                }
+            }
+
+            context.Traversers = newTraversers;
+        }
+
+        /// <summary>
+        /// Execute not() step - inverts the condition
+        /// </summary>
+        private void ExecuteNotStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (!step.Arguments.Any())
+            {
+                // not() with no arguments filters all out
+                context.Traversers = new List<Traverser>();
+                return;
+            }
+
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                var conditionStr = step.Arguments[0].ToString();
+                
+                // Parse and evaluate the condition, then invert
+                if (!EvaluateLogicalCondition(traverser, conditionStr))
+                {
+                    newTraversers.Add(traverser);
+                }
+            }
+
+            context.Traversers = newTraversers;
+        }
+
+        /// <summary>
+        /// Execute without() step - filters out specified property values
+        /// </summary>
+        private void ExecuteWithoutStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (step.Arguments.Count < 2)
+                return;
+
+            var propertyKey = step.Arguments[0].ToString();
+            var excludedValues = new HashSet<string>(
+                step.Arguments.Skip(1).Select(arg => arg.ToString()), 
+                StringComparer.OrdinalIgnoreCase);
+
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                var properties = ExtractProperties(traverser.Value);
+                
+                // If property doesn't exist, keep the traverser
+                if (properties == null || !properties.ContainsKey(propertyKey))
+                {
+                    newTraversers.Add(traverser);
+                    continue;
+                }
+
+                var actualValue = properties[propertyKey]?.ToString();
+                
+                // Only keep if value is NOT in the excluded set
+                if (actualValue != null && !excludedValues.Contains(actualValue))
+                {
+                    newTraversers.Add(traverser);
+                }
+            }
+
+            context.Traversers = newTraversers;
+        }
+
+        /// <summary>
+        /// Evaluate a logical condition string (like "has('age', gt(25))")
+        /// </summary>
+        private bool EvaluateLogicalCondition(Traverser traverser, string conditionStr)
+        {
+            // Parse the condition string
+            // Supported patterns:
+            // - has('property', value)
+            // - has('property', predicate)
+            // - has('property')
+            
+            if (string.IsNullOrWhiteSpace(conditionStr))
+                return false;
+
+            // Extract the condition type (has, etc.)
+            if (conditionStr.StartsWith("has("))
+            {
+                // Parse has() condition
+                var content = conditionStr.Substring(4, conditionStr.Length - 5); // Remove "has(" and ")"
+                
+                // Split by comma, respecting quotes and nested parentheses
+                var parts = SplitConditionArguments(content);
+                
+                if (parts.Count == 0)
+                    return false;
+
+                var propertyKey = parts[0].Trim().Trim('\'', '"');
+                
+                if (parts.Count == 1)
+                {
+                    // has('property') - check if property exists
+                    var properties = ExtractProperties(traverser.Value);
+                    return properties != null && properties.ContainsKey(propertyKey);
+                }
+                else if (parts.Count == 2)
+                {
+                    // has('property', value) or has('property', predicate)
+                    var valueOrPredicate = parts[1].Trim();
+                    
+                    var properties = ExtractProperties(traverser.Value);
+                    if (properties == null || !properties.ContainsKey(propertyKey))
+                        return false;
+
+                    var actualValue = properties[propertyKey];
+                    
+                    // Check if it's a predicate
+                    if (valueOrPredicate.StartsWith("gt(") || valueOrPredicate.StartsWith("gte(") ||
+                        valueOrPredicate.StartsWith("lt(") || valueOrPredicate.StartsWith("lte(") ||
+                        valueOrPredicate.StartsWith("eq(") || valueOrPredicate.StartsWith("neq(") ||
+                        valueOrPredicate.StartsWith("within(") || valueOrPredicate.StartsWith("without("))
+                    {
+                        // Evaluate predicate
+                        return EvaluatePredicate(traverser, propertyKey, valueOrPredicate);
+                    }
+                    else
+                    {
+                        // Direct value comparison
+                        var expectedValue = valueOrPredicate.Trim('\'', '"');
+                        
+                        // Try different value types
+                        if (bool.TryParse(expectedValue, out bool boolVal))
+                        {
+                            if (actualValue is bool actualBool)
+                                return actualBool == boolVal;
+                            if (bool.TryParse(actualValue?.ToString(), out bool parsedBool))
+                                return parsedBool == boolVal;
+                        }
+                        
+                        if (int.TryParse(expectedValue, out int intVal))
+                        {
+                            if (actualValue is int actualInt)
+                                return actualInt == intVal;
+                            if (int.TryParse(actualValue?.ToString(), out int parsedInt))
+                                return parsedInt == intVal;
+                        }
+                        
+                        // String comparison
+                        return actualValue?.ToString().Equals(expectedValue, StringComparison.OrdinalIgnoreCase) == true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Split condition arguments by comma, respecting quotes and nested parentheses
+        /// </summary>
+        private List<string> SplitConditionArguments(string content)
+        {
+            var parts = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var parenDepth = 0;
+
+            for (int i = 0; i < content.Length; i++)
+            {
+                char c = content[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    current += c;
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    current += c;
+                }
+                else if (!inQuotes && c == '(')
+                {
+                    parenDepth++;
+                    current += c;
+                }
+                else if (!inQuotes && c == ')')
+                {
+                    parenDepth--;
+                    current += c;
+                }
+                else if (!inQuotes && parenDepth == 0 && c == ',')
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        parts.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                parts.Add(current.Trim());
+            }
+
+            return parts;
+        }
+
+        #endregion
+
+        #region Filter Steps
+
+        private void ExecuteHasStep(TinkerGraphStep step, TinkerTraversalContext context)
+        {
+            if (step.Arguments.Count < 1)
+                return;
+
+            var key = step.Arguments[0].ToString();
+            
+            if (step.Arguments.Count == 1)
+            {
+                // has(key) - check if property exists
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('label') - check if element has a label (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractLabel(traverser.Value)));
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id') - check if element has an ID (all elements do)
+                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractId(traverser.Value)));
+                }
+                else
+                {
+                    // Normal case: check if property exists
+                    context.Filter(traverser =>
+                    {
+                        var properties = ExtractProperties(traverser.Value);
+                        return properties != null && properties.ContainsKey(key);
+                    });
+                }
+            }
+            else if (step.Arguments.Count >= 2)
+            {
+                // has(key, value) - check property value
+                var expectedValue = step.Arguments[1];
+                
+                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('label', value) - check element label
+                    context.Filter(traverser =>
+                    {
+                        var actualLabel = ExtractLabel(traverser.Value);
+                        if (expectedValue is string expectedStr && actualLabel is string actualStr)
+                        {
+                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return Equals(actualLabel, expectedValue);
+                    });
+                }
+                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Special case: has('id', value) - check element ID
+                    context.Filter(traverser =>
+                    {
+                        var actualId = ExtractId(traverser.Value);
+                        if (expectedValue is string expectedStr && actualId is string actualStr)
+                        {
+                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                        }
+                        return Equals(actualId, expectedValue);
+                    });
+                }
+                else
+                {
+                    // Check if this is a predicate (starts with known predicate functions)
+                    var valueStr = expectedValue?.ToString() ?? "";
+                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
+                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
+                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
+                        valueStr.StartsWith("within(") || valueStr.StartsWith("without("))
+                    {
+                        // Parse and apply predicate
+                        context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
+                    }
+                    else
+                    {
+                        // Normal case: check property value
+                        context.Filter(traverser =>
+                        {
+                            var properties = ExtractProperties(traverser.Value);
+                            if (properties != null && properties.ContainsKey(key))
+                            {
+                                var actualValue = properties[key];
+                                
+                                // Handle different value types and comparisons
+                                if (expectedValue is string expectedStr && actualValue is string actualStr)
+                                {
+                                    return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                                }
+                                else if (expectedValue is double && actualValue != null)
+                                {
+                                    // Handle numeric comparisons (for weight properties)
+                                    if (double.TryParse(actualValue.ToString(), out double actualDouble))
+                                    {
+                                        var expectedDouble = (double)expectedValue;
+                                        return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
+                                    }
+                                }
+                                else if (expectedValue is int && actualValue != null)
+                                {
+                                    if (int.TryParse(actualValue.ToString(), out int actualInt))
+                                    {
+                                        var expectedInt = (int)expectedValue;
+                                        return expectedInt == actualInt;
+                                    }
+                                }
+                                else if (expectedValue is bool && actualValue != null)
+                                {
+                                    if (bool.TryParse(actualValue.ToString(), out bool actualBool))
+                                    {
+                                        var expectedBool = (bool)expectedValue;
+                                        return expectedBool == actualBool;
+                                    }
+                                }
+                                
+                                return Equals(actualValue, expectedValue);
+                            }
+                            return false;
+                        });
+                    }
+                }
+            }
+        }
+        
+        private bool EvaluatePredicate(Traverser traverser, string propertyKey, string predicate)
+        {
+            var properties = ExtractProperties(traverser.Value);
+            if (properties == null || !properties.ContainsKey(propertyKey))
+                return false;
+            
+            var actualValue = properties[propertyKey];
+            
+            // Handle incomplete predicates (missing closing parenthesis due to parsing)
+            var normalizedPredicate = predicate;
+            if (!normalizedPredicate.EndsWith(")"))
+            {
+                normalizedPredicate += ")";
+            }
+            
+            // Parse predicate (e.g., "gt(80000)", "gte(100)", etc.)
+            if (normalizedPredicate.StartsWith("gt(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual > threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("gte(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual >= threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("lt(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual < threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("lte(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual <= threshold;
+                    }
+                }
+            }
+            else if (normalizedPredicate.StartsWith("neq(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual != threshold;
+                    }
+                }
+                else
+                {
+                    // String comparison
+                    return !valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else if (normalizedPredicate.StartsWith("eq(") && normalizedPredicate.EndsWith(")"))
+            {
+                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
+                if (double.TryParse(valueStr, out double threshold))
+                {
+                    if (double.TryParse(actualValue?.ToString(), out double actual))
+                    {
+                        return actual == threshold;
+                    }
+                }
+                else
+                {
+                    // String comparison
+                    return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
+            {
+                // within(value1, value2, value3, ...) predicate
+                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
+                var withinValues = SplitWithinValues(valuesStr);
+                
+                var actualValueStr = actualValue?.ToString();
+                if (actualValueStr != null)
+                {
+                    // Check if the actual value matches any of the within values
+                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
+                }
+                return false;
+            }
+            else if (normalizedPredicate.StartsWith("without(") && normalizedPredicate.EndsWith(")"))
+            {
+                // without(value1, value2, value3, ...) predicate
+                var valuesStr = normalizedPredicate.Substring(8, normalizedPredicate.Length - 9);
+                var withoutValues = SplitWithinValues(valuesStr);
+                
+                var actualValueStr = actualValue?.ToString();
+                if (actualValueStr != null)
+                {
+                    // Check if the actual value does NOT match any of the without values
+                    return !withoutValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
+                }
+                return true; // If no value, it's not in the excluded list
+            }
+            
+            return false;
+        }
+
+        /// <summary>
+        /// Split within() predicate values by comma while respecting quotes
+        /// Updated to handle parameter-substituted values correctly
+        /// </summary>
+        private List<string> SplitWithinValues(string valuesStr)
+        {
+            var values = new List<string>();
+            var current = "";
+            var inQuotes = false;
+            var quoteChar = '\0';
+
+            for (int i = 0; i < valuesStr.Length; i++)
+            {
+                char c = valuesStr[i];
+
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    // Don't include the quote in the value
+                }
+                else if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    // Don't include the quote in the value
+                }
+                else if (!inQuotes && c == ',')
+                {
+                    if (!string.IsNullOrWhiteSpace(current))
+                    {
+                        values.Add(current.Trim());
+                        current = "";
+                    }
+                }
+                else if (c != '\'' && c != '"') // Skip quotes entirely
+                {
+                    current += c;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(current))
+            {
+                values.Add(current.Trim());
+            }
+
+            return values;
+        }
+
+        #endregion
+
         #region Utility Methods for Data Extraction
 
         /// <summary>
@@ -2824,291 +3429,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             }
             
             return new Dictionary<string, object>();
-        }
-
-        #endregion
-
-        #region Filter Steps
-
-        private void ExecuteHasStep(TinkerGraphStep step, TinkerTraversalContext context)
-        {
-            if (step.Arguments.Count < 1)
-                return;
-
-            var key = step.Arguments[0].ToString();
-            
-            if (step.Arguments.Count == 1)
-            {
-                // has(key) - check if property exists
-                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('label') - check if element has a label (all elements do)
-                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractLabel(traverser.Value)));
-                }
-                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('id') - check if element has an ID (all elements do)
-                    context.Filter(traverser => !string.IsNullOrEmpty(ExtractId(traverser.Value)));
-                }
-                else
-                {
-                    // Normal case: check if property exists
-                    context.Filter(traverser =>
-                    {
-                        var properties = ExtractProperties(traverser.Value);
-                        return properties != null && properties.ContainsKey(key);
-                    });
-                }
-            }
-            else if (step.Arguments.Count >= 2)
-            {
-                // has(key, value) - check property value
-                var expectedValue = step.Arguments[1];
-                
-                if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('label', value) - check element label
-                    context.Filter(traverser =>
-                    {
-                        var actualLabel = ExtractLabel(traverser.Value);
-                        if (expectedValue is string expectedStr && actualLabel is string actualStr)
-                        {
-                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                        }
-                        return Equals(actualLabel, expectedValue);
-                    });
-                }
-                else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
-                {
-                    // Special case: has('id', value) - check element ID
-                    context.Filter(traverser =>
-                    {
-                        var actualId = ExtractId(traverser.Value);
-                        if (expectedValue is string expectedStr && actualId is string actualStr)
-                        {
-                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                        }
-                        return Equals(actualId, expectedValue);
-                    });
-                }
-                else
-                {
-                    // Check if this is a predicate (starts with known predicate functions)
-                    var valueStr = expectedValue?.ToString() ?? "";
-                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
-                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
-                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
-                        valueStr.StartsWith("within("))
-                    {
-                        // Parse and apply predicate
-                        context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
-                    }
-                    else
-                    {
-                        // Normal case: check property value
-                        context.Filter(traverser =>
-                        {
-                            var properties = ExtractProperties(traverser.Value);
-                            if (properties != null && properties.ContainsKey(key))
-                            {
-                                var actualValue = properties[key];
-                                
-                                // Handle different value types and comparisons
-                                if (expectedValue is string expectedStr && actualValue is string actualStr)
-                                {
-                                    return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                                }
-                                else if (expectedValue is double && actualValue != null)
-                                {
-                                    // Handle numeric comparisons (for weight properties)
-                                    if (double.TryParse(actualValue.ToString(), out double actualDouble))
-                                    {
-                                        var expectedDouble = (double)expectedValue;
-                                        return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
-                                    }
-                                }
-                                else if (expectedValue is int && actualValue != null)
-                                {
-                                    if (int.TryParse(actualValue.ToString(), out int actualInt))
-                                    {
-                                        var expectedInt = (int)expectedValue;
-                                        return expectedInt == actualInt;
-                                    }
-                                }
-                                else if (expectedValue is bool && actualValue != null)
-                                {
-                                    if (bool.TryParse(actualValue.ToString(), out bool actualBool))
-                                    {
-                                        var expectedBool = (bool)expectedValue;
-                                        return expectedBool == actualBool;
-                                    }
-                                }
-                                
-                                return Equals(actualValue, expectedValue);
-                            }
-                            return false;
-                        });
-                    }
-                }
-            }
-        }
-        
-        private bool EvaluatePredicate(Traverser traverser, string propertyKey, string predicate)
-        {
-            var properties = ExtractProperties(traverser.Value);
-            if (properties == null || !properties.ContainsKey(propertyKey))
-                return false;
-            
-            var actualValue = properties[propertyKey];
-            
-            // Handle incomplete predicates (missing closing parenthesis due to parsing)
-            var normalizedPredicate = predicate;
-            if (!normalizedPredicate.EndsWith(")"))
-            {
-                normalizedPredicate += ")";
-            }
-            
-            // Parse predicate (e.g., "gt(80000)", "gte(100)", etc.)
-            if (normalizedPredicate.StartsWith("gt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual > threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("gte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual >= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual < threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual <= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("neq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual != threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return !valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("eq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual == threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
-            {
-                // within(value1, value2, value3, ...) predicate
-                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
-                var withinValues = SplitWithinValues(valuesStr);
-                
-                var actualValueStr = actualValue?.ToString();
-                if (actualValueStr != null)
-                {
-                    // Check if the actual value matches any of the within values
-                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
-                }
-                return false;
-            }
-            
-            return false;
-        }
-
-        /// <summary>
-        /// Split within() predicate values by comma while respecting quotes
-        /// Updated to handle parameter-substituted values correctly
-        /// </summary>
-        private List<string> SplitWithinValues(string valuesStr)
-        {
-            var values = new List<string>();
-            var current = "";
-            var inQuotes = false;
-            var quoteChar = '\0';
-
-            for (int i = 0; i < valuesStr.Length; i++)
-            {
-                char c = valuesStr[i];
-
-                if (!inQuotes && (c == '\'' || c == '"'))
-                {
-                    inQuotes = true;
-                    quoteChar = c;
-                    // Don't include the quote in the value
-                }
-                else if (inQuotes && c == quoteChar)
-                {
-                    inQuotes = false;
-                    // Don't include the quote in the value
-                }
-                else if (!inQuotes && c == ',')
-                {
-                    if (!string.IsNullOrWhiteSpace(current))
-                    {
-                        values.Add(current.Trim());
-                        current = "";
-                    }
-                }
-                else if (c != '\'' && c != '"') // Skip quotes entirely
-                {
-                    current += c;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                values.Add(current.Trim());
-            }
-
-            return values;
         }
 
         #endregion

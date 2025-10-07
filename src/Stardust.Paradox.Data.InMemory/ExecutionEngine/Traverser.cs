@@ -183,6 +183,14 @@ public class Traverser
     }
 
     /// <summary>
+    /// Get loop count for a given label (alias for GetLoops)
+    /// </summary>
+    public int GetLoopCount(string label)
+    {
+        return GetLoops(label);
+    }
+
+    /// <summary>
     /// Reset loop counter for a given label
     /// </summary>
     public void ResetLoops(string label)
