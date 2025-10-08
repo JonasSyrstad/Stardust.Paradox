@@ -43,10 +43,21 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 
                 foreach (var arg in step.Arguments)
                 {
-                    if (arg is System.Collections.IList list && list.Count >= 2)
+                    // Check if this argument is already parsed as a list (from array syntax)
+                    if (arg is List<object> list && list.Count >= 1)
                     {
-                        // Handle case where argument is already parsed as a list/array
-                        var id = list[1]?.ToString(); // Use second element (id), ignore first (partition key)
+                        // Array syntax like [partitionKey, id] - use the last element as the ID
+                        // (CosmosDB uses [partition, id], standard Gremlin might use [id])
+                        var id = list.Last()?.ToString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            processedIds.Add(id.Trim('"', '\''));
+                        }
+                    }
+                    else if (arg is System.Collections.IList ilist && ilist.Count >= 1)
+                    {
+                        // Handle generic IList
+                        var id = ilist[ilist.Count - 1]?.ToString();
                         if (!string.IsNullOrEmpty(id))
                         {
                             processedIds.Add(id.Trim('"', '\''));
@@ -54,7 +65,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     }
                     else
                     {
-                        var argString = arg.ToString();
+                        var argString = arg?.ToString() ?? "";
                         
                         // Check if this is an array format like "['string','string']"
                         if (argString.StartsWith("['") && argString.EndsWith("']"))

@@ -973,6 +973,32 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             if (string.IsNullOrWhiteSpace(arg))
                 return null;
 
+            // Handle array syntax first: [value1, value2, ...]
+            if (arg.StartsWith("[") && arg.EndsWith("]"))
+            {
+                var arrayContent = arg.Substring(1, arg.Length - 2).Trim();
+                if (string.IsNullOrEmpty(arrayContent))
+                {
+                    return new List<object>(); // Empty array
+                }
+
+                // Parse array elements
+                var elements = new List<object>();
+                var elementParts = SplitArguments(arrayContent);
+                
+                foreach (var element in elementParts)
+                {
+                    var trimmed = element.Trim();
+                    if (!string.IsNullOrEmpty(trimmed))
+                    {
+                        // Recursively parse each element
+                        elements.Add(ParseSingleArgument(trimmed));
+                    }
+                }
+                
+                return elements;
+            }
+
             // Handle quoted strings
             if ((arg.StartsWith("'") && arg.EndsWith("'")) ||
                 (arg.StartsWith("\"") && arg.EndsWith("\"")))

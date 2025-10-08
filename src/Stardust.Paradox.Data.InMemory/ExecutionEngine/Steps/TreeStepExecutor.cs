@@ -56,8 +56,13 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 }
                 else
                 {
-                    // If no path, create a single-element path with current value
-                    allPaths.Add(new List<dynamic> { traverser.Value });
+                    // If no path is tracked, check if the traverser value is a vertex
+                    // This happens when tree() is called without intermediate steps tracking paths
+                    var value = traverser.Value;
+                    if (value != null)
+                    {
+                        allPaths.Add(new List<dynamic> { value });
+                    }
                 }
             }
 

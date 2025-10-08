@@ -386,7 +386,7 @@ namespace Stardust.Paradox.Data
             IEnumerable<dynamic> c;
             if (!incommingEdge)
             {
-                c = await _connector.V(rootId).Repeat(p => p.Out(edgeLabel)).Until(p => p.OutE().Count().Is(0))
+                c = await _connector.V(rootId).Repeat(p => p.Out(edgeLabel)).Until(p => p.OutE(edgeLabel).Count().Is(0))
                     .Tree().ExecuteAsync().ConfigureAwait(false);
                 //c =await _connector.V(rootId).Out(edgeLabel).Tree().ExecuteAsync();
             }

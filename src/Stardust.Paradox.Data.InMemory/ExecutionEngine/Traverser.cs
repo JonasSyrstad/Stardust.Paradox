@@ -11,6 +11,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine;
 public class Traverser
 {
     /// <summary>
+    /// The actual value being traversed (alias for Value for compatibility)
+    /// </summary>
+    public dynamic Current
+    {
+        get => Value;
+        set => Value = value;
+    }
+
+    /// <summary>
     /// The actual value being traversed
     /// </summary>
     public dynamic Value { get; set; }
@@ -26,9 +35,14 @@ public class Traverser
     public List<dynamic> Path { get; set; }
     
     /// <summary>
-    /// Sack values for computation during traversal
+    /// Default sack value for computation during traversal (TinkerPop compatibility)
     /// </summary>
-    public Dictionary<string, object> Sack { get; set; }
+    public object Sack { get; set; }
+    
+    /// <summary>
+    /// Named sack values for computation during traversal
+    /// </summary>
+    public Dictionary<string, object> SackMap { get; set; }
     
     /// <summary>
     /// Side effects collected during traversal
@@ -49,7 +63,8 @@ public class Traverser
     {
         Value = value;
         Path = new List<dynamic>();
-        Sack = new Dictionary<string, object>();
+        Sack = null;
+        SackMap = new Dictionary<string, object>();
         SideEffects = new Dictionary<string, object>();
         Loops = new Dictionary<string, int>();
         Tags = new Dictionary<string, dynamic>();
@@ -64,7 +79,8 @@ public class Traverser
         {
             Bulk = this.Bulk,
             Path = new List<dynamic>(this.Path),
-            Sack = new Dictionary<string, object>(this.Sack),
+            Sack = this.Sack,
+            SackMap = new Dictionary<string, object>(this.SackMap),
             SideEffects = new Dictionary<string, object>(this.SideEffects),
             Loops = new Dictionary<string, int>(this.Loops),
             Tags = new Dictionary<string, dynamic>(this.Tags)
@@ -133,19 +149,19 @@ public class Traverser
     }
 
     /// <summary>
-    /// Set a sack value
+    /// Set a named sack value
     /// </summary>
     public void SetSack(string key, object value)
     {
-        Sack[key] = value;
+        SackMap[key] = value;
     }
 
     /// <summary>
-    /// Get a sack value
+    /// Get a named sack value
     /// </summary>
     public T GetSack<T>(string key, T defaultValue = default)
     {
-        if (Sack.TryGetValue(key, out var value))
+        if (SackMap.TryGetValue(key, out var value))
         {
             if (value is T typedValue)
                 return typedValue;

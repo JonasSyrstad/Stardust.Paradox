@@ -10,7 +10,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
     /// 
     /// Behavior:
     /// - Executes the repeat() pattern n times
-    /// - Currently supports out() navigation in repeat patterns
+    /// - Triggers repeat execution if repeat step is waiting for this modulator
     /// 
     /// Example:
     /// g.V('node_0').repeat(out('next')).times(10) - navigates 10 steps through 'next' edges
@@ -34,54 +34,18 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 return;
 
             var times = Convert.ToInt32(step.Arguments[0]);
+            
+            // Store the times value as metadata
+            context.SetMetadata("times_value", times);
+            
+            // Check if repeat step is waiting for this modulator
             var repeatStep = context.GetMetadata<TinkerGraphStep>("repeat_step");
-            var originalTraversers = context.GetMetadata<List<Traverser>>("repeat_traversers");
-
-            if (repeatStep == null || originalTraversers == null)
-                return;
-
-            // For the specific test case "g.V('node_0').repeat(g.out('next')).times(10).values('level')"
-            // We need to navigate 10 steps through the 'next' edges
-            var newTraversers = new List<Traverser>();
-
-            foreach (var originalTraverser in originalTraversers)
+            if (repeatStep != null)
             {
-                var currentTraversers = new List<Traverser> { originalTraverser };
-
-                // Repeat the navigation 'times' number of times
-                for (int i = 0; i < times; i++)
-                {
-                    var nextTraversers = new List<Traverser>();
-
-                    foreach (var traverser in currentTraversers)
-                    {
-                        var vertexId = ExtractId(traverser.Value);
-                        if (vertexId != null)
-                        {
-                            // Navigate out via 'next' edges (hard-coded for now)
-                            var outVertices = Database.GetOutVertices(vertexId, "next");
-
-                            foreach (var vertex in outVertices)
-                            {
-                                var newTraverser = traverser.Split();
-                                newTraverser.Value = vertex.ToGremlinResponse();
-                                nextTraversers.Add(newTraverser);
-                            }
-                        }
-                    }
-
-                    if (!nextTraversers.Any())
-                        break; // No more vertices to traverse
-
-                    currentTraversers = nextTraversers;
-                }
-
-                newTraversers.AddRange(currentTraversers);
+                // Trigger repeat execution now that we have the times value
+                var repeatExecutor = new RepeatStepExecutor(Database);
+                repeatExecutor.ExecuteRepeatLoop(repeatStep, context);
             }
-
-            context.Traversers = newTraversers;
-            context.RemoveMetadata("repeat_step");
-            context.RemoveMetadata("repeat_traversers");
         }
     }
 }

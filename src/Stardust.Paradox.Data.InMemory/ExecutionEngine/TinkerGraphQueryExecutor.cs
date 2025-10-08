@@ -249,7 +249,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             }
             else 
             {
-                throw new Exception("not implemented?!?");
+                // Provide detailed error message about missing step executor
+                var registeredSteps = string.Join(", ", _StepExecutors.Keys.OrderBy(k => k));
+                throw new NotImplementedException(
+                    $"Step executor not found for step '{step.StepName}'. " +
+                    $"Registered steps: {registeredSteps}. " +
+                    $"Please implement a step executor class that implements IStepExecutor for the '{step.StepName}' step.");
             }
             // Handle step labels for path tracking
             if (step.Labels.Any())
@@ -274,16 +279,21 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
                 foreach (var arg in step.Arguments)
                 {
-                    // Check if this argument looks like an array from CosmosDB partition key syntax
-                    // The argument could be:
-                    // 1. A string that looks like "['value1','value2']" 
-                    // 2. An actual array/list object
-                    // 3. A regular ID string
-
-                    if (arg is System.Collections.IList list && list.Count >= 2)
+                    // Check if this argument is already parsed as a list (from array syntax)
+                    if (arg is List<object> list && list.Count >= 1)
                     {
-                        // Handle case where argument is already parsed as a list/array
-                        var id = list[1]?.ToString(); // Use second element (id), ignore first (partition key)
+                        // Array syntax like [partitionKey, id] - use the last element as the ID
+                        // (CosmosDB uses [partition, id], standard Gremlin might use [id])
+                        var id = list.Last()?.ToString();
+                        if (!string.IsNullOrEmpty(id))
+                        {
+                            processedIds.Add(id.Trim('"', '\''));
+                        }
+                    }
+                    else if (arg is System.Collections.IList ilist && ilist.Count >= 1)
+                    {
+                        // Handle generic IList
+                        var id = ilist[ilist.Count - 1]?.ToString();
                         if (!string.IsNullOrEmpty(id))
                         {
                             processedIds.Add(id.Trim('"', '\''));
@@ -291,7 +301,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     }
                     else
                     {
-                        var argString = arg.ToString();
+                        var argString = arg?.ToString() ?? "";
 
                         // Check if this is an array format like "['string','string']"
                         if (argString.StartsWith("['") && argString.EndsWith("']"))

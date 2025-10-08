@@ -351,7 +351,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     {
                         Bulk = traverser.Bulk,
                         Path = RequiresPath ? new List<dynamic>(traverser.Path) : new List<dynamic>(),
-                        Sack = new Dictionary<string, object>(traverser.Sack),
+                        Sack = traverser.Sack,
+                        SackMap = new Dictionary<string, object>(traverser.SackMap),
                         SideEffects = RequiresSideEffects ? new Dictionary<string, object>(traverser.SideEffects) : new Dictionary<string, object>(),
                         Loops = new Dictionary<string, int>(traverser.Loops),
                         Tags = new Dictionary<string, dynamic>(traverser.Tags)
