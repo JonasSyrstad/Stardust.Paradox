@@ -1,6 +1,8 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
@@ -30,7 +32,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override string StepName => "has";
 
-        public override string StepDescription => 
+        public override string StepDescription =>
             "Filters elements based on property existence or value matching. " +
             "has('key') checks if property exists. " +
             "has('key', value) checks if property equals value. " +
@@ -42,9 +44,13 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             if (step.Arguments.Count < 1)
                 return;
 
-            var key = step.Arguments[0].ToString();
-            
-            if (step.Arguments.Count == 1)
+            // Resolve parameter references for type-safe matching
+            var parameters = context.GetMetadata<Dictionary<string, object>>("parameters");
+            var resolvedArguments = step.Arguments.Select(arg => ResolveParameterReference(arg, parameters)).ToList();
+
+            var key = resolvedArguments[0].ToString();
+
+            if (resolvedArguments.Count == 1)
             {
                 // has(key) - check if property exists
                 if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
@@ -67,11 +73,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     });
                 }
             }
-            else if (step.Arguments.Count >= 2)
+            else if (resolvedArguments.Count >= 2)
             {
-                // has(key, value) - check property value
-                var expectedValue = step.Arguments[1];
-                
+                // has(key, value) - check property value with TYPE-SAFE MATCHING
+                var expectedValue = resolvedArguments[1];
+
                 if (key.Equals("label", StringComparison.OrdinalIgnoreCase))
                 {
                     // Special case: has('label', value) - check element label
@@ -82,6 +88,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         {
                             return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
                         }
+
                         return Equals(actualLabel, expectedValue);
                     });
                 }
@@ -95,6 +102,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         {
                             return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
                         }
+
                         return Equals(actualId, expectedValue);
                     });
                 }
@@ -102,36 +110,90 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 {
                     // Check if this is a predicate (starts with known predicate functions)
                     var valueStr = expectedValue?.ToString() ?? "";
-                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") || 
-                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") || 
+                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") ||
+                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") ||
                         valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
-                        valueStr.StartsWith("within(") || valueStr.StartsWith("without("))
+                        valueStr.StartsWith("within(") || valueStr.StartsWith("without(") ||
+                        valueStr.StartsWith("containing(") || valueStr.StartsWith("notContaining(") ||
+                        valueStr.StartsWith("startingWith(") || valueStr.StartsWith("notStartingWith(") ||
+                        valueStr.StartsWith("endingWith(") || valueStr.StartsWith("notEndingWith("))
                     {
                         // Parse and apply predicate
-                        context.Filter(traverser => EvaluatePredicate(traverser, key, valueStr));
-                    }
-                    else
-                    {
-                        // Normal case: check property value
                         context.Filter(traverser =>
                         {
                             var properties = ExtractProperties(traverser.Value);
                             if (properties != null && properties.ContainsKey(key))
                             {
                                 var actualValue = properties[key];
-                                
-                                // Handle different value types and comparisons
-                                if (expectedValue is string expectedStr && actualValue is string actualStr)
+                                return EvaluatePredicate(actualValue, valueStr);
+                            }
+                            return false;
+                        });
+                    }
+                    else
+                    {
+                        // Normal case: check property value with TYPE-SAFE MATCHING
+                        context.Filter(traverser =>
+                        {
+                            var properties = ExtractProperties(traverser.Value);
+                            if (properties != null && properties.ContainsKey(key))
+                            {
+                                var actualValue = properties[key];
+
+                                // Handle boolean expected value - STRICT TYPE MATCHING
+                                // A boolean expected value should ONLY match actual boolean values
+                                if (expectedValue is bool expectedBool)
                                 {
-                                    return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                                    // Only match if actualValue is also a boolean with the same value
+                                    if (actualValue is bool actualBool)
+                                    {
+                                        return expectedBool == actualBool;
+                                    }
+
+                                    // Boolean expected value does NOT match string "true"/"false"
+                                    return false;
                                 }
-                                else if (expectedValue is double && actualValue != null)
+
+                                // Handle string expected value
+                                // If expected value is the string "true" or "false", check both boolean and string representations
+                                if (expectedValue is string expectedStr)
+                                {
+                                    if (expectedStr.Equals("true", StringComparison.Ordinal))
+                                    {
+                                        // Expected "true" string - match boolean true or string "true" (case-sensitive)
+                                        if (actualValue is bool boolVal)
+                                            return boolVal == true;
+                                        if (actualValue is string actualStr)
+                                            return actualStr.Equals("true", StringComparison.Ordinal);
+                                        return false;
+                                    }
+                                    else if (expectedStr.Equals("false", StringComparison.Ordinal))
+                                    {
+                                        // Expected "false" string - match boolean false or string "false" (case-sensitive)
+                                        if (actualValue is bool boolVal)
+                                            return boolVal == false;
+                                        if (actualValue is string actualStr)
+                                            return actualStr.Equals("false", StringComparison.Ordinal);
+                                        return false;
+                                    }
+                                    else if (actualValue is string actualStr)
+                                    {
+                                        // Regular string comparison - now CASE-SENSITIVE to match CosmosDB behavior
+                                        return expectedStr.Equals(actualStr, StringComparison.Ordinal);
+                                    }
+
+                                    return false;
+                                }
+
+                                // Handle different value types and comparisons
+                                if (expectedValue is double && actualValue != null)
                                 {
                                     // Handle numeric comparisons (for weight properties)
                                     if (double.TryParse(actualValue.ToString(), out double actualDouble))
                                     {
                                         var expectedDouble = (double)expectedValue;
-                                        return Math.Abs(expectedDouble - actualDouble) < 0.0001; // Allow for floating point precision
+                                        return Math.Abs(expectedDouble - actualDouble) <
+                                               0.0001; // Allow for floating point precision
                                     }
                                 }
                                 else if (expectedValue is int && actualValue != null)
@@ -142,17 +204,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                                         return expectedInt == actualInt;
                                     }
                                 }
-                                else if (expectedValue is bool && actualValue != null)
-                                {
-                                    if (bool.TryParse(actualValue.ToString(), out bool actualBool))
-                                    {
-                                        var expectedBool = (bool)expectedValue;
-                                        return expectedBool == actualBool;
-                                    }
-                                }
-                                
+
                                 return Equals(actualValue, expectedValue);
                             }
+
                             return false;
                         });
                     }
@@ -160,175 +215,35 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             }
         }
 
-        private bool EvaluatePredicate(Traverser traverser, string propertyKey, string predicate)
-        {
-            var properties = ExtractProperties(traverser.Value);
-            if (properties == null || !properties.ContainsKey(propertyKey))
-                return false;
-            
-            var actualValue = properties[propertyKey];
-            
-            // Handle incomplete predicates (missing closing parenthesis due to parsing)
-            var normalizedPredicate = predicate;
-            if (!normalizedPredicate.EndsWith(")"))
-            {
-                normalizedPredicate += ")";
-            }
-            
-            // Parse predicate (e.g., "gt(80000)", "gte(100)", etc.)
-            if (normalizedPredicate.StartsWith("gt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual > threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("gte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual >= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lt(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual < threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("lte(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual <= threshold;
-                    }
-                }
-            }
-            else if (normalizedPredicate.StartsWith("neq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(4, normalizedPredicate.Length - 5);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual != threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return !valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("eq(") && normalizedPredicate.EndsWith(")"))
-            {
-                var valueStr = normalizedPredicate.Substring(3, normalizedPredicate.Length - 4);
-                if (double.TryParse(valueStr, out double threshold))
-                {
-                    if (double.TryParse(actualValue?.ToString(), out double actual))
-                    {
-                        return actual == threshold;
-                    }
-                }
-                else
-                {
-                    // String comparison
-                    return valueStr.Equals(actualValue?.ToString(), StringComparison.OrdinalIgnoreCase);
-                }
-            }
-            else if (normalizedPredicate.StartsWith("within(") && normalizedPredicate.EndsWith(")"))
-            {
-                // within(value1, value2, value3, ...) predicate
-                var valuesStr = normalizedPredicate.Substring(7, normalizedPredicate.Length - 8);
-                var withinValues = SplitWithinValues(valuesStr);
-                
-                var actualValueStr = actualValue?.ToString();
-                if (actualValueStr != null)
-                {
-                    // Check if the actual value matches any of the within values
-                    return withinValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
-                }
-                return false;
-            }
-            else if (normalizedPredicate.StartsWith("without(") && normalizedPredicate.EndsWith(")"))
-            {
-                // without(value1, value2, value3, ...) predicate
-                var valuesStr = normalizedPredicate.Substring(8, normalizedPredicate.Length - 9);
-                var withoutValues = SplitWithinValues(valuesStr);
-                
-                var actualValueStr = actualValue?.ToString();
-                if (actualValueStr != null)
-                {
-                    // Check if the actual value does NOT match any of the without values
-                    return !withoutValues.Any(v => v.Equals(actualValueStr, StringComparison.OrdinalIgnoreCase));
-                }
-                return true; // If no value, it's not in the excluded list
-            }
-            
-            return false;
-        }
-
         /// <summary>
-        /// Split within() predicate values by comma while respecting quotes
+        /// Resolve parameter references like __p0, __p1 to their actual values with type preservation
         /// </summary>
-        private System.Collections.Generic.List<string> SplitWithinValues(string valuesStr)
+        private object ResolveParameterReference(object argument, Dictionary<string, object> parameters)
         {
-            var values = new System.Collections.Generic.List<string>();
-            var current = "";
-            var inQuotes = false;
-            var quoteChar = '\0';
-
-            for (int i = 0; i < valuesStr.Length; i++)
+            // Handle direct ParameterReference objects (from TinkerGraphQueryParser)
+            if (argument is ParameterReference paramRef && parameters != null)
             {
-                char c = valuesStr[i];
+                if (parameters.TryGetValue(paramRef.ParameterName, out var value))
+                {
+                    return value; // Return the actual value with its original type
+                }
+            }
 
-                if (!inQuotes && (c == '\'' || c == '"'))
+            // Handle string arguments that might be parameter names (__p0, p1, etc.)
+            if (argument is string argStr && parameters != null)
+            {
+                // Check if this string looks like a parameter reference
+                if (Regex.IsMatch(argStr, @"^__p\d+$") || Regex.IsMatch(argStr, @"^p\d+$"))
                 {
-                    inQuotes = true;
-                    quoteChar = c;
-                    // Don't include the quote in the value
-                }
-                else if (inQuotes && c == quoteChar)
-                {
-                    inQuotes = false;
-                    // Don't include the quote in the value
-                }
-                else if (!inQuotes && c == ',')
-                {
-                    if (!string.IsNullOrWhiteSpace(current))
+                    // Try to resolve it from parameters
+                    if (parameters.TryGetValue(argStr, out var value))
                     {
-                        values.Add(current.Trim());
-                        current = "";
+                        return value; // Return the actual value with its original type
                     }
                 }
-                else if (c != '\'' && c != '"') // Skip quotes entirely
-                {
-                    current += c;
-                }
             }
 
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                values.Add(current.Trim());
-            }
-
-            return values;
+            return argument;
         }
     }
 }

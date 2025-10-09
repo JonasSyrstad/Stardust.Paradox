@@ -22,7 +22,7 @@ namespace Stardust.Paradox.Data.Internals
             _container = new List<Pair<T1, T2>>();
         }
 
-        public DualDictionary([NotNull]IEnumerable<Pair<T1, T2>> pairs)
+        public DualDictionary([NotNull] IEnumerable<Pair<T1, T2>> pairs)
         {
             if (pairs == null) throw new ArgumentNullException(nameof(pairs));
             _lookup1 = new Dictionary<T1, int>();
@@ -38,7 +38,7 @@ namespace Stardust.Paradox.Data.Internals
             _container = enumerable.ToList();
         }
 
-        public DualDictionary([NotNull]IEnumerable<Pair<T2, T1>> pairs)
+        public DualDictionary([NotNull] IEnumerable<Pair<T2, T1>> pairs)
         {
             if (pairs == null) throw new ArgumentNullException(nameof(pairs));
             _lookup1 = new Dictionary<T1, int>();
@@ -135,8 +135,10 @@ namespace Stardust.Paradox.Data.Internals
             {
                 var i = _container.Count;
                 _container.Add(pair);
-                _lookup1.Add(pair.Item1, i);
-                _lookup2.Add(pair.Item2, i);
+                if (!_lookup1.ContainsKey(pair.Item1))
+                    _lookup1.Add(pair.Item1, i);
+                if (!_lookup2.ContainsKey(pair.Item2))
+                    _lookup2.Add(pair.Item2, i);
             }
             finally
             {
@@ -163,7 +165,7 @@ namespace Stardust.Paradox.Data.Internals
 
         public void Remove(T2 key)
         {
-           Remove(this[key]);
+            Remove(this[key]);
         }
 
         public void Add(Pair<T2, T1> pair)

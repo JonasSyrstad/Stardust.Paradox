@@ -155,17 +155,17 @@ public class ComplexLoopQueryTests
         var connector = InMemoryGremlinLanguageConnector.Create();
         await SetupHierarchicalData(connector);
 
-        // Act - Get vertices at exactly depth 2
+        // Act - Get vertices at exactly depth 2 by stopping loop at depth 2 and filtering
         var result = await connector.ExecuteAsync(
-            "g.V('root').repeat(out('child')).emit().until(loops().is(__p0)).has('level', __p1)", 
-            new Dictionary<string, object> 
-            { 
-                { "__p0", 3 },
+            "g.V('root').repeat(out('child')).until(loops().is(__p0)).has('level', __p1)",
+            new Dictionary<string, object>
+            {
+                { "__p0", 2 },
                 { "__p1", 2 }
             });
 
-        // Assert
-        result.Should().NotBeEmpty();
+        // Assert - Should return the 2 vertices that are at level 2 after exactly 2 loop iterations
+        result.Should().HaveCount(2);
     }
 
     [Fact]

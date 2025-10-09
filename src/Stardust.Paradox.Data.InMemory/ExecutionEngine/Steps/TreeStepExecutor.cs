@@ -50,19 +50,16 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             foreach (var traverser in context.Traversers)
             {
                 var path = traverser.GetPath();
-                if (path.Any())
+                
+                // CRITICAL FIX: If no path is tracked but traverser has a value, create a single-node path
+                if (!path.Any() && traverser.Value != null)
+                {
+                    // Create a path with just the current vertex
+                    allPaths.Add(new List<dynamic> { traverser.Value });
+                }
+                else if (path.Any())
                 {
                     allPaths.Add(path);
-                }
-                else
-                {
-                    // If no path is tracked, check if the traverser value is a vertex
-                    // This happens when tree() is called without intermediate steps tracking paths
-                    var value = traverser.Value;
-                    if (value != null)
-                    {
-                        allPaths.Add(new List<dynamic> { value });
-                    }
                 }
             }
 

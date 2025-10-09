@@ -73,6 +73,9 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
             // Initialize traversal context
             var context = InitializeTraversalContext(traversal);
+            
+            // Store parameters in context for step executors to resolve ParameterReference objects
+            context.SetMetadata("parameters", traversal.Parameters);
 
             // Execute each step in sequence
             for (int i = 0; i < traversal.Steps.Count; i++)
@@ -81,6 +84,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
                 if (step.IsStartStep)
                     continue; // Start steps already handled in initialization
+
+                // Set current step information in context for lookahead functionality
+                context.SetMetadata("current_step_index", i);
+                context.SetMetadata("all_steps", traversal.Steps);
 
                 // Look ahead for .by() modulator steps when executing grouping operations
                 if (IsGroupingStep(step))
@@ -152,7 +159,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         private bool IsGroupingStep(TinkerGraphStep step)
         {
             var stepName = step.StepName.ToLower();
-            return stepName == "group" || stepName == "groupcount";
+            return stepName == "group" || stepName == "groupcount" || stepName == "order";
         }
 
         /// <summary>
@@ -174,7 +181,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
             if (firstStep?.IsStartStep == true)
             {
-                var initialResults = ExecuteStartStep(firstStep);
+                var initialResults = ExecuteStartStep(firstStep, traversal.Parameters);
                 var context = new TinkerTraversalContext();
 
                 // Create traversers and initialize their paths with the starting element
@@ -202,20 +209,20 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         /// <summary>
         /// Execute a start step (V, E, addV, etc.)
         /// </summary>
-        private IEnumerable<dynamic> ExecuteStartStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteStartStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
             switch (step.StepName.ToLower())
             {
                 case "v":
-                    return ExecuteVertexStep(step);
+                    return ExecuteVertexStep(step, parameters);
                 case "e":
-                    return ExecuteEdgeStep(step);
+                    return ExecuteEdgeStep(step, parameters);
                 case "addv":
-                    return ExecuteAddVertexStep(step);
+                    return ExecuteAddVertexStep(step, parameters);
                 case "adde":
-                    return ExecuteAddEdgeStep(step);
+                    return ExecuteAddEdgeStep(step, parameters);
                 case "inject":
-                    return ExecuteInjectStep(step);
+                    return ExecuteInjectStep(step, parameters);
                 default:
                     return _database.GetAllVertices().Select(v => v.ToGremlinResponse());
             }
@@ -224,17 +231,53 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         /// <summary>
         /// Execute inject start step with proper TinkerPop multiple value support
         /// </summary>
-        private IEnumerable<dynamic> ExecuteInjectStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteInjectStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
             var results = new List<dynamic>();
 
             // Inject each argument as a separate traverser (TinkerPop standard)
             foreach (var arg in step.Arguments)
             {
-                results.Add(arg);
+                var resolvedArg = ResolveParameter(arg, parameters ?? new Dictionary<string, object>());
+                results.Add(resolvedArg);
             }
 
             return results;
+        }
+
+        /// <summary>
+        /// Resolve a ParameterReference to its actual value from the parameters dictionary
+        /// </summary>
+        private object ResolveParameter(object value, Dictionary<string, object> parameters)
+        {
+            if (value is ParameterReference paramRef)
+            {
+                if (parameters.TryGetValue(paramRef.ParameterName, out var resolvedValue))
+                {
+                    return resolvedValue;
+                }
+                // If parameter not found, return the parameter name as a string (fallback)
+                return paramRef.ParameterName;
+            }
+            
+            // Handle lists that might contain ParameterReference objects
+            if (value is List<object> list)
+            {
+                return list.Select(item => ResolveParameter(item, parameters)).ToList();
+            }
+            
+            // Handle generic IList
+            if (value is System.Collections.IList ilist && !(value is string))
+            {
+                var resolved = new List<object>();
+                foreach (var item in ilist)
+                {
+                    resolved.Add(ResolveParameter(item, parameters));
+                }
+                return resolved;
+            }
+            
+            return value;
         }
 
         /// <summary>
@@ -269,8 +312,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
        
         #region Start Steps
 
-        private IEnumerable<dynamic> ExecuteVertexStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteVertexStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
+            if (parameters == null)
+                parameters = new Dictionary<string, object>();
+                
             if (step.Arguments.Any())
             {
                 // Handle CosmosDB partition key array syntax: V([partitionKey, id])
@@ -279,8 +325,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
                 foreach (var arg in step.Arguments)
                 {
+                    // Resolve ParameterReference if present
+                    var resolvedArg = ResolveParameter(arg, parameters);
+                    
                     // Check if this argument is already parsed as a list (from array syntax)
-                    if (arg is List<object> list && list.Count >= 1)
+                    if (resolvedArg is List<object> list && list.Count >= 1)
                     {
                         // Array syntax like [partitionKey, id] - use the last element as the ID
                         // (CosmosDB uses [partition, id], standard Gremlin might use [id])
@@ -290,7 +339,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                             processedIds.Add(id.Trim('"', '\''));
                         }
                     }
-                    else if (arg is System.Collections.IList ilist && ilist.Count >= 1)
+                    else if (resolvedArg is System.Collections.IList ilist && ilist.Count >= 1)
                     {
                         // Handle generic IList
                         var id = ilist[ilist.Count - 1]?.ToString();
@@ -301,7 +350,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     }
                     else
                     {
-                        var argString = arg?.ToString() ?? "";
+                        var argString = resolvedArg?.ToString() ?? "";
 
                         // Check if this is an array format like "['string','string']"
                         if (argString.StartsWith("['") && argString.EndsWith("']"))
@@ -360,12 +409,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return _database.GetAllVertices().Select(v => v.ToGremlinResponse());
         }
 
-        private IEnumerable<dynamic> ExecuteEdgeStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteEdgeStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
+            if (parameters == null)
+                parameters = new Dictionary<string, object>();
+                
             if (step.Arguments.Any())
             {
                 // E(id1, id2, ...) - get specific edges
-                var ids = step.Arguments.Select(arg => arg.ToString());
+                var ids = step.Arguments.Select(arg => ResolveParameter(arg, parameters).ToString());
                 return ids.Select(id => _database.GetEdge(id))
                          .Where(e => e != null)
                          .Select(e => e.ToGremlinResponse());
@@ -375,30 +427,36 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return _database.GetAllEdges().Select(e => e.ToGremlinResponse());
         }
 
-        private IEnumerable<dynamic> ExecuteAddVertexStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteAddVertexStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
+            if (parameters == null)
+                parameters = new Dictionary<string, object>();
+                
             var label = step.GetFirstStringArgument() ?? "vertex";
             var vertex = _database.AddVertex(label);
 
             // Add properties from arguments (property pairs)
             for (int i = 1; i < step.Arguments.Count - 1; i += 2)
             {
-                var key = step.Arguments[i].ToString();
-                var value = step.Arguments[i + 1];
+                var key = ResolveParameter(step.Arguments[i], parameters).ToString();
+                var value = ResolveParameter(step.Arguments[i + 1], parameters);
                 vertex.SetProperty(key, value);
             }
 
             return new[] { vertex.ToGremlinResponse() };
         }
 
-        private IEnumerable<dynamic> ExecuteAddEdgeStep(TinkerGraphStep step)
+        private IEnumerable<dynamic> ExecuteAddEdgeStep(TinkerGraphStep step, Dictionary<string, object> parameters = null)
         {
+            if (parameters == null)
+                parameters = new Dictionary<string, object>();
+                
             if (step.Arguments.Count < 3)
                 return Enumerable.Empty<dynamic>();
 
             var label = step.GetFirstStringArgument();
-            var fromId = step.Arguments[1].ToString();
-            var toId = step.Arguments[2].ToString();
+            var fromId = ResolveParameter(step.Arguments[1], parameters).ToString();
+            var toId = ResolveParameter(step.Arguments[2], parameters).ToString();
 
             // Ensure vertices exist before creating edge
             var fromVertex = _database.GetVertex(fromId);
@@ -416,8 +474,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // Add properties from remaining arguments
             for (int i = 3; i < step.Arguments.Count - 1; i += 2)
             {
-                var key = step.Arguments[i].ToString();
-                var value = step.Arguments[i + 1];
+                var key = ResolveParameter(step.Arguments[i], parameters).ToString();
+                var value = ResolveParameter(step.Arguments[i + 1], parameters);
                 edge.SetProperty(key, value);
             }
 
@@ -425,13 +483,5 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         #endregion
-
-        
-
-      
-
-     
-
-      
     }
 }

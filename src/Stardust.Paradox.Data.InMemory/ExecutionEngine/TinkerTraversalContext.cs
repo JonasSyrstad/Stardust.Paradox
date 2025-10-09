@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
@@ -107,6 +108,22 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         #endregion
 
         /// <summary>
+        /// Get the current step index from metadata
+        /// </summary>
+        public int GetCurrentStepIndex()
+        {
+            return GetMetadata<int>("current_step_index");
+        }
+
+        /// <summary>
+        /// Get all steps from metadata
+        /// </summary>
+        public List<TinkerGraphStep> GetAllSteps()
+        {
+            return GetMetadata<List<TinkerGraphStep>>("all_steps") ?? new List<TinkerGraphStep>();
+        }
+
+        /// <summary>
         /// Get current results as enumerable of dynamic objects with automatic deduplication
         /// </summary>
         public IEnumerable<dynamic> GetCurrentResults()
@@ -116,36 +133,39 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             foreach (var traverser in Traversers)
             {
+                // Don't unwrap GremlinResponseObject - it supports dynamic access
+                var value = traverser.Value;
+                
                 // Special handling for JObject - don't flatten tree results
-                if (traverser.Value is JObject)
+                if (value is JObject)
                 {
                     // Return JObject as-is, repeated for bulk
                     for (int i = 0; i < traverser.Bulk; i++)
                     {
-                        results.Add(traverser.Value);
+                        results.Add(value);
                     }
                     continue;
                 }
                 
                 // Handle both single values and enumerable values
-                if (traverser.Value is IEnumerable<dynamic> enumerable && !(traverser.Value is string))
+                if (value is IEnumerable<dynamic> enumerable && !(value is string) && !(value is GremlinResponseObject))
                 {
                     // Special handling for path results - don't flatten path lists
-                    if (IsPathResult(traverser.Value))
+                    if (IsPathResult(value))
                     {
                         // Return the path as a single result, repeated for bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            results.Add(traverser.Value);
+                            results.Add(value);
                         }
                     }
                     // Special handling for fold results - don't flatten List<dynamic> from fold operations
-                    else if (IsFoldResult(traverser.Value))
+                    else if (IsFoldResult(value))
                     {
                         // Return the fold result as a single result, repeated for bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            results.Add(traverser.Value);
+                            results.Add(value);
                         }
                     }
                     else
@@ -163,7 +183,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 else
                 {
                     // For vertex and edge objects, apply simple deduplication based on ID
-                    var valueKey = GetDeduplicationKey(traverser.Value);
+                    var valueKey = GetDeduplicationKey(value);
                     if (!seen.Contains(valueKey))
                     {
                         seen.Add(valueKey);
@@ -171,7 +191,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                         // If it's a single value, repeat it according to bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
-                            results.Add(traverser.Value);
+                            results.Add(value);
                         }
                     }
                     // If already seen, skip to avoid duplicates
@@ -179,6 +199,42 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             }
             
             return results;
+        }
+
+        /// <summary>
+        /// Unwrap GremlinResponseObject to a dictionary that can be accessed by tests
+        /// DEPRECATED: This method is no longer used as GremlinResponseObject supports dynamic access directly
+        /// </summary>
+        [Obsolete("This method breaks dynamic property access. GremlinResponseObject should be used as-is.")]
+        private dynamic UnwrapGremlinResponseObject(dynamic value)
+        {
+            if (value is GremlinResponseObject gremlinObj)
+            {
+                var dict = new Dictionary<string, object>();
+                
+                // Extract all dynamic members using reflection
+                foreach (var memberName in gremlinObj.GetDynamicMemberNames())
+                {
+                    try
+                    {
+                        var memberValue = gremlinObj.Get<object>(memberName);
+                        
+                        if (memberValue != null)
+                        {
+                            dict[memberName] = memberValue;
+                        }
+                    }
+                    catch
+                    {
+                        // Skip properties that can't be accessed
+                    }
+                }
+                
+                // Return dictionary as object (not dynamic) so it's not treated as dynamic in foreach
+                return dict as object;
+            }
+            
+            return value;
         }
 
         /// <summary>
@@ -190,7 +246,17 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             
             try
             {
-                // For graph elements, use ID as deduplication key
+                // For GremlinResponseObject, use the id property directly
+                if (value is GremlinResponseObject gremlinObj)
+                {
+                    var id = gremlinObj.id;
+                    if (id != null)
+                    {
+                        return $"element_{id}";
+                    }
+                }
+                
+                // For graph elements as dictionaries, use ID as deduplication key
                 if (value is IDictionary<string, object> dict)
                 {
                     if (dict.ContainsKey("id"))
@@ -200,10 +266,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 }
                 
                 // Try dynamic property access for graph elements
-                var id = value.id;
-                if (id != null)
+                var dynamicId = value.id;
+                if (dynamicId != null)
                 {
-                    return $"element_{id}";
+                    return $"element_{dynamicId}";
                 }
             }
             catch
@@ -734,6 +800,65 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 ["activeLoops"] = LoopCounters.Count,
                 ["metadataCount"] = Metadata.Count
             };
+        }
+
+        /// <summary>
+        /// Get current step information from context metadata
+        /// </summary>
+        public StepContext GetCurrentStep()
+        {
+            return GetMetadata<StepContext>("currentStep");
+        }
+
+        /// <summary>
+        /// Set current step information in context metadata
+        /// </summary>
+        public void SetCurrentStep(StepContext stepContext)
+        {
+            SetMetadata("currentStep", stepContext);
+        }
+    }
+
+    /// <summary>
+    /// Represents the context of the current step in the traversal
+    /// </summary>
+    public class StepContext
+    {
+        public string Id { get; set; }
+        public string Label { get; set; }
+        public int Counter { get; set; }
+        public Dictionary<string, object> Properties { get; set; }
+
+        public StepContext()
+        {
+            Properties = new Dictionary<string, object>();
+        }
+
+        public StepContext(string id, string label)
+        {
+            Id = id;
+            Label = label;
+            Counter = 0;
+            Properties = new Dictionary<string, object>();
+        }
+
+        /// <summary>
+        /// Generate a unique key for this step context
+        /// </summary>
+        public string GetKey()
+        {
+            return $"{Id}_{Label}_{Counter}";
+        }
+
+        /// <summary>
+        /// Copy properties from another step context
+        /// </summary>
+        public void CopyFrom(StepContext other)
+        {
+            Id = other.Id;
+            Label = other.Label;
+            Counter = other.Counter;
+            Properties = new Dictionary<string, object>(other.Properties);
         }
     }
 }

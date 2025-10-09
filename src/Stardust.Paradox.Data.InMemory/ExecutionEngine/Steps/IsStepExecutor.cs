@@ -36,7 +36,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 return; // No comparison value, keep all
             }
             
-            var compareValue = step.Arguments.First();
+            // Get parameters from context to resolve ParameterReference objects
+            var parameters = context.GetMetadata<Dictionary<string, object>>("parameters") 
+                             ?? new Dictionary<string, object>();
+            
+            // Resolve the first argument (the comparison value)
+            var compareValue = ResolveParameter(step.Arguments.First(), parameters);
             var result = new List<Traverser>();
             
             foreach (var traverser in context.Traversers)
@@ -82,6 +87,23 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             }
             
             context.Traversers = result;
+        }
+        
+        /// <summary>
+        /// Resolve a ParameterReference to its actual value from the parameters dictionary
+        /// </summary>
+        private object ResolveParameter(object value, Dictionary<string, object> parameters)
+        {
+            if (value is ParameterReference paramRef)
+            {
+                if (parameters.TryGetValue(paramRef.ParameterName, out var resolvedValue))
+                {
+                    return resolvedValue;
+                }
+                // If parameter not found, return the parameter name as a string (fallback)
+                return paramRef.ParameterName;
+            }
+            return value;
         }
     }
 }

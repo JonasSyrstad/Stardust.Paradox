@@ -117,7 +117,9 @@ namespace Stardust.Paradox.Data.InMemory.Scenarios
                     new SimpleECommerceScenario(),
                     new OrganizationHierarchyScenario(),
                     new UserRoleManagementScenario(),
-                    new GraphTraversalTestScenario()
+                    new GraphTraversalTestScenario(),
+                    new ODataTestScenario(),
+                    new SocialNetworkTestScenario()
                 );
 
                 _builtInScenariosRegistered = true;

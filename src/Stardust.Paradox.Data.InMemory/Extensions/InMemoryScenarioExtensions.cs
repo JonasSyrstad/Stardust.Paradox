@@ -98,6 +98,20 @@ namespace Stardust.Paradox.Data.InMemory.Extensions
         }
 
         /// <summary>
+        /// Apply a scenario provider by type to an existing connector
+        /// </summary>
+        /// <typeparam name="TScenario">The type of scenario provider to apply</typeparam>
+        /// <param name="connector">The connector to configure</param>
+        /// <returns>The same connector for method chaining</returns>
+        public static InMemoryGremlinLanguageConnector WithScenario<TScenario>(this InMemoryGremlinLanguageConnector connector) 
+            where TScenario : IInMemoryScenarioProvider, new()
+        {
+            var scenario = new TScenario();
+            scenario.ConfigureScenario(connector.Database);
+            return connector;
+        }
+
+        /// <summary>
         /// Apply a scenario provider directly to an existing connector
         /// </summary>
         /// <param name="connector">The connector to configure</param>
@@ -146,3 +160,4 @@ namespace Stardust.Paradox.Data.InMemory.Extensions
         }
     }
 }
+

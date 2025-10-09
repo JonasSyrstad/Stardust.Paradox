@@ -12,10 +12,9 @@ namespace Stardust.Paradox.Data.OData
         {
             if (query == null) return baseGremlinGremlinQuery;
             return baseGremlinGremlinQuery.ApplyODataFilter(query.Filter)
-                .ApplyODataOrdering(query.OrderBy)
                 .ApplyODataSearch(query.Search, query.SearchableProperties)
+                .ApplyODataOrdering(query.OrderBy)
                 .ApplyODataPaging(query.Take, query.Top, query.Tail);
-
         }
     }
 }

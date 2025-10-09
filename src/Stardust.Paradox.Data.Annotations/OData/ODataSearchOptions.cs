@@ -25,10 +25,10 @@ namespace Stardust.Paradox.Data.Annotations.OData
     {
         public string PropertyName { get; set; }
         
-        public OrderingTypes Ordering { get; set; }
+        public OrderingType Ordering { get; set; }
     }
 
-    public enum OrderingTypes
+    public enum OrderingType    
     {
         Ascending,
         Descending

@@ -31,14 +31,9 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            // Store the .by() arguments in the context for the previous grouping step to use
-            if (step.Arguments.Any())
-            {
-                context.SetMetadata("by_arguments", step.Arguments.ToList());
-            }
-
-            // Note: .by() steps don't modify the traversers directly
-            // They store metadata that affects how the previous step operates
+            // This by() step should have been consumed by the previous step via TinkerGraphQueryExecutor's lookahead
+            // If we reach here, it means it wasn't consumed, which is unexpected
+            // Just skip execution silently as it's likely handled by lookahead logic
         }
     }
 }

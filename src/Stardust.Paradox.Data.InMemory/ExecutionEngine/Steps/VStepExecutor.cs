@@ -36,6 +36,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
+            // Get parameters from context to resolve ParameterReference objects
+            var parameters = context.GetMetadata<Dictionary<string, object>>("parameters") 
+                             ?? new Dictionary<string, object>();
+            
             if (step.Arguments.Any())
             {
                 // Handle CosmosDB partition key array syntax: V([partitionKey, id])
@@ -43,21 +47,33 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 
                 foreach (var arg in step.Arguments)
                 {
+                    // Resolve ParameterReference if present
+                    var resolvedArg = ResolveParameter(arg, parameters);
+                    
                     // Check if this argument is already parsed as a list (from array syntax)
-                    if (arg is List<object> list && list.Count >= 1)
+                    if (resolvedArg is List<object> list && list.Count >= 1)
                     {
+                        // Process each element in the list (might still contain ParameterReference)
+                        var resolvedList = list.Select(item => ResolveParameter(item, parameters)).ToList();
+                        
                         // Array syntax like [partitionKey, id] - use the last element as the ID
                         // (CosmosDB uses [partition, id], standard Gremlin might use [id])
-                        var id = list.Last()?.ToString();
+                        var id = resolvedList.Last()?.ToString();
                         if (!string.IsNullOrEmpty(id))
                         {
                             processedIds.Add(id.Trim('"', '\''));
                         }
                     }
-                    else if (arg is System.Collections.IList ilist && ilist.Count >= 1)
+                    else if (resolvedArg is System.Collections.IList ilist && ilist.Count >= 1)
                     {
-                        // Handle generic IList
-                        var id = ilist[ilist.Count - 1]?.ToString();
+                        // Handle generic IList - resolve each element
+                        var resolvedItems = new List<object>();
+                        foreach (var item in ilist)
+                        {
+                            resolvedItems.Add(ResolveParameter(item, parameters));
+                        }
+                        
+                        var id = resolvedItems.Last()?.ToString();
                         if (!string.IsNullOrEmpty(id))
                         {
                             processedIds.Add(id.Trim('"', '\''));
@@ -65,7 +81,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     }
                     else
                     {
-                        var argString = arg?.ToString() ?? "";
+                        var argString = resolvedArg?.ToString() ?? "";
                         
                         // Check if this is an array format like "['string','string']"
                         if (argString.StartsWith("['") && argString.EndsWith("']"))
@@ -114,24 +130,45 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     }
                 }
                 
-                // V(id1, id2, ...) in the middle of traversal replaces current traversers
+                // V(id1, id2, ...) replaces current traversers with specified vertices
                 var newTraversers = new List<Traverser>();
                 
-                foreach (var vertexId in processedIds)
+                // Check if this is a start step (no existing traversers or only the root traverser)
+                var isStartStep = !context.Traversers.Any() || 
+                                 (context.Traversers.Count == 1 && context.Traversers[0].Value == null);
+                
+                if (isStartStep)
                 {
-                    var vertex = _database.GetVertex(vertexId);
-                    if (vertex != null)
+                    // Start step: create new traversers for each vertex
+                    foreach (var vertexId in processedIds)
                     {
-                        // For each existing traverser, create a new one with the specified vertex
-                        foreach (var existingTraverser in context.Traversers)
+                        var vertex = _database.GetVertex(vertexId);
+                        if (vertex != null)
                         {
-                            var newTraverser = existingTraverser.Split();
-                            newTraverser.Value = vertex.ToGremlinResponse();
-                             
-                            // Add to path for path tracking
-                            newTraverser.AddToPath(vertex.ToGremlinResponse());
-                            
-                            newTraversers.Add(newTraverser);
+                            var traverser = new Traverser(vertex.ToGremlinResponse());
+                            traverser.AddToPath(vertex.ToGremlinResponse());
+                            newTraversers.Add(traverser);
+                        }
+                    }
+                }
+                else
+                {
+                    // Mid-traversal step: for each existing traverser, replace with specified vertices
+                    foreach (var vertexId in processedIds)
+                    {
+                        var vertex = _database.GetVertex(vertexId);
+                        if (vertex != null)
+                        {
+                            foreach (var existingTraverser in context.Traversers)
+                            {
+                                var newTraverser = existingTraverser.Split();
+                                newTraverser.Value = vertex.ToGremlinResponse();
+                                 
+                                // Add to path for path tracking
+                                newTraverser.AddToPath(vertex.ToGremlinResponse());
+                                
+                                newTraversers.Add(newTraverser);
+                            }
                         }
                     }
                 }
@@ -144,18 +181,54 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 var allVertices = _database.GetAllVertices().Select(v => v.ToGremlinResponse()).ToList();
                 var newTraversers = new List<Traverser>();
                 
-                foreach (var existingTraverser in context.Traversers)
+                // Check if this is a start step
+                var isStartStep = !context.Traversers.Any() || 
+                                 (context.Traversers.Count == 1 && context.Traversers[0].Value == null);
+                
+                if (isStartStep)
                 {
+                    // Start step: create new traversers for each vertex
                     foreach (var vertex in allVertices)
                     {
-                        var newTraverser = existingTraverser.Split();
-                        newTraverser.Value = vertex;
-                        newTraversers.Add(newTraverser);
+                        var traverser = new Traverser(vertex);
+                        traverser.AddToPath(vertex);
+                        newTraversers.Add(traverser);
+                    }
+                }
+                else
+                {
+                    // Mid-traversal step: for each existing traverser, replace with all vertices
+                    foreach (var existingTraverser in context.Traversers)
+                    {
+                        foreach (var vertex in allVertices)
+                        {
+                            var newTraverser = existingTraverser.Split();
+                            newTraverser.Value = vertex;
+                            newTraverser.AddToPath(vertex);
+                            newTraversers.Add(newTraverser);
+                        }
                     }
                 }
                 
                 context.Traversers = newTraversers;
             }
+        }
+        
+        /// <summary>
+        /// Resolve a ParameterReference to its actual value from the parameters dictionary
+        /// </summary>
+        private object ResolveParameter(object value, Dictionary<string, object> parameters)
+        {
+            if (value is ParameterReference paramRef)
+            {
+                if (parameters.TryGetValue(paramRef.ParameterName, out var resolvedValue))
+                {
+                    return resolvedValue;
+                }
+                // If parameter not found, return the parameter name as a string (fallback)
+                return paramRef.ParameterName;
+            }
+            return value;
         }
     }
 }

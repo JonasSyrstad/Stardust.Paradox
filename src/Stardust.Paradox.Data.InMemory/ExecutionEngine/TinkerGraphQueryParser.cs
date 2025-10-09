@@ -3,6 +3,7 @@ using Stardust.Paradox.Data.InMemory.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Globalization;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
@@ -67,17 +68,21 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     return customResponse;
                 }
 
-                // Substitute parameters BEFORE parsing (critical for TinkerPop compatibility)
-                var processedQuery = SubstituteParameters(query, parameters ?? new Dictionary<string, object>());
+                // CRITICAL FIX: Substitute parameters in the query string BEFORE parsing
+                // This ensures that typed values (bool, int, string) are properly matched
+                // Replace both p0, p1, p2... and __p0, __p1, __p2... parameter formats
+                string processedQuery = SubstituteParameters(query, parameters);
 
                 // Handle complex queries that need special processing
                 if (IsComplexQuery(processedQuery))
                 {
-                    return ExecuteComplexQuery(processedQuery);
+                    return ExecuteComplexQuery(processedQuery, parameters);
                 }
 
-                // Parse the query into traversal steps
+                // Parse the query into traversal steps (parameters are now substituted)
                 var traversal = ParseQuery(processedQuery);
+                
+                // Store parameters in the traversal for reference (though they're already substituted)
                 traversal.Parameters = parameters ?? new Dictionary<string, object>();
 
                 // Apply optimization strategies
@@ -89,6 +94,84 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             catch (Exception ex)
             {
                 throw new InvalidOperationException($"Failed to parse and execute query: {query}", ex);
+            }
+        }
+
+        /// <summary>
+        /// Substitute parameter placeholders (p0, p1, __p0, __p1, etc.) with actual values
+        /// CRITICAL: All parameters are substituted to maintain query compatibility
+        /// Type matching is enforced in the HasStepExecutor for strict comparison
+        /// </summary>
+        private string SubstituteParameters(string query, Dictionary<string, object> parameters)
+        {
+            if (parameters == null || parameters.Count == 0)
+            {
+                return query;
+            }
+
+            string result = query;
+
+            // Sort parameters by name length (descending) to handle __p10 before __p1
+            var sortedParams = parameters.OrderByDescending(p => p.Key.Length);
+
+            foreach (var param in sortedParams)
+            {
+                var paramName = param.Key;
+                var paramValue = param.Value;
+
+                // Create a regex pattern that matches the parameter name as a whole word
+                // This ensures we don't replace "p0" when looking for "p01"
+                var pattern = $@"\b{Regex.Escape(paramName)}\b";
+
+                // Convert the parameter value to Gremlin-compatible string representation
+                var gremlinValue = ConvertToGremlinLiteral(paramValue);
+
+                // Replace all occurrences of the parameter placeholder
+                result = Regex.Replace(result, pattern, gremlinValue);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Convert a parameter value to its Gremlin literal representation
+        /// </summary>
+        private string ConvertToGremlinLiteral(object value)
+        {
+            if (value == null)
+            {
+                return "null";
+            }
+
+            // Handle different types appropriately
+            switch (value)
+            {
+                case string s:
+                    // Escape single quotes and wrap in single quotes
+                    return $"'{s.Replace("'", "\\'")}'";
+
+                case bool b:
+                    // Boolean literals are lowercase in Gremlin
+                    return b.ToString().ToLower();
+
+                case int i:
+                    return i.ToString(CultureInfo.InvariantCulture);
+
+                case long l:
+                    return l.ToString(CultureInfo.InvariantCulture);
+
+                case float f:
+                    return f.ToString(CultureInfo.InvariantCulture);
+
+                case double d:
+                    return d.ToString(CultureInfo.InvariantCulture);
+
+                case decimal dec:
+                    return dec.ToString(CultureInfo.InvariantCulture);
+
+                default:
+                    // For other types, use ToString() and quote it
+                    return $"'{value.ToString().Replace("'", "\\'")}'";
             }
         }
 
@@ -179,18 +262,18 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         /// <summary>
         /// Execute complex queries using a different strategy
         /// </summary>
-        private IEnumerable<dynamic> ExecuteComplexQuery(string query)
+        private IEnumerable<dynamic> ExecuteComplexQuery(string query, Dictionary<string, object> parameters = null)
         {
             // Handle addV with multiple properties
             if (query.StartsWith("g.addV(") && query.Contains(".property("))
             {
-                return ExecuteComplexAddVertex(query);
+                return ExecuteComplexAddVertex(query, parameters);
             }
 
             // Handle addE with nested traversals
             if (query.Contains(".addE(") && (query.Contains(".to(g.V(") || query.Contains(".from(g.V(")))
             {
-                return ExecuteComplexAddEdge(query);
+                return ExecuteComplexAddEdge(query, parameters);
             }
 
             // Handle multi-step traversals using improved TinkerGraph execution
@@ -198,19 +281,22 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             {
                 // Parse the query normally and let the TinkerGraph executor handle it
                 var traversal = ParseQuery(query);
+                traversal.Parameters = parameters ?? new Dictionary<string, object>();
                 return _executor.Execute(traversal);
             }
 
             // Fall back to normal parsing for other complex cases
             var normalTraversal = ParseQuery(query);
+            normalTraversal.Parameters = parameters ?? new Dictionary<string, object>();
             return _executor.Execute(normalTraversal);
         }
 
         /// <summary>
         /// Execute complex addV queries with chained properties
         /// </summary>
-        private IEnumerable<dynamic> ExecuteComplexAddVertex(string query)
+        private IEnumerable<dynamic> ExecuteComplexAddVertex(string query, Dictionary<string, object> parameters = null)
         {
+            // For complex vertex creation, parameters are passed to executor for type-safe resolution
             // Parse: g.addV('label').property('key1', 'value1').property('key2', 'value2')...
             var match = Regex.Match(query, @"g\.addV\(([^)]+)\)(.*)");
             if (!match.Success)
@@ -229,6 +315,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 {
                     var key = args[0].ToString();
                     var value = args[1];
+                    
+                    // Resolve parameter references if present
+                    if (value is ParameterReference paramRef && parameters != null)
+                    {
+                        value = parameters.ContainsKey(paramRef.ParameterName) 
+                            ? parameters[paramRef.ParameterName] 
+                            : value;
+                    }
+                    
                     properties[key] = value;
                 }
             }
@@ -255,10 +350,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         /// <summary>
         /// Execute complex addE queries with nested traversals
         /// </summary>
-        private IEnumerable<dynamic> ExecuteComplexAddEdge(string query)
+        private IEnumerable<dynamic> ExecuteComplexAddEdge(string query, Dictionary<string, object> parameters = null)
         {
             try
             {
+                // For complex edge creation, parameters are passed to executor for type-safe resolution
+
                 // Handle complex patterns like: g.V().has('name', 'marko').addE('knows').to(g.V().has('name', 'vadas')).property('weight', 0.5)
 
                 // Pattern 1: Simple V(id) to V(id) pattern with optional properties
@@ -295,6 +392,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                                 {
                                     var key = args[0].ToString();
                                     var value = args[1];
+                                    
+                                    // Resolve parameter references if present
+                                    if (value is ParameterReference paramRef && parameters != null)
+                                    {
+                                        value = parameters.ContainsKey(paramRef.ParameterName) 
+                                            ? parameters[paramRef.ParameterName] 
+                                            : value;
+                                    }
+                                    
                                     edge.SetProperty(key, value);
                                 }
                             }
@@ -327,6 +433,20 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                             var fromValue = fromHasArgs[1];
                             var toProperty = toHasArgs[0].ToString();
                             var toValue = toHasArgs[1];
+                            
+                            // Resolve parameter references if present
+                            if (fromValue is ParameterReference paramRef1 && parameters != null)
+                            {
+                                fromValue = parameters.ContainsKey(paramRef1.ParameterName) 
+                                    ? parameters[paramRef1.ParameterName] 
+                                    : fromValue;
+                            }
+                            if (toValue is ParameterReference paramRef2 && parameters != null)
+                            {
+                                toValue = parameters.ContainsKey(paramRef2.ParameterName) 
+                                    ? parameters[paramRef2.ParameterName] 
+                                    : toValue;
+                            }
 
                             // Find vertices by property
                             var fromVertex = _database.GetAllVertices()
@@ -359,6 +479,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                                                 {
                                                     var key = args[0].ToString();
                                                     var value = args[1];
+                                                    
+                                                    // Resolve parameter references if present
+                                                    if (value is ParameterReference paramRef && parameters != null)
+                                                    {
+                                                        value = parameters.ContainsKey(paramRef.ParameterName) 
+                                                            ? parameters[paramRef.ParameterName] 
+                                                            : value;
+                                                    }
+                                                    
                                                     edge.SetProperty(key, value);
                                                 }
                                             }
@@ -374,7 +503,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
                 return Enumerable.Empty<dynamic>();
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 return Enumerable.Empty<dynamic>();
             }
@@ -973,6 +1102,14 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             if (string.IsNullOrWhiteSpace(arg))
                 return null;
 
+            // CRITICAL FIX: Detect parameter placeholders (like __p0, __p1, etc.)
+            // These should be preserved as-is so they can be resolved later with actual types
+            if (Regex.IsMatch(arg, @"^__p\d+$") || Regex.IsMatch(arg, @"^p\d+$"))
+            {
+                // Return the parameter name as a special marker object
+                return new ParameterReference(arg);
+            }
+
             // Handle array syntax first: [value1, value2, ...]
             if (arg.StartsWith("[") && arg.EndsWith("]"))
             {
@@ -1055,65 +1192,26 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             // Return as string for everything else
             return arg;
         }
+    }
 
-        /// <summary>
-        /// Substitute parameters in the query
-        /// </summary>
-        private string SubstituteParameters(string query, Dictionary<string, object> parameters)
+    /// <summary>
+    /// Marker class to indicate a parameter reference that should be resolved later
+    /// This needs to be accessible from HasStepExecutor for proper type-safe parameter resolution
+    /// </summary>
+    public class ParameterReference
+    {
+        public string ParameterName { get; }
+
+        public ParameterReference(string parameterName)
         {
-            if (parameters == null || parameters.Count == 0)
-                return query;
-
-            var result = query;
-            
-            // Sort parameters by key length (descending) to avoid partial replacements
-            // For example, replace __p10 before __p1 to avoid __p10 becoming __p1'0'
-            var sortedParameters = parameters.OrderByDescending(p => p.Key.Length).ToList();
-            
-            foreach (var param in sortedParameters)
-            {
-                // Handle parameter substitution with proper value formatting
-                var value = FormatParameterValue(param.Value);
-                
-                // Replace parameter placeholder with formatted value
-                // Use word boundary to ensure exact parameter matching
-                var pattern = @"\b" + Regex.Escape(param.Key) + @"\b";
-                result = Regex.Replace(result, pattern, value);
-            }
-
-            return result;
+            ParameterName = parameterName;
         }
 
-        /// <summary>
-        /// Format a parameter value for substitution with TinkerPop compliance
-        /// </summary>
-        private string FormatParameterValue(object value)
+        public override string ToString()
         {
-            if (value == null) return "null";
-            if (value is string) return $"'{value}'";
-            if (value is bool) return value.ToString().ToLower();
-
-            // Handle numeric types with proper culture formatting
-            if (value is double doubleVal)
-            {
-                return doubleVal.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-            }
-            if (value is float floatVal)
-            {
-                return floatVal.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
-            }
-            if (value is decimal decimalVal)
-            {
-                return decimalVal.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            }
-            if (value is int || value is long || value is short || value is byte)
-            {
-                return value.ToString();
-            }
-
-            return value.ToString();
+            return ParameterName;
         }
+    }
 
         #endregion
     }
-}

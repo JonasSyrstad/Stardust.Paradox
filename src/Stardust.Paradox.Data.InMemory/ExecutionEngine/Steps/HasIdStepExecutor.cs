@@ -27,13 +27,43 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            var expectedIds = step.Arguments.Select(arg => arg.ToString()).ToHashSet();
+            // Get parameters from context to resolve ParameterReference objects
+            var parameters = context.GetMetadata<System.Collections.Generic.Dictionary<string, object>>("parameters") 
+                             ?? new System.Collections.Generic.Dictionary<string, object>();
+            
+            // Resolve all parameter references in the arguments
+            var resolvedIds = new System.Collections.Generic.HashSet<string>();
+            foreach (var arg in step.Arguments)
+            {
+                var resolved = ResolveParameter(arg, parameters);
+                if (resolved != null)
+                {
+                    resolvedIds.Add(resolved.ToString());
+                }
+            }
 
             context.Filter(traverser =>
             {
                 var id = ExtractId(traverser.Value);
-                return id != null && expectedIds.Contains(id);
+                return id != null && resolvedIds.Contains(id);
             });
+        }
+        
+        /// <summary>
+        /// Resolve a ParameterReference to its actual value from the parameters dictionary
+        /// </summary>
+        private object ResolveParameter(object value, System.Collections.Generic.Dictionary<string, object> parameters)
+        {
+            if (value is ParameterReference paramRef)
+            {
+                if (parameters.TryGetValue(paramRef.ParameterName, out var resolvedValue))
+                {
+                    return resolvedValue;
+                }
+                // If parameter not found, return the parameter name as a string (fallback)
+                return paramRef.ParameterName;
+            }
+            return value;
         }
     }
 }
