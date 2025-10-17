@@ -2,6 +2,14 @@ using Stardust.Paradox.Data.InMemory.Scenarios;
 
 namespace Stardust.Paradox.Data.InMemory.Tests
 {
+    // Extension helpers
+    public static class DateTimeExtensions
+    {
+        public static long ToEpoch(this DateTime dateTime)
+        {
+            return ((DateTimeOffset)dateTime).ToUnixTimeSeconds();
+        }
+    }
     public class SocialNetworkTestScenario : InMemoryScenarioProviderBase
     {
         // Test GUIDs for consistent testing - each person needs unique user ID

@@ -10,7 +10,7 @@
 		
 		<!-- Package Information -->
 		<PackageId>Stardust.Paradox.Data.InMemory</PackageId>
-		<Version>1.0.5.2</Version>
+		<Version>1.0.5.5</Version>
 		<AssemblyVersion>1.0.0.0</AssemblyVersion>
 		<FileVersion>1.0.0.0</FileVersion>
 		<Authors>Stardust</Authors>
@@ -30,7 +30,7 @@
 		<RepositoryType>git</RepositoryType>
 		<RepositoryBranch>main</RepositoryBranch>
 		<PackageTags>Gremlin;InMemory;Graph;Database;Testing;TinkerPop;GraphDB;Unit-Testing;Integration-Testing;Scenario-Framework;Stardust;Paradox;WebSocket;GremlinNet;GremlinServer</PackageTags>
-		<PackageReleaseNotes>GA Release 1.0.0: Production-ready in-memory Gremlin database with comprehensive TinkerPop protocol support. Features include: built-in Gremlin server compatible with standard Gremlin.Net clients, WebSocket and TCP endpoint support (.NET 8+), comprehensive scenario framework for test data setup, built-in scenarios for Social Network, E-Commerce, Organization, and User Management, fluent API for easy connector creation and configuration, custom scenario support with extensible provider pattern, high-performance graph traversals and aggregations, production debugging capabilities with scenario export from CosmosDB, complete TinkerPop 3.x compatibility, comprehensive documentation and usage examples. Compatible with .NET Standard 2.0 and .NET 8+.</PackageReleaseNotes>
+		<PackageReleaseNotes></PackageReleaseNotes>
 		
 		<!-- Build Configuration -->
 		<Deterministic>true</Deterministic>

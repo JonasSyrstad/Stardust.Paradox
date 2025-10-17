@@ -703,6 +703,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             if (!predicate.EndsWith(")"))
                 predicate += ")";
 
+            // Handle comparison predicates
             if (predicate.StartsWith("gt("))
             {
                 var threshold = ExtractPredicateValue(predicate, "gt");
@@ -742,6 +743,43 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             {
                 var values = ExtractWithinValues(predicate, "without");
                 return !values.Any(v => CompareValues(actualValue, v));
+            }
+            // Handle string predicates
+            else if (predicate.StartsWith("containing("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "containing");
+                var actualStr = actualValue?.ToString() ?? "";
+                return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            else if (predicate.StartsWith("notContaining("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "notContaining");
+                var actualStr = actualValue?.ToString() ?? "";
+                return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
+            }
+            else if (predicate.StartsWith("startingWith("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "startingWith");
+                var actualStr = actualValue?.ToString() ?? "";
+                return actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+            }
+            else if (predicate.StartsWith("notStartingWith("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "notStartingWith");
+                var actualStr = actualValue?.ToString() ?? "";
+                return !actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+            }
+            else if (predicate.StartsWith("endingWith("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "endingWith");
+                var actualStr = actualValue?.ToString() ?? "";
+                return actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+            }
+            else if (predicate.StartsWith("notEndingWith("))
+            {
+                var searchValue = ExtractPredicateValue(predicate, "notEndingWith");
+                var actualStr = actualValue?.ToString() ?? "";
+                return !actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
             }
 
             return false;

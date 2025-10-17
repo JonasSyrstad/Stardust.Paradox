@@ -291,7 +291,7 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
         }
 
         [Fact]
-        public void DataContextCreateTest()
+        public async Task DataContextCreateTest()
         {
             IProfile t;
             using (var tc = TestContext())
@@ -302,7 +302,39 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
                 t.FirstName = "Alex";
                 t.LastName = "Rivers";
                 t.VerifiedEmail = true;
+                await tc.SaveChangesAsync();
                 _output.WriteLine(JsonConvert.SerializeObject(t));
+            }
+
+            using (var tc= TestContext())
+            {
+                var profile = await tc.Profiles.GetAsync("alex.rivers", "alex.rivers");
+                Assert.NotNull(profile);
+                Assert.Equal("alex.rivers@zephyrcorp.com", profile.Email);
+                Assert.Equal("Alex",profile.FirstName);
+                Assert.Equal("Rivers", profile.LastName);
+
+            }
+        }
+
+        [Fact]
+        public async Task DropEdgeTest()
+        {
+            await InsertItem();
+            using (var tc =TestContext())
+            {
+                var alex = await tc.Profiles.GetAsync("Alexis");
+                var ZephyrCorp= await tc.Companies.GetAsync("ZephyrCorp");
+                var em= tc.Employments.Create(alex, ZephyrCorp);
+                //em.HiredDate=DateTime.Now;
+                await tc.SaveChangesAsync();
+            }
+            using (var tc = TestContext())
+            {
+                var allEmployments = await tc.Employments.GetAsync(g=>g.E().Has("label", "employer"));
+                await tc.Employments.DeleteAsync(allEmployments.First().Id);
+                await tc.SaveChangesAsync();
+                Assert.Equal(allEmployments.Count()-1, (await tc.Employments.GetAsync(g => g.E().Has("label", "employer"))).Count());
             }
         }
 

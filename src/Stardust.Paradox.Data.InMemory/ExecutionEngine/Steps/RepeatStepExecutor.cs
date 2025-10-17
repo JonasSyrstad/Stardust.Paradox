@@ -102,7 +102,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 allResults.AddRange(activeTraversers.Select(t => t.Split()));
             }
 
-            var maxIterations = timesValue ?? int.MaxValue;
+            // Safety mechanism: Limit maximum iterations to prevent infinite loops
+            // Use times() value if provided, otherwise default to 1000 iterations
+            const int DEFAULT_MAX_ITERATIONS = 1000;
+            var maxIterations = timesValue ?? DEFAULT_MAX_ITERATIONS;
             var iteration = 0;
 
             while (iteration < maxIterations && activeTraversers.Any())
@@ -131,6 +134,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         resultTraverser.Loops["repeat"] = traverser.GetLoops("repeat");
                         nextIterationTraversers.Add(resultTraverser);
                     }
+                }
+                
+                // CRITICAL FIX: If no traversers were produced after executing the repeat traversal,
+                // it means the graph is exhausted (no more edges to follow). Stop immediately.
+                if (nextIterationTraversers.Count == 0)
+                {
+                    // When graph is exhausted and no until condition is provided,
+                    // return the current traversers
+                    if (untilCondition == null && !emitBeforeRepeat && !emitAfterRepeat)
+                    {
+                        allResults.AddRange(activeTraversers);
+                    }
+                    break;
                 }
                 
                 activeTraversers = nextIterationTraversers;
@@ -522,6 +538,27 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     break;
                 case "count":
                     executor = new CountStepExecutor(Database);
+                    break;
+                case "simplepath":
+                    executor = new SimplePathStepExecutor(Database);
+                    break;
+                case "cyclicpath":
+                    executor = new CyclicPathStepExecutor(Database);
+                    break;
+                case "or":
+                    executor = new OrStepExecutor(Database);
+                    break;
+                case "and":
+                    executor = new AndStepExecutor(Database);
+                    break;
+                case "not":
+                    executor = new NotStepExecutor(Database);
+                    break;
+                case "where":
+                    executor = new WhereStepExecutor(Database);
+                    break;
+                case "select":
+                    executor = new SelectStepExecutor(Database);
                     break;
                 default:
                     throw new NotSupportedException($"Step '{stepName}' is not supported in nested traversal context");

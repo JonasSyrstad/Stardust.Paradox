@@ -579,6 +579,26 @@ namespace Stardust.Paradox.Data
                     action.Invoke(item, value == null ? 0 : int.Parse(value?.ToString()));
                 else if (prop.PropertyType == typeof(int?))
                     action.Invoke(item, value == null ? (int?)null : int.Parse(value?.ToString()));
+                else if (prop.PropertyType == typeof(bool))
+                {
+                    // Handle boolean conversion from string or boolean
+                    if (value is bool boolValue)
+                        action.Invoke(item, boolValue);
+                    else if (value != null)
+                        action.Invoke(item, bool.Parse(value.ToString()));
+                    else
+                        action.Invoke(item, false);
+                }
+                else if (prop.PropertyType == typeof(bool?))
+                {
+                    // Handle nullable boolean conversion from string or boolean
+                    if (value is bool boolValue)
+                        action.Invoke(item, boolValue);
+                    else if (value == null)
+                        action.Invoke(item, (bool?)null);
+                    else
+                        action.Invoke(item, bool.Parse(value.ToString()));
+                }
                 else if (prop.PropertyType.IsEnum)
                     action.Invoke(item, value == null ? default : Enum.Parse(prop.PropertyType, (string)value));
                 else if (typeof(IComplexProperty).IsAssignableFrom(prop.PropertyType))

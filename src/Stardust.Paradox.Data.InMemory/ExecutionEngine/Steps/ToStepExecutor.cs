@@ -55,6 +55,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             var toSpec = context.GetMetadata<string>("addE_to");
             var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
 
+            // Extract the 'id' property if present - it should be used as the edge ID
+            string edgeId = null;
+            if (properties.ContainsKey("id"))
+            {
+                edgeId = properties["id"]?.ToString();
+                // Remove from properties dictionary since it's used as the ID, not a property
+                properties.Remove("id");
+            }
+
             var newTraversers = new List<Traverser>();
 
             foreach (var traverser in context.Traversers)
@@ -103,10 +112,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
                     if (fromVertexObj != null && toVertexObj != null)
                     {
-                        var edge = Database.AddEdge(label, fromVertexId, toVertexId);
+                        // Use the provided edge ID if available, otherwise let database generate one
+                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, edgeId);
                         if (edge != null)
                         {
-                            // Apply properties
+                            // Apply remaining properties (excluding 'id' which was already handled)
                             foreach (var prop in properties)
                             {
                                 edge.SetProperty(prop.Key, prop.Value);

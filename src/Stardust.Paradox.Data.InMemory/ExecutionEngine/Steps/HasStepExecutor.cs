@@ -94,17 +94,34 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 }
                 else if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
                 {
-                    // Special case: has('id', value) - check element ID
-                    context.Filter(traverser =>
+                    // Special case: has('id', value/predicate) - check element ID
+                    
+                    // Check if this is a predicate (e.g., within(...))
+                    var valueStr = expectedValue?.ToString() ?? "";
+                    if (valueStr.StartsWith("within(") || valueStr.StartsWith("without("))
                     {
-                        var actualId = ExtractId(traverser.Value);
-                        if (expectedValue is string expectedStr && actualId is string actualStr)
+                        // Parse and apply predicate for ID matching
+                        var resolvedPredicate = ResolveParameterReferencesInPredicateString(valueStr, parameters);
+                        context.Filter(traverser =>
                         {
-                            return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
-                        }
+                            var actualId = ExtractId(traverser.Value);
+                            return EvaluatePredicate(actualId, resolvedPredicate);
+                        });
+                    }
+                    else
+                    {
+                        // Single value comparison
+                        context.Filter(traverser =>
+                        {
+                            var actualId = ExtractId(traverser.Value);
+                            if (expectedValue is string expectedStr && actualId is string actualStr)
+                            {
+                                return expectedStr.Equals(actualStr, StringComparison.OrdinalIgnoreCase);
+                            }
 
-                        return Equals(actualId, expectedValue);
-                    });
+                            return Equals(actualId, expectedValue);
+                        });
+                    }
                 }
                 else
                 {
@@ -118,14 +135,15 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         valueStr.StartsWith("startingWith(") || valueStr.StartsWith("notStartingWith(") ||
                         valueStr.StartsWith("endingWith(") || valueStr.StartsWith("notEndingWith("))
                     {
-                        // Parse and apply predicate
+                        // Parse and apply predicate - need to resolve any parameter references inside the predicate
+                        var resolvedPredicate = ResolveParameterReferencesInPredicateString(valueStr, parameters);
                         context.Filter(traverser =>
                         {
                             var properties = ExtractProperties(traverser.Value);
                             if (properties != null && properties.ContainsKey(key))
                             {
                                 var actualValue = properties[key];
-                                return EvaluatePredicate(actualValue, valueStr);
+                                return EvaluatePredicate(actualValue, resolvedPredicate);
                             }
                             return false;
                         });
@@ -244,6 +262,41 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             }
 
             return argument;
+        }
+
+        /// <summary>
+        /// Resolve parameter references within a predicate string like "gt(__p0)" or "within(__p0, __p1)"
+        /// </summary>
+        private string ResolveParameterReferencesInPredicateString(string predicateStr, Dictionary<string, object> parameters)
+        {
+            if (parameters == null || string.IsNullOrEmpty(predicateStr))
+                return predicateStr;
+
+            // Pattern to match parameter references like __p0, __p1, p0, p1 etc.
+            var pattern = @"(__p\d+|p\d+)";
+            
+            return Regex.Replace(predicateStr, pattern, match =>
+            {
+                var paramName = match.Value;
+                if (parameters.TryGetValue(paramName, out var value))
+                {
+                    // Convert the value to a string representation suitable for the predicate
+                    if (value is string strVal)
+                    {
+                        return $"'{strVal}'";
+                    }
+                    else if (value is bool boolVal)
+                    {
+                        return boolVal.ToString().ToLower();
+                    }
+                    else if (value != null)
+                    {
+                        return value.ToString();
+                    }
+                }
+                // If parameter not found, return as-is
+                return match.Value;
+            });
         }
     }
 }
