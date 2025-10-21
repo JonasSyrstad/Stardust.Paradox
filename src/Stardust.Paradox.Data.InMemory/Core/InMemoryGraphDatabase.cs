@@ -442,6 +442,10 @@ namespace Stardust.Paradox.Data.InMemory.Core
 
         private void UpdateVertexPropertyIndex(string vertexId, string propertyKey, object propertyValue)
         {
+            // Don't index null values - null typically means remove the property
+            if (propertyValue == null)
+                return;
+                
             _vertexPropertyIndex.AddOrUpdate(propertyKey,
                 new ConcurrentDictionary<object, HashSet<string>>(),
                 (key, existing) => existing);
@@ -453,6 +457,10 @@ namespace Stardust.Paradox.Data.InMemory.Core
 
         private void UpdateEdgePropertyIndex(string edgeId, string propertyKey, object propertyValue)
         {
+            // Don't index null values - null typically means remove the property
+            if (propertyValue == null)
+                return;
+                
             _edgePropertyIndex.AddOrUpdate(propertyKey,
                 new ConcurrentDictionary<object, HashSet<string>>(),
                 (key, existing) => existing);
@@ -460,6 +468,24 @@ namespace Stardust.Paradox.Data.InMemory.Core
             _edgePropertyIndex[propertyKey].AddOrUpdate(propertyValue,
                 new HashSet<string> { edgeId },
                 (key, existing) => { existing.Add(edgeId); return existing; });
+        }
+
+        /// <summary>
+        /// Public method to update vertex property index when a property is set
+        /// Used by step executors to ensure indices are kept in sync
+        /// </summary>
+        public void UpdateVertexPropertyIndexForProperty(string vertexId, string propertyKey, object propertyValue)
+        {
+            UpdateVertexPropertyIndex(vertexId, propertyKey, propertyValue);
+        }
+
+        /// <summary>
+        /// Public method to update edge property index when a property is set
+        /// Used by step executors to ensure indices are kept in sync
+        /// </summary>
+        public void UpdateEdgePropertyIndexForProperty(string edgeId, string propertyKey, object propertyValue)
+        {
+            UpdateEdgePropertyIndex(edgeId, propertyKey, propertyValue);
         }
 
         private void InitializeVertexAdjacencyIndices(string vertexId)

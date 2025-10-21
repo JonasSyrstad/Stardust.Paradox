@@ -1,4 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
+using System;
 using System.Collections.Generic;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
@@ -29,28 +30,47 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
+            // DEBUG logging for drop step
+            Console.WriteLine($"[DEBUG DropStepExecutor] Executing drop() on {context.Traversers.Count} traversers");
+            
             // Drop vertices/edges from the database
             foreach (var traverser in context.Traversers)
             {
                 var id = ExtractId(traverser.Value);
+                Console.WriteLine($"[DEBUG DropStepExecutor] Extracted ID: {id}");
+                
                 if (!string.IsNullOrEmpty(id))
                 {
                     // Determine if this is a vertex or edge by checking the type or structure
                     var elementType = ExtractType(traverser.Value);
+                    Console.WriteLine($"[DEBUG DropStepExecutor] Element type: {elementType}");
                     
                     if (elementType == "edge" || IsEdgeStructure(traverser.Value))
                     {
                         // It's an edge, try to remove it
-                        Database.RemoveEdge(id);
+                        Console.WriteLine($"[DEBUG DropStepExecutor] Removing edge: {id}");
+                        var removed = Database.RemoveEdge(id);
+                        Console.WriteLine($"[DEBUG DropStepExecutor] Edge removal result: {removed}");
                     }
                     else
                     {
                         // Try to drop as vertex first, then as edge if vertex doesn't exist
+                        Console.WriteLine($"[DEBUG DropStepExecutor] Trying to remove as vertex: {id}");
                         if (!Database.RemoveVertex(id))
                         {
-                            Database.RemoveEdge(id);
+                            Console.WriteLine($"[DEBUG DropStepExecutor] Vertex not found, trying as edge: {id}");
+                            var removed = Database.RemoveEdge(id);
+                            Console.WriteLine($"[DEBUG DropStepExecutor] Edge removal result: {removed}");
+                        }
+                        else
+                        {
+                            Console.WriteLine($"[DEBUG DropStepExecutor] Vertex removed successfully");
                         }
                     }
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG DropStepExecutor] Could not extract ID from traverser value");
                 }
             }
 

@@ -9,11 +9,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
     /// 
     /// Behavior:
     /// - from('label'): Specifies source vertex by label reference
-    /// - from(vertexId): Specifies source vertex by ID
+    /// - from(V('id')): Parses vertex ID from V() syntax
     /// - Must be used with addE()
     /// 
     /// Example:
     /// g.V('v1').as('a').V('v2').addE('knows').from('a')
+    /// g.V('v2').addE('knows').from(V('v1'))
     /// </summary>
     [UsedImplicitly]
     public class FromStepExecutor : StepExecutorBase
@@ -26,18 +27,44 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override string StepDescription => 
             "Modulator for addE() that specifies the source vertex for edge creation. " +
-            "from('label') uses a labeled vertex, from(id) uses a vertex ID.";
+            "from('label') uses a labeled vertex, from(V('id')) parses direct vertex ID.";
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
             // 'from' step is a modulator for addE step - it specifies the source vertex for edge creation
-            var labelOrId = step.GetFirstStringArgument();
+            var argument = step.GetFirstStringArgument();
+
+            // Parse the argument to extract vertex ID
+            string sourceId = ExtractVertexIdFromArgument(argument);
 
             // Store the from specification in the context for use by addE
-            context.SetMetadata("addE_from", labelOrId);
+            context.SetMetadata("addE_from", sourceId);
 
             // Check if we have all needed parts to execute the edge creation
             TryExecutePendingAddE(context);
+        }
+
+        private string ExtractVertexIdFromArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument))
+                return null;
+
+            // Handle V('id') pattern
+            if (argument.StartsWith("V(") && argument.EndsWith(")"))
+            {
+                // Extract the ID from V('id')
+                var idPart = argument.Substring(2, argument.Length - 3).Trim();
+                // Remove quotes if present
+                if ((idPart.StartsWith("'") && idPart.EndsWith("'")) ||
+                    (idPart.StartsWith("\"") && idPart.EndsWith("\"")))
+                {
+                    return idPart.Substring(1, idPart.Length - 2);
+                }
+                return idPart;
+            }
+
+            // It's a label reference or direct ID
+            return argument;
         }
 
         private void TryExecutePendingAddE(TinkerTraversalContext context)
@@ -112,16 +139,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
                     if (fromVertexObj != null && toVertexObj != null)
                     {
-                        // Use the provided edge ID if available, otherwise let database generate one
-                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, edgeId);
+                        // Use the properties overload to ensure indices are updated
+                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, properties, edgeId);
                         if (edge != null)
                         {
-                            // Apply remaining properties (excluding 'id' which was already handled)
-                            foreach (var prop in properties)
-                            {
-                                edge.SetProperty(prop.Key, prop.Value);
-                            }
-
                             var newTraverser = traverser.Split();
                             newTraverser.Value = edge.ToGremlinResponse();
                             newTraversers.Add(newTraverser);

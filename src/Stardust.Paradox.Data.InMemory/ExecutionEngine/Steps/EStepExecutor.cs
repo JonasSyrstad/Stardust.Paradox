@@ -1,5 +1,6 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
 using Stardust.Paradox.Data.InMemory.Core;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -7,13 +8,14 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
     /// <summary>
     /// Executes the E() step which filters or replaces current traversers with specific edges.
-    /// This step can be used in mid-traversal to navigate to specific edges by ID.
+    /// This step can be used as a start step or in mid-traversal to navigate to specific edges by ID.
     /// 
     /// Behavior:
     /// - E() without arguments: Gets all edges from the graph
     /// - E(id1, id2, ...): Gets specific edges by their IDs
     /// 
-    /// This step replaces current traversers rather than filtering them.
+    /// When used as a start step (no existing traversers), it initializes the traversal.
+    /// When used mid-traversal, it replaces current traversers with specified edges.
     /// </summary>
     [UsedImplicitly]
     public class EStepExecutor : IStepExecutor
@@ -34,50 +36,82 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
+            // Check if this is a start step (no existing traversers)
+            bool isStartStep = !context.Traversers.Any();
+            
+            Console.WriteLine($"[DEBUG EStepExecutor] isStartStep={isStartStep}, Arguments={step.Arguments.Count}");
+            
             if (step.Arguments.Any())
             {
                 // E(id1, id2, ...) - get specific edges by ID
                 var edgeIds = step.Arguments.Select(arg => arg.ToString()).ToList();
+                Console.WriteLine($"[DEBUG EStepExecutor] Looking for edges with IDs: {string.Join(", ", edgeIds)}");
+                
                 var newTraversers = new List<Traverser>();
                 
                 foreach (var edgeId in edgeIds)
                 {
                     var edge = _database.GetEdge(edgeId);
+                    Console.WriteLine($"[DEBUG EStepExecutor] GetEdge('{edgeId}') returned: {(edge == null ? "NULL" : "found")}");
+                    
                     if (edge != null)
                     {
-                        // For each existing traverser, create a new one with the specified edge
-                        foreach (var existingTraverser in context.Traversers)
+                        if (isStartStep)
                         {
-                            var newTraverser = existingTraverser.Split();
-                            newTraverser.Value = edge.ToGremlinResponse();
-                            
-                            // Add to path for path tracking
+                            // Start step: Create initial traverser for this edge
+                            var newTraverser = new Traverser(edge.ToGremlinResponse());
                             newTraverser.AddToPath(edge.ToGremlinResponse());
-                            
                             newTraversers.Add(newTraverser);
+                            Console.WriteLine($"[DEBUG EStepExecutor] Added traverser for edge {edgeId} (start step)");
+                        }
+                        else
+                        {
+                            // Mid-traversal: Create new traverser for each existing traverser
+                            foreach (var existingTraverser in context.Traversers)
+                            {
+                                var newTraverser = existingTraverser.Split();
+                                newTraverser.Value = edge.ToGremlinResponse();
+                                newTraverser.AddToPath(edge.ToGremlinResponse());
+                                newTraversers.Add(newTraverser);
+                            }
+                            Console.WriteLine($"[DEBUG EStepExecutor] Added traverser for edge {edgeId} (mid-traversal)");
                         }
                     }
                 }
                 
+                Console.WriteLine($"[DEBUG EStepExecutor] Created {newTraversers.Count} new traversers");
                 context.Traversers = newTraversers;
             }
             else
             {
-                // E() - get all edges (replace current traversers)
+                // E() - get all edges
                 var allEdges = _database.GetAllEdges().Select(e => e.ToGremlinResponse()).ToList();
+                Console.WriteLine($"[DEBUG EStepExecutor] E() without arguments, found {allEdges.Count} edges");
+                
                 var newTraversers = new List<Traverser>();
                 
-                foreach (var existingTraverser in context.Traversers)
+                if (isStartStep)
                 {
+                    // Start step: Create initial traversers for all edges
                     foreach (var edge in allEdges)
                     {
-                        var newTraverser = existingTraverser.Split();
-                        newTraverser.Value = edge;
-                        
-                        // Add to path for path tracking
+                        var newTraverser = new Traverser(edge);
                         newTraverser.AddToPath(edge);
-                        
                         newTraversers.Add(newTraverser);
+                    }
+                }
+                else
+                {
+                    // Mid-traversal: Replace current traversers with all edges
+                    foreach (var existingTraverser in context.Traversers)
+                    {
+                        foreach (var edge in allEdges)
+                        {
+                            var newTraverser = existingTraverser.Split();
+                            newTraverser.Value = edge;
+                            newTraverser.AddToPath(edge);
+                            newTraversers.Add(newTraverser);
+                        }
                     }
                 }
                 

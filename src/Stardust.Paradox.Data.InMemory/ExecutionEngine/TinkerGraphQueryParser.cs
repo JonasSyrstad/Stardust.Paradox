@@ -73,6 +73,18 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 // Replace both p0, p1, p2... and __p0, __p1, __p2... parameter formats
                 string processedQuery = SubstituteParameters(query, parameters);
 
+                // DEBUG: Log parameter substitution for ALL queries with E() step
+                if (query.Contains(".E(") || query.Contains("g.E("))
+                {
+                    Console.WriteLine($"[DEBUG TinkerGraphQueryParser] E() query detected");
+                    Console.WriteLine($"[DEBUG TinkerGraphQueryParser] Original query: {query}");
+                    if (parameters != null && parameters.Count > 0)
+                    {
+                        Console.WriteLine($"[DEBUG TinkerGraphQueryParser] Parameters: {string.Join(", ", parameters.Select(p => $"{p.Key}={p.Value}"))}");
+                    }
+                    Console.WriteLine($"[DEBUG TinkerGraphQueryParser] Processed query: {processedQuery}");
+                }
+
                 // Handle complex queries that need special processing
                 if (IsComplexQuery(processedQuery))
                 {
@@ -98,7 +110,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         }
 
         /// <summary>
-        /// Substitute parameter placeholders (p0, p1, __p0, __p1, etc.) with actual values
+        /// Substitute parameter placeholders (p0, p1, __p0, __p1, ___ekey, etc.) with actual values
         /// CRITICAL: All parameters are substituted to maintain query compatibility
         /// Type matching is enforced in the HasStepExecutor for strict comparison
         /// </summary>
@@ -112,6 +124,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             string result = query;
 
             // Sort parameters by name length (descending) to handle __p10 before __p1
+            // This ensures we don't accidentally replace part of a longer parameter name
             var sortedParams = parameters.OrderByDescending(p => p.Key.Length);
 
             foreach (var param in sortedParams)
@@ -119,9 +132,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 var paramName = param.Key;
                 var paramValue = param.Value;
 
-                // Create a regex pattern that matches the parameter name as a whole word
-                // This ensures we don't replace "p0" when looking for "p01"
-                var pattern = $@"\b{Regex.Escape(paramName)}\b";
+                // CRITICAL FIX: Use a more robust pattern for parameter substitution
+                // The previous pattern used \b which doesn't work correctly with underscores
+                // We need to ensure we match the parameter name but not as part of another identifier
+                // Match the parameter if it's:
+                // 1. At the start of string or after non-alphanumeric/underscore character
+                // 2. Followed by end of string or non-alphanumeric/underscore character
+                // BUT: We need to be careful not to match if it's part of a longer identifier
+                
+                // Build a pattern that matches:
+                // - Parameter at start of string or after whitespace/punctuation: (?<![a-zA-Z0-9_])
+                // - The exact parameter name
+                // - Parameter at end of string or before whitespace/punctuation: (?![a-zA-Z0-9_])
+                var pattern = $@"(?<![a-zA-Z0-9_]){Regex.Escape(paramName)}(?![a-zA-Z0-9_])";
 
                 // Convert the parameter value to Gremlin-compatible string representation
                 var gremlinValue = ConvertToGremlinLiteral(paramValue);
@@ -378,34 +401,48 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                         return Enumerable.Empty<dynamic>();
                     }
 
-                    var edge = _database.AddEdge(edgeLabel, fromId, toVertex.Id);
-                    if (edge != null)
+                    // CRITICAL FIX: Extract edge ID from .property('id', ...) BEFORE creating the edge
+                    // This ensures the edge is stored in the database with the correct ID
+                    string edgeId = null;
+                    Dictionary<string, object> edgeProperties = new Dictionary<string, object>();
+
+                    // Parse any additional properties from the remaining query
+                    if (!string.IsNullOrEmpty(remainingQuery) && remainingQuery.Contains(".property("))
                     {
-                        // Parse any additional properties from the remaining query
-                        if (!string.IsNullOrEmpty(remainingQuery) && remainingQuery.Contains(".property("))
+                        var propertyMatches = Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
+                        foreach (Match propMatch in propertyMatches)
                         {
-                            var propertyMatches = Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
-                            foreach (Match propMatch in propertyMatches)
+                            var args = ParsePropertyArguments(propMatch.Groups[1].Value);
+                            if (args.Count >= 2)
                             {
-                                var args = ParsePropertyArguments(propMatch.Groups[1].Value);
-                                if (args.Count >= 2)
+                                var key = args[0].ToString();
+                                var value = args[1];
+                                
+                                // Resolve parameter references if present
+                                if (value is ParameterReference paramRef && parameters != null)
                                 {
-                                    var key = args[0].ToString();
-                                    var value = args[1];
-                                    
-                                    // Resolve parameter references if present
-                                    if (value is ParameterReference paramRef && parameters != null)
-                                    {
-                                        value = parameters.ContainsKey(paramRef.ParameterName) 
-                                            ? parameters[paramRef.ParameterName] 
-                                            : value;
-                                    }
-                                    
-                                    edge.SetProperty(key, value);
+                                    value = parameters.ContainsKey(paramRef.ParameterName) 
+                                        ? parameters[paramRef.ParameterName] 
+                                        : value;
+                                }
+                                
+                                // Special handling for 'id' property - use it as the edge ID
+                                if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    edgeId = value?.ToString();
+                                }
+                                else
+                                {
+                                    edgeProperties[key] = value;
                                 }
                             }
                         }
+                    }
 
+                    // Create edge with the extracted ID (if any) and all non-id properties
+                    var edge = _database.AddEdge(edgeLabel, fromId, toVertex.Id, edgeProperties, edgeId);
+                    if (edge != null)
+                    {
                         return new[] { edge.ToGremlinResponse() };
                     }
                 }
@@ -459,41 +496,54 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
                             if (fromVertex != null && toVertex != null)
                             {
-                                var edge = _database.AddEdge(edgeLabel, fromVertex.Id, toVertex.Id);
-                                if (edge != null)
+                                // CRITICAL FIX: Extract edge ID from .property('id', ...) BEFORE creating the edge
+                                string edgeId = null;
+                                Dictionary<string, object> edgeProperties = new Dictionary<string, object>();
+
+                                // Parse any additional properties after the to() clause
+                                var afterToMatch = Regex.Match(query, @"to\(g\.V\(\)\.has\([^)]+\)\)(.*)");
+                                if (afterToMatch.Success)
                                 {
-                                    // Parse any additional properties after the to() clause
-                                    var afterToMatch = Regex.Match(query, @"to\(g\.V\(\)\.has\([^)]+\)\)(.*)");
-                                    if (afterToMatch.Success)
+                                    var remainingQuery = afterToMatch.Groups[1].Value;
+                                    if (!string.IsNullOrEmpty(remainingQuery) &&
+                                        remainingQuery.Contains(".property("))
                                     {
-                                        var remainingQuery = afterToMatch.Groups[1].Value;
-                                        if (!string.IsNullOrEmpty(remainingQuery) &&
-                                            remainingQuery.Contains(".property("))
+                                        var propertyMatches =
+                                            Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
+                                        foreach (Match propMatch in propertyMatches)
                                         {
-                                            var propertyMatches =
-                                                Regex.Matches(remainingQuery, @"\.property\(([^)]+)\)");
-                                            foreach (Match propMatch in propertyMatches)
+                                            var args = ParsePropertyArguments(propMatch.Groups[1].Value);
+                                            if (args.Count >= 2)
                                             {
-                                                var args = ParsePropertyArguments(propMatch.Groups[1].Value);
-                                                if (args.Count >= 2)
+                                                var key = args[0].ToString();
+                                                var value = args[1];
+                                                
+                                                // Resolve parameter references if present
+                                                if (value is ParameterReference paramRef && parameters != null)
                                                 {
-                                                    var key = args[0].ToString();
-                                                    var value = args[1];
-                                                    
-                                                    // Resolve parameter references if present
-                                                    if (value is ParameterReference paramRef && parameters != null)
-                                                    {
-                                                        value = parameters.ContainsKey(paramRef.ParameterName) 
-                                                            ? parameters[paramRef.ParameterName] 
-                                                            : value;
-                                                    }
-                                                    
-                                                    edge.SetProperty(key, value);
+                                                    value = parameters.ContainsKey(paramRef.ParameterName) 
+                                                        ? parameters[paramRef.ParameterName] 
+                                                        : value;
+                                                }
+                                                
+                                                // Special handling for 'id' property - use it as the edge ID
+                                                if (key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    edgeId = value?.ToString();
+                                                }
+                                                else
+                                                {
+                                                    edgeProperties[key] = value;
                                                 }
                                             }
                                         }
                                     }
+                                }
 
+                                // Create edge with the extracted ID (if any) and all non-id properties
+                                var edge = _database.AddEdge(edgeLabel, fromVertex.Id, toVertex.Id, edgeProperties, edgeId);
+                                if (edge != null)
+                                {
                                     return new[] { edge.ToGremlinResponse() };
                                 }
                             }

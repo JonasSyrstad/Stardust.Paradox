@@ -9,11 +9,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
     /// 
     /// Behavior:
     /// - to('label'): Specifies target vertex by label reference
-    /// - to(vertexId): Specifies target vertex by ID
+    /// - to(V('id')): Uses current traverser as source, creates edge to specified vertex
     /// - Must be used with addE()
     /// 
     /// Example:
     /// g.V('v1').as('a').V('v2').addE('knows').to('a')
+    /// g.V('v1').addE('knows').to(V('v2'))
     /// </summary>
     [UsedImplicitly]
     public class ToStepExecutor : StepExecutorBase
@@ -26,33 +27,64 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override string StepDescription => 
             "Modulator for addE() that specifies the target vertex for edge creation. " +
-            "to('label') uses a labeled vertex, to(id) uses a vertex ID.";
+            "to('label') uses a labeled vertex, to(V('id')) uses direct vertex ID.";
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
             // 'to' step is a modulator for addE step - it specifies the target vertex for edge creation
-            var labelOrId = step.GetFirstStringArgument();
+            var argument = step.GetFirstStringArgument();
+
+            // If addE_pending is set, we're in the middle of edge creation
+            // The current traverser should be the source vertex (from V() before addE)
+            // The argument specifies the target
+            
+            // For patterns like g.V('alice').addE('knows').to(V('bob'))
+            // The argument will be "V('bob')" which needs to be parsed
+            string targetId = ExtractVertexIdFromArgument(argument);
 
             // Store the to specification in the context for use by addE
-            context.SetMetadata("addE_to", labelOrId);
+            context.SetMetadata("addE_to", targetId);
 
             // Check if we have all needed parts to execute the edge creation
             TryExecutePendingAddE(context);
         }
 
+        private string ExtractVertexIdFromArgument(string argument)
+        {
+            if (string.IsNullOrEmpty(argument))
+                return null;
+
+            // Handle V('id') pattern
+            if (argument.StartsWith("V(") && argument.EndsWith(")"))
+            {
+                // Extract the ID from V('id')
+                var idPart = argument.Substring(2, argument.Length - 3).Trim();
+                // Remove quotes if present
+                if ((idPart.StartsWith("'") && idPart.EndsWith("'")) ||
+                    (idPart.StartsWith("\"") && idPart.EndsWith("\"")))
+                {
+                    return idPart.Substring(1, idPart.Length - 2);
+                }
+                return idPart;
+            }
+
+            // It's a label reference or direct ID
+            return argument;
+        }
+
         private void TryExecutePendingAddE(TinkerTraversalContext context)
         {
-            // Only execute if we have a pending addE and both from and to specifications
+            // Only execute if we have a pending addE and a to specification
+            // For addE().to() pattern, from is the current traverser
             if (!context.HasMetadata("addE_pending") ||
-                !context.HasMetadata("addE_from") ||
                 !context.HasMetadata("addE_to"))
             {
                 return;
             }
 
             var label = context.GetMetadata<string>("addE_label");
-            var fromSpec = context.GetMetadata<string>("addE_from");
             var toSpec = context.GetMetadata<string>("addE_to");
+            var fromSpec = context.GetMetadata<string>("addE_from"); // May be null for addE().to() pattern
             var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
 
             // Extract the 'id' property if present - it should be used as the edge ID
@@ -72,7 +104,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 string fromVertexId = null;
                 string toVertexId = null;
 
-                // Resolve fromSpec
+                // If from is specified, use it; otherwise use current traverser as source
                 if (!string.IsNullOrEmpty(fromSpec))
                 {
                     // Check if it's a label reference
@@ -86,6 +118,11 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         // Assume it's a direct vertex ID
                         fromVertexId = fromSpec;
                     }
+                }
+                else
+                {
+                    // Use current traverser as source vertex
+                    fromVertexId = ExtractId(traverser.Value);
                 }
 
                 // Resolve toSpec
@@ -112,16 +149,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
                     if (fromVertexObj != null && toVertexObj != null)
                     {
-                        // Use the provided edge ID if available, otherwise let database generate one
-                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, edgeId);
+                        // Use the properties overload to ensure indices are updated
+                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, properties, edgeId);
                         if (edge != null)
                         {
-                            // Apply remaining properties (excluding 'id' which was already handled)
-                            foreach (var prop in properties)
-                            {
-                                edge.SetProperty(prop.Key, prop.Value);
-                            }
-
                             var newTraverser = traverser.Split();
                             newTraverser.Value = edge.ToGremlinResponse();
                             newTraversers.Add(newTraverser);

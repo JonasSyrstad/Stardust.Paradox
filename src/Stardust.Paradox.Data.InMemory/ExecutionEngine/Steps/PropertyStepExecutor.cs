@@ -9,7 +9,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
     /// Behavior:
     /// - property('key', value): Sets property on current elements
     /// - Can be used with addE() to add edge properties
-    /// - Updates the database directly
+    /// - Updates the database directly and maintains property indices
     /// 
     /// Example:
     /// g.V('1').property('age', 30) - sets age property to 30
@@ -26,7 +26,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override string StepDescription => 
             "Adds or updates a property on elements. " +
-            "property('key', value) sets the property on current elements.";
+            "property('key', value) sets the property on current elements and updates indices.";
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
@@ -62,6 +62,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         if (vertex != null)
                         {
                             vertex.SetProperty(key, value);
+                            // Update vertex property index
+                            Database.UpdateVertexPropertyIndexForProperty(vertex.Id, key, value);
                             newTraverser.Value = vertex.ToGremlinResponse();
                         }
                         else
@@ -69,8 +71,55 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                             var edge = Database.GetEdge(id);
                             if (edge != null)
                             {
-                                edge.SetProperty(key, value);
-                                newTraverser.Value = edge.ToGremlinResponse();
+                                // Special handling for 'id' property on edges
+                                // When property('id', newId) is called on a newly created edge,
+                                // we need to recreate the edge with the new ID
+                                if (key == "id" && value != null)
+                                {
+                                    var newId = value.ToString();
+                                    if (newId != id)
+                                    {
+                                        // Create new edge with specified ID
+                                        var newEdge = Database.AddEdge(
+                                            edge.Label,
+                                            edge.OutVertexId,
+                                            edge.InVertexId,
+                                            newId);
+
+                                        if (newEdge != null)
+                                        {
+                                            // Copy all properties from old edge to new edge
+                                            foreach (var prop in edge.Properties)
+                                            {
+                                                newEdge.SetProperty(prop.Key, prop.Value);
+                                            }
+
+                                            // Remove the old edge
+                                            Database.RemoveEdge(id);
+
+                                            // Update the traverser with the new edge
+                                            newTraverser.Value = newEdge.ToGremlinResponse();
+                                        }
+                                        else
+                                        {
+                                            // If we can't create the new edge, keep the old one
+                                            newTraverser.Value = edge.ToGremlinResponse();
+                                        }
+                                    }
+                                    else
+                                    {
+                                        // ID is the same, just return the edge
+                                        newTraverser.Value = edge.ToGremlinResponse();
+                                    }
+                                }
+                                else
+                                {
+                                    // Normal property update - update property and index
+                                    edge.SetProperty(key, value);
+                                    // CRITICAL FIX: Update edge property index
+                                    Database.UpdateEdgePropertyIndexForProperty(edge.Id, key, value);
+                                    newTraverser.Value = edge.ToGremlinResponse();
+                                }
                             }
                             else
                             {
