@@ -1,0 +1,415 @@
+{
+  "exportTimestamp": "2025-10-21T12:05:27.9097375Z",
+  "queryLog": [
+    {
+      "timestamp": "2025-10-21T12:05:27.908515Z",
+      "query": "g.V([__p0,__p1]).emit().repeat(out(__p4).dedup()).until(loops().is(__p5)).has(__p2,__p3).dedup()",
+      "parameters": {
+        "__p0": "550e8401-e29b-41d4-a716-446655440001",
+        "__p1": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__p2": "entityType",
+        "__p3": "profile",
+        "__p4": "members",
+        "__p5": 7
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 0,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8721392Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "tenantService"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 4,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8712421Z",
+      "query": "g.V(inVId).as(\u0027a\u0027).V(outVID).as(\u0027b\u0027).addE(___label).from(\u0027b\u0027).to(\u0027a\u0027).property(\u0027id\u0027,___ekey).property(\u0027memberType\u0027,__memberType).property(\u0027name\u0027,__name).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027userId\u0027,__userId).property(\u0027createdBy\u0027,__createdBy).property(\u0027addedDate\u0027,__addedDate).property(\u0027email\u0027,__email).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027nullLicense\u0027,__nullLicense).property(\u0027accessLevel\u0027,__accessLevel).property(\u0027isAdmin\u0027,__isAdmin)",
+      "parameters": {
+        "__memberType": "profileSubscription",
+        "__name": "Test User",
+        "__createDateTime": 1761048327,
+        "__userId": "52353c63-1100-421c-bcbe-a741c3e1f68f",
+        "__createdBy": "550e8400-e29b-41d4-a716-446655440000",
+        "__addedDate": 1760997600,
+        "__email": "test@veracity.com",
+        "__isServicePrincipal": "false",
+        "__nullLicense": false,
+        "__accessLevel": "read",
+        "__isAdmin": false,
+        "inVId": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "outVID": "d87e8bae-f662-4af9-9012-cd2ac51bcdb3",
+        "___label": "memberOf",
+        "___ekey": "memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8705367Z",
+      "query": "g.V(inVId).as(\u0027a\u0027).V(outVID).as(\u0027b\u0027).addE(___label).from(\u0027b\u0027).to(\u0027a\u0027).property(\u0027id\u0027,___ekey).property(\u0027memberType\u0027,__memberType).property(\u0027name\u0027,__name).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027userId\u0027,__userId).property(\u0027createdBy\u0027,__createdBy).property(\u0027addedDate\u0027,__addedDate).property(\u0027email\u0027,__email).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027nullLicense\u0027,__nullLicense).property(\u0027accessLevel\u0027,__accessLevel).property(\u0027isAdmin\u0027,__isAdmin)",
+      "parameters": {
+        "__memberType": "profileSubscription",
+        "__name": "Test User",
+        "__createDateTime": 1761048327,
+        "__userId": "52353c63-1100-421c-bcbe-a741c3e1f68f",
+        "__createdBy": "550e8400-e29b-41d4-a716-446655440000",
+        "__addedDate": 1760997600,
+        "__email": "test@veracity.com",
+        "__isServicePrincipal": "false",
+        "__nullLicense": false,
+        "__accessLevel": "read",
+        "__isAdmin": false,
+        "inVId": "d87e8bae-f662-4af9-9012-cd2ac51bcdb3",
+        "outVID": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "___label": "members",
+        "___ekey": "membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8693185Z",
+      "query": "g.V([__p0,__p1]).emit().repeat(out(__p4).dedup()).until(loops().is(__p5)).has(__p2,__p3).dedup().or(has(__p6,__p7),has(__p8,__p9)).count()",
+      "parameters": {
+        "__p0": "550e8401-e29b-41d4-a716-446655440001",
+        "__p1": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__p2": "entityType",
+        "__p3": "profile",
+        "__p4": "members",
+        "__p5": 7,
+        "__p6": "isServicePrincipal",
+        "__p7": "false",
+        "__p8": "isServicePrincipal",
+        "__p9": false
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8687647Z",
+      "query": "g.V([__p0,__p1]).outE().hasLabel(__p2).as(__p3).otherV().hasId(__p4).select(__p5)",
+      "parameters": {
+        "__p0": "550e8401-e29b-41d4-a716-446655440001",
+        "__p1": "d87e8bae-f662-4af9-9012-cd2ac51bcdb3",
+        "__p2": "memberOf",
+        "__p3": "a",
+        "__p4": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__p5": "a"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 0,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8613342Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "tenantService"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 4,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8575268Z",
+      "query": "g.V(inVId).as(\u0027a\u0027).V(outVID).as(\u0027b\u0027).addE(___label).from(\u0027b\u0027).to(\u0027a\u0027).property(\u0027id\u0027,___ekey).property(\u0027memberType\u0027,__memberType).property(\u0027name\u0027,__name).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027userId\u0027,__userId).property(\u0027createdBy\u0027,__createdBy).property(\u0027addedDate\u0027,__addedDate).property(\u0027email\u0027,__email).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027nullLicense\u0027,__nullLicense).property(\u0027accessLevel\u0027,__accessLevel).property(\u0027isAdmin\u0027,__isAdmin)",
+      "parameters": {
+        "__memberType": "profileSubscription",
+        "__name": "Test User",
+        "__createDateTime": 1761048327,
+        "__userId": "02fe0f0a-8891-4e9f-b43c-3a515a1238f8",
+        "__createdBy": "550e8400-e29b-41d4-a716-446655440000",
+        "__addedDate": 1760997600,
+        "__email": "test@veracity.com",
+        "__isServicePrincipal": "false",
+        "__nullLicense": false,
+        "__accessLevel": "read",
+        "__isAdmin": false,
+        "inVId": "9c3e2103-4c9c-4751-acd5-97a0694af6da",
+        "outVID": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "___label": "members",
+        "___ekey": "members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45"
+      },
+      "executionTimeMs": 1,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8266128Z",
+      "query": "g.V(inVId).as(\u0027a\u0027).V(outVID).as(\u0027b\u0027).addE(___label).from(\u0027b\u0027).to(\u0027a\u0027).property(\u0027id\u0027,___ekey).property(\u0027memberType\u0027,__memberType).property(\u0027name\u0027,__name).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027userId\u0027,__userId).property(\u0027createdBy\u0027,__createdBy).property(\u0027addedDate\u0027,__addedDate).property(\u0027email\u0027,__email).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027nullLicense\u0027,__nullLicense).property(\u0027accessLevel\u0027,__accessLevel).property(\u0027isAdmin\u0027,__isAdmin)",
+      "parameters": {
+        "__memberType": "profileSubscription",
+        "__name": "Test User",
+        "__createDateTime": 1761048327,
+        "__userId": "02fe0f0a-8891-4e9f-b43c-3a515a1238f8",
+        "__createdBy": "550e8400-e29b-41d4-a716-446655440000",
+        "__addedDate": 1760997600,
+        "__email": "test@veracity.com",
+        "__isServicePrincipal": "false",
+        "__nullLicense": false,
+        "__accessLevel": "read",
+        "__isAdmin": false,
+        "inVId": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "outVID": "9c3e2103-4c9c-4751-acd5-97a0694af6da",
+        "___label": "memberOf",
+        "___ekey": "memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da"
+      },
+      "executionTimeMs": 30,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.8102055Z",
+      "query": "g.V([__p0,__p1]).emit().repeat(out(__p4).dedup()).until(loops().is(__p5)).has(__p2,__p3).dedup().or(has(__p6,__p7),has(__p8,__p9)).count()",
+      "parameters": {
+        "__p0": "550e8401-e29b-41d4-a716-446655440001",
+        "__p1": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__p2": "entityType",
+        "__p3": "profile",
+        "__p4": "members",
+        "__p5": 7,
+        "__p6": "isServicePrincipal",
+        "__p7": "false",
+        "__p8": "isServicePrincipal",
+        "__p9": false
+      },
+      "executionTimeMs": 9,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.795565Z",
+      "query": "g.V([__p0,__p1]).outE().hasLabel(__p2).as(__p3).otherV().hasId(__p4).select(__p5)",
+      "parameters": {
+        "__p0": "550e8401-e29b-41d4-a716-446655440001",
+        "__p1": "9c3e2103-4c9c-4751-acd5-97a0694af6da",
+        "__p2": "memberOf",
+        "__p3": "a",
+        "__p4": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__p5": "a"
+      },
+      "executionTimeMs": 7,
+      "ruCost": 3.1,
+      "resultCount": 0,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.7594328Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "tenantService"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 4,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.7581326Z",
+      "query": "g.addV(__label).property(\u0027id\u0027,___ekey).property(\u0027pk\u0027,__pk).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027entityType\u0027,__entityType).property(\u0027email\u0027,__email).property(\u0027principalId\u0027,__principalId).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027name\u0027,__name).property(\u0027modifiedDateTime\u0027,__modifiedDateTime)",
+      "parameters": {
+        "__pk": "550e8401-e29b-41d4-a716-446655440001",
+        "__createDateTime": 1761048327,
+        "__entityType": "profile",
+        "__email": "test@veracity.com",
+        "__principalId": "52353c63-1100-421c-bcbe-a741c3e1f68f",
+        "__isServicePrincipal": "false",
+        "__name": "Test User",
+        "__modifiedDateTime": 1761048327,
+        "___ekey": "d87e8bae-f662-4af9-9012-cd2ac51bcdb3",
+        "__label": "tenantEntity"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.7563009Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3).has(__p4,__p5)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "profile",
+        "__p4": "principalId",
+        "__p5": "52353c63-1100-421c-bcbe-a741c3e1f68f"
+      },
+      "executionTimeMs": 1,
+      "ruCost": 3.1,
+      "resultCount": 0,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.4985574Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "tenantService"
+      },
+      "executionTimeMs": 3,
+      "ruCost": 3.1,
+      "resultCount": 4,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.4976252Z",
+      "query": "g.addV(__label).property(\u0027id\u0027,___ekey).property(\u0027pk\u0027,__pk).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027entityType\u0027,__entityType).property(\u0027email\u0027,__email).property(\u0027principalId\u0027,__principalId).property(\u0027isServicePrincipal\u0027,__isServicePrincipal).property(\u0027name\u0027,__name).property(\u0027modifiedDateTime\u0027,__modifiedDateTime)",
+      "parameters": {
+        "__pk": "550e8401-e29b-41d4-a716-446655440001",
+        "__createDateTime": 1761048327,
+        "__entityType": "profile",
+        "__email": "test@veracity.com",
+        "__principalId": "02fe0f0a-8891-4e9f-b43c-3a515a1238f8",
+        "__isServicePrincipal": "false",
+        "__name": "Test User",
+        "__modifiedDateTime": 1761048327,
+        "___ekey": "9c3e2103-4c9c-4751-acd5-97a0694af6da",
+        "__label": "tenantEntity"
+      },
+      "executionTimeMs": 0,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.4788617Z",
+      "query": "g.V().has(__p0,__p1).has(__p2,__p3).has(__p4,__p5)",
+      "parameters": {
+        "__p0": "pk",
+        "__p1": "550e8401-e29b-41d4-a716-446655440001",
+        "__p2": "entityType",
+        "__p3": "profile",
+        "__p4": "principalId",
+        "__p5": "02fe0f0a-8891-4e9f-b43c-3a515a1238f8"
+      },
+      "executionTimeMs": 17,
+      "ruCost": 3.1,
+      "resultCount": 0,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    },
+    {
+      "timestamp": "2025-10-21T12:05:27.2368771Z",
+      "query": "g.addV(__label).property(\u0027id\u0027,___ekey).property(\u0027pk\u0027,__pk).property(\u0027createDateTime\u0027,__createDateTime).property(\u0027entityType\u0027,__entityType).property(\u0027serviceId\u0027,__serviceId).property(\u0027autoAssignSubscription\u0027,__autoAssignSubscription).property(\u0027numberOfLicenses\u0027,__numberOfLicenses).property(\u0027production\u0027,__production).property(\u0027prefix\u0027,__prefix).property(\u0027subscriptionCap\u0027,__subscriptionCap).property(\u0027managementMode\u0027,__managementMode).property(\u0027accessLevels\u0027,__accessLevels).property(\u0027state\u0027,__state).property(\u0027useApplyForFlow\u0027,__useApplyForFlow).property(\u0027name\u0027,__name).property(\u0027modifiedDateTime\u0027,__modifiedDateTime)",
+      "parameters": {
+        "__pk": "550e8401-e29b-41d4-a716-446655440001",
+        "__createDateTime": 1761048327,
+        "__entityType": "tenantService",
+        "__serviceId": "ab511a22-bcae-43dc-b5e9-c67d2fb6647f",
+        "__autoAssignSubscription": "false",
+        "__numberOfLicenses": "2",
+        "__production": "false",
+        "__prefix": "TEST",
+        "__subscriptionCap": "0",
+        "__managementMode": "legacy",
+        "__accessLevels": "read,write,admin",
+        "__state": "active",
+        "__useApplyForFlow": "false",
+        "__name": "Mock Test Service",
+        "__modifiedDateTime": 1761048327,
+        "___ekey": "e9b18469-f317-4c4b-abe8-b349ca13cd45",
+        "__label": "tenantEntity"
+      },
+      "executionTimeMs": 6,
+      "ruCost": 3.1,
+      "resultCount": 1,
+      "success": true,
+      "errorMessage": null,
+      "parserUsed": "TinkerGraph"
+    }
+  ],
+  "queryLogStats": {
+    "totalQueries": 18,
+    "successfulQueries": 18,
+    "failedQueries": 0,
+    "averageExecutionTimeMs": 4.111111111111111,
+    "totalRUConsumed": 55.80000000000002,
+    "parserUsage": {
+      "TinkerGraph": 18
+    }
+  },
+  "databaseStructures": "{\r\n  \u0022exportTimestamp\u0022: \u00222025-10-21T12:05:27.9138328Z\u0022,\r\n  \u0022vertices\u0022: [\r\n    {\r\n      \u0022id\u0022: \u0022550e8441-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Admin User Profile\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8440-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022email\u0022: \u0022admin@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8423-e29b-41d4-a716-446655440003\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022autoAssignSubscription\u0022: \u0022false\u0022,\r\n        \u0022production\u0022: \u0022false\u0022,\r\n        \u0022subscriptionCap\u0022: \u002250\u0022,\r\n        \u0022managementMode\u0022: \u0022ServiceManaged\u0022,\r\n        \u0022accessLevels\u0022: \u0022reader,admin\u0022,\r\n        \u0022useApplyForFlow\u0022: \u0022false\u0022,\r\n        \u0022modifiedDateTime\u0022: 1761048327,\r\n        \u0022prefix\u0022: null,\r\n        \u0022modifiedBy\u0022: \u0022system\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022tenantService\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022pricingTier\u0022: \u0022standard\u0022,\r\n        \u0022serviceId\u0022: \u0022550e8431-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022orderNumber\u0022: \u0022TEST-003\u0022,\r\n        \u0022name\u0022: \u0022Test Service Without Licenses\u0022,\r\n        \u0022state\u0022: \u0022active\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022id\u0022: \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022principalId\u0022: \u002202fe0f0a-8891-4e9f-b43c-3a515a1238f8\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022modifiedDateTime\u0022: 1761048327\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Default Test User\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022email\u0022: \u0022defaulttest@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022vtm_appRole\u0022: \u0022manage\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test Tenant\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022tenant\u0022,\r\n        \u0022tenantType\u0022: \u0022veracity_default\u0022,\r\n        \u0022affiliationMode\u0022: \u0022Restricted\u0022,\r\n        \u0022isLegacy\u0022: false,\r\n        \u0022isDisabled\u0022: false,\r\n        \u0022vtm_toggle_UserGroup\u0022: \u0022true\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022id\u0022: \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022principalId\u0022: \u002252353c63-1100-421c-bcbe-a741c3e1f68f\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022modifiedDateTime\u0022: 1761048327\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8470-e29b-41d4-a716-446655440012\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022AccessHub Test User\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8400-e29b-41d4-a716-446655440012\u0022,\r\n        \u0022email\u0022: \u0022accesshub@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8451-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test User Group\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022userGroup\u0022,\r\n        \u0022builtIn\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8422-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test Tenant Service 2\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022tenantService\u0022,\r\n        \u0022serviceId\u0022: \u0022550e8431-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022managementMode\u0022: \u0022standard\u0022,\r\n        \u0022production\u0022: true,\r\n        \u0022accessLevels\u0022: \u0022read,write,admin\u0022,\r\n        \u0022autoAssignSubscription\u0022: true,\r\n        \u0022subscriptionCap\u0022: 100,\r\n        \u0022useApplyForFlow\u0022: false,\r\n        \u0022pricingTier\u0022: \u0022premium\u0022,\r\n        \u0022orderNumber\u0022: \u0022ORD-002\u0022,\r\n        \u0022prefix\u0022: \u0022TEST\u0022,\r\n        \u0022state\u0022: \u0022active\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8462-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022userGroup\u0022,\r\n        \u0022name\u0022: \u0022UserAdmins\u0022,\r\n        \u0022builtIn\u0022: true\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8413-e29b-41d4-a716-446655440003\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Integration Test Profile\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8400-e29b-41d4-a716-446655440003\u0022,\r\n        \u0022email\u0022: \u0022integration@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test User Profile\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8400-e29b-41d4-a716-446655440010\u0022,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022userGroup\u0022,\r\n        \u0022name\u0022: \u0022TenantAdmins\u0022,\r\n        \u0022builtIn\u0022: true\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8452-e29b-41d4-a716-44665544000f\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test User Group2\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022userGroup\u0022,\r\n        \u0022builtIn\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test Tenant Service\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022tenantService\u0022,\r\n        \u0022serviceId\u0022: \u0022550e8431-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022managementMode\u0022: \u0022standard\u0022,\r\n        \u0022production\u0022: true,\r\n        \u0022accessLevels\u0022: \u0022read,write,admin\u0022,\r\n        \u0022autoAssignSubscription\u0022: false,\r\n        \u0022subscriptionCap\u0022: 100,\r\n        \u0022useApplyForFlow\u0022: false,\r\n        \u0022pricingTier\u0022: \u0022standard\u0022,\r\n        \u0022orderNumber\u0022: \u0022TEST-001\u0022,\r\n        \u0022prefix\u0022: \u0022TEST\u0022,\r\n        \u0022state\u0022: \u0022active\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8452-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Clean Test User Group\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022userGroup\u0022,\r\n        \u0022builtIn\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022id\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022entityType\u0022: \u0022tenantService\u0022,\r\n        \u0022serviceId\u0022: \u0022ab511a22-bcae-43dc-b5e9-c67d2fb6647f\u0022,\r\n        \u0022autoAssignSubscription\u0022: \u0022false\u0022,\r\n        \u0022numberOfLicenses\u0022: \u00222\u0022,\r\n        \u0022production\u0022: \u0022false\u0022,\r\n        \u0022prefix\u0022: \u0022TEST\u0022,\r\n        \u0022subscriptionCap\u0022: \u00220\u0022,\r\n        \u0022managementMode\u0022: \u0022legacy\u0022,\r\n        \u0022accessLevels\u0022: \u0022read,write,admin\u0022,\r\n        \u0022state\u0022: \u0022active\u0022,\r\n        \u0022useApplyForFlow\u0022: \u0022false\u0022,\r\n        \u0022name\u0022: \u0022Mock Test Service\u0022,\r\n        \u0022modifiedDateTime\u0022: 1761048327\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022label\u0022: \u0022tenantEntity\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022name\u0022: \u0022Test User Profile 2\u0022,\r\n        \u0022pk\u0022: \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022entityType\u0022: \u0022profile\u0022,\r\n        \u0022principalId\u0022: \u0022550e8400-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022email\u0022: \u0022test2@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022createdBy\u0022: \u0022system\u0022\r\n      }\r\n    }\r\n  ],\r\n  \u0022edges\u0022: [\r\n    {\r\n      \u0022id\u0022: \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022inVertexId\u0022: \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u002202fe0f0a-8891-4e9f-b43c-3a515a1238f8\u0022,\r\n        \u0022createdBy\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022addedDate\u0022: 1760997600,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022nullLicense\u0022: false,\r\n        \u0022accessLevel\u0022: \u0022read\u0022,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440010\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_550e8451-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8451-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileMember\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440010\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_DefaultUser_TenantAdmins\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileMember\u0022,\r\n        \u0022name\u0022: \u0022Default Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022defaulttest@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_Service3_DefaultUser\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8423-e29b-41d4-a716-446655440003\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Default Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022defaulttest@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022inVertexId\u0022: \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u002252353c63-1100-421c-bcbe-a741c3e1f68f\u0022,\r\n        \u0022createdBy\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022addedDate\u0022: 1760997600,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022nullLicense\u0022: false,\r\n        \u0022accessLevel\u0022: \u0022read\u0022,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8441-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8441-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Admin User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8440-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022admin@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022isAdmin\u0022: true\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8451-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8451-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileMember\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440010\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_550e8441-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8441-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Admin User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8440-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022admin@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022isAdmin\u0022: true\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_DefaultUser_Service3\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8423-e29b-41d4-a716-446655440003\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Default Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022defaulttest@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8412-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile 2\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test2@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n      \u0022inVertexId\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u002202fe0f0a-8891-4e9f-b43c-3a515a1238f8\u0022,\r\n        \u0022createdBy\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022addedDate\u0022: 1760997600,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022nullLicense\u0022: false,\r\n        \u0022accessLevel\u0022: \u0022read\u0022,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440010\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOf_550e8412-e29b-41d4-a716-446655440002_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User Profile 2\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022test2@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022,\r\n      \u0022label\u0022: \u0022memberOf\u0022,\r\n      \u0022outVertexId\u0022: \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022,\r\n      \u0022inVertexId\u0022: \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileSubscription\u0022,\r\n        \u0022name\u0022: \u0022Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u002252353c63-1100-421c-bcbe-a741c3e1f68f\u0022,\r\n        \u0022createdBy\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022addedDate\u0022: 1760997600,\r\n        \u0022email\u0022: \u0022test@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: \u0022false\u0022,\r\n        \u0022nullLicense\u0022: false,\r\n        \u0022accessLevel\u0022: \u0022read\u0022,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    },\r\n    {\r\n      \u0022id\u0022: \u0022members_TenantAdmins_DefaultUser\u0022,\r\n      \u0022label\u0022: \u0022members\u0022,\r\n      \u0022outVertexId\u0022: \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n      \u0022inVertexId\u0022: \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n      \u0022properties\u0022: {\r\n        \u0022memberType\u0022: \u0022profileMember\u0022,\r\n        \u0022name\u0022: \u0022Default Test User\u0022,\r\n        \u0022createDateTime\u0022: 1761048327,\r\n        \u0022userId\u0022: \u0022550e8400-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022createdBy\u0022: \u0022system\u0022,\r\n        \u0022addedDate\u0022: 1760961927,\r\n        \u0022email\u0022: \u0022defaulttest@veracity.com\u0022,\r\n        \u0022isServicePrincipal\u0022: false,\r\n        \u0022isAdmin\u0022: false\r\n      }\r\n    }\r\n  ],\r\n  \u0022indices\u0022: {\r\n    \u0022vertexLabelIndex\u0022: {\r\n      \u0022tenantEntity\u0022: [\r\n        \u0022550e8401-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8462-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8422-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022550e8423-e29b-41d4-a716-446655440003\u0022,\r\n        \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022550e8413-e29b-41d4-a716-446655440003\u0022,\r\n        \u0022550e8441-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8470-e29b-41d4-a716-446655440012\u0022,\r\n        \u0022550e8471-e29b-41d4-a716-446655440000\u0022,\r\n        \u0022550e8451-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022550e8452-e29b-41d4-a716-44665544000f\u0022,\r\n        \u0022550e8452-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n        \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n        \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n      ]\r\n    },\r\n    \u0022edgeLabelIndex\u0022: {\r\n      \u0022members\u0022: [\r\n        \u0022members_TenantAdmins_DefaultUser\u0022,\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8412-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8441-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022members_550e8451-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022members_Service3_DefaultUser\u0022,\r\n        \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n        \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022\r\n      ],\r\n      \u0022memberOf\u0022: [\r\n        \u0022memberOf_DefaultUser_TenantAdmins\u0022,\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8412-e29b-41d4-a716-446655440002_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8441-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8451-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_DefaultUser_Service3\u0022,\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n      ]\r\n    },\r\n    \u0022vertexPropertyIndex\u0022: {},\r\n    \u0022edgePropertyIndex\u0022: {\r\n      \u0022name\u0022: {\r\n        \u0022Test User\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022createDateTime\u0022: {\r\n        \u00221761048327\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022memberType\u0022: {\r\n        \u0022profileSubscription\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022addedDate\u0022: {\r\n        \u00221760997600\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022accessLevel\u0022: {\r\n        \u0022read\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022isAdmin\u0022: {\r\n        \u0022False\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022email\u0022: {\r\n        \u0022test@veracity.com\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022isServicePrincipal\u0022: {\r\n        \u0022false\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022createdBy\u0022: {\r\n        \u0022550e8400-e29b-41d4-a716-446655440000\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022nullLicense\u0022: {\r\n        \u0022False\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ]\r\n      },\r\n      \u0022userId\u0022: {\r\n        \u002252353c63-1100-421c-bcbe-a741c3e1f68f\u0022: [\r\n          \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n        ],\r\n        \u002202fe0f0a-8891-4e9f-b43c-3a515a1238f8\u0022: [\r\n          \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n          \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022\r\n        ]\r\n      }\r\n    },\r\n    \u0022outEdgeIndex\u0022: {\r\n      \u0022550e8441-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022memberOf_550e8441-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8423-e29b-41d4-a716-446655440003\u0022: [\r\n        \u0022members_Service3_DefaultUser\u0022\r\n      ],\r\n      \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022: [\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022\r\n      ],\r\n      \u0022550e8471-e29b-41d4-a716-446655440000\u0022: [\r\n        \u0022memberOf_DefaultUser_TenantAdmins\u0022,\r\n        \u0022memberOf_DefaultUser_Service3\u0022\r\n      ],\r\n      \u0022550e8401-e29b-41d4-a716-446655440001\u0022: [],\r\n      \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022: [\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n      ],\r\n      \u0022550e8470-e29b-41d4-a716-446655440012\u0022: [],\r\n      \u0022550e8451-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022members_550e8451-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8422-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022550e8462-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022550e8413-e29b-41d4-a716-446655440003\u0022: [],\r\n      \u0022550e8411-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8451-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8461-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022members_TenantAdmins_DefaultUser\u0022\r\n      ],\r\n      \u0022550e8452-e29b-41d4-a716-44665544000f\u0022: [],\r\n      \u0022550e8421-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8412-e29b-41d4-a716-446655440002\u0022,\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8441-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8452-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022: [\r\n        \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022,\r\n        \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022\r\n      ],\r\n      \u0022550e8412-e29b-41d4-a716-446655440002\u0022: [\r\n        \u0022memberOf_550e8412-e29b-41d4-a716-446655440002_550e8421-e29b-41d4-a716-446655440001\u0022\r\n      ]\r\n    },\r\n    \u0022inEdgeIndex\u0022: {\r\n      \u0022550e8441-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8441-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8423-e29b-41d4-a716-446655440003\u0022: [\r\n        \u0022memberOf_DefaultUser_Service3\u0022\r\n      ],\r\n      \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022: [\r\n        \u0022members9c3e2103-4c9c-4751-acd5-97a0694af6dae9b18469-f317-4c4b-abe8-b349ca13cd45\u0022\r\n      ],\r\n      \u0022550e8471-e29b-41d4-a716-446655440000\u0022: [\r\n        \u0022members_TenantAdmins_DefaultUser\u0022,\r\n        \u0022members_Service3_DefaultUser\u0022\r\n      ],\r\n      \u0022550e8401-e29b-41d4-a716-446655440001\u0022: [],\r\n      \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022: [\r\n        \u0022membersd87e8bae-f662-4af9-9012-cd2ac51bcdb3e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022\r\n      ],\r\n      \u0022550e8470-e29b-41d4-a716-446655440012\u0022: [],\r\n      \u0022550e8451-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8451-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8422-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022550e8462-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022550e8413-e29b-41d4-a716-446655440003\u0022: [],\r\n      \u0022550e8411-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022members_550e8451-e29b-41d4-a716-446655440001_550e8411-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8461-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022memberOf_DefaultUser_TenantAdmins\u0022\r\n      ],\r\n      \u0022550e8452-e29b-41d4-a716-44665544000f\u0022: [],\r\n      \u0022550e8421-e29b-41d4-a716-446655440001\u0022: [\r\n        \u0022memberOf_550e8411-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8412-e29b-41d4-a716-446655440002_550e8421-e29b-41d4-a716-446655440001\u0022,\r\n        \u0022memberOf_550e8441-e29b-41d4-a716-446655440001_550e8421-e29b-41d4-a716-446655440001\u0022\r\n      ],\r\n      \u0022550e8452-e29b-41d4-a716-446655440002\u0022: [],\r\n      \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022: [\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd459c3e2103-4c9c-4751-acd5-97a0694af6da\u0022,\r\n        \u0022memberOfe9b18469-f317-4c4b-abe8-b349ca13cd45d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022\r\n      ],\r\n      \u0022550e8412-e29b-41d4-a716-446655440002\u0022: [\r\n        \u0022members_550e8421-e29b-41d4-a716-446655440001_550e8412-e29b-41d4-a716-446655440002\u0022\r\n      ]\r\n    },\r\n    \u0022outVertexIndex\u0022: {\r\n      \u0022550e8441-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8423-e29b-41d4-a716-446655440003\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8471-e29b-41d4-a716-446655440000\u0022\r\n        ]\r\n      },\r\n      \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022: {},\r\n      \u0022550e8471-e29b-41d4-a716-446655440000\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8423-e29b-41d4-a716-446655440003\u0022\r\n        ]\r\n      },\r\n      \u0022550e8401-e29b-41d4-a716-446655440001\u0022: {},\r\n      \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022: {},\r\n      \u0022550e8470-e29b-41d4-a716-446655440012\u0022: {},\r\n      \u0022550e8451-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8411-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8422-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022550e8462-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022550e8413-e29b-41d4-a716-446655440003\u0022: {},\r\n      \u0022550e8411-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8451-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8461-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8471-e29b-41d4-a716-446655440000\u0022\r\n        ]\r\n      },\r\n      \u0022550e8452-e29b-41d4-a716-44665544000f\u0022: {},\r\n      \u0022550e8421-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n          \u0022550e8441-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8452-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022: {},\r\n      \u0022550e8412-e29b-41d4-a716-446655440002\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      }\r\n    },\r\n    \u0022inVertexIndex\u0022: {\r\n      \u0022550e8441-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8423-e29b-41d4-a716-446655440003\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8471-e29b-41d4-a716-446655440000\u0022\r\n        ]\r\n      },\r\n      \u00229c3e2103-4c9c-4751-acd5-97a0694af6da\u0022: {},\r\n      \u0022550e8471-e29b-41d4-a716-446655440000\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8461-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8423-e29b-41d4-a716-446655440003\u0022\r\n        ]\r\n      },\r\n      \u0022550e8401-e29b-41d4-a716-446655440001\u0022: {},\r\n      \u0022d87e8bae-f662-4af9-9012-cd2ac51bcdb3\u0022: {},\r\n      \u0022550e8470-e29b-41d4-a716-446655440012\u0022: {},\r\n      \u0022550e8451-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8411-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8422-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022550e8462-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022550e8413-e29b-41d4-a716-446655440003\u0022: {},\r\n      \u0022550e8411-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8451-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8461-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8471-e29b-41d4-a716-446655440000\u0022\r\n        ]\r\n      },\r\n      \u0022550e8452-e29b-41d4-a716-44665544000f\u0022: {},\r\n      \u0022550e8421-e29b-41d4-a716-446655440001\u0022: {\r\n        \u0022memberOf\u0022: [\r\n          \u0022550e8411-e29b-41d4-a716-446655440001\u0022,\r\n          \u0022550e8412-e29b-41d4-a716-446655440002\u0022,\r\n          \u0022550e8441-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      },\r\n      \u0022550e8452-e29b-41d4-a716-446655440002\u0022: {},\r\n      \u0022e9b18469-f317-4c4b-abe8-b349ca13cd45\u0022: {},\r\n      \u0022550e8412-e29b-41d4-a716-446655440002\u0022: {\r\n        \u0022members\u0022: [\r\n          \u0022550e8421-e29b-41d4-a716-446655440001\u0022\r\n        ]\r\n      }\r\n    }\r\n  },\r\n  \u0022statistics\u0022: {},\r\n  \u0022integrityCheck\u0022: {\r\n    \u0022totalEdges\u0022: 16,\r\n    \u0022orphanedEdges\u0022: 0,\r\n    \u0022integrityIssues\u0022: [],\r\n    \u0022isValid\u0022: true\r\n  }\r\n}",
+  "performanceMetrics": {
+    "totalRU": 55.80000000000002,
+    "vertexCount": 18,
+    "edgeCount": 16,
+    "indexStats": {
+      "vertexLabels": 1,
+      "edgeLabels": 2,
+      "vertexPropertyIndices": 0,
+      "edgePropertyIndices": 11,
+      "vertexLabelDistribution": {
+        "tenantEntity": 18
+      },
+      "edgeLabelDistribution": {
+        "members": 8,
+        "memberOf": 8
+      }
+    },
+    "memoryEfficient": true,
+    "tinkerGraphCompatible": true
+  }
+}

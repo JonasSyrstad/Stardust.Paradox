@@ -6,70 +6,11 @@ using System.Threading.Tasks;
 using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.InMemory.ExecutionEngine;
 using Stardust.Paradox.Data.InMemory.Core;
+using System.IO;
+using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.InMemory
 {
-#if NET8_0_OR_GREATER
-#else
-//#endif
-    public static class NetStandardHelper
-    {
-
-        public static TValue GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> source, TKey key)
-        {
-            if(source.TryGetValue(key, out var v))
-                return v;
-            return default(TValue);
-        }
-        public static HashSet<T> ToHashSet<T>(this IEnumerable<T> source)
-        {
-            return new HashSet<T>(source);
-        }
-
-        public static IEnumerable<T> TakeLast<T>(this IEnumerable<T> source, int count)
-        {
-            if (null == source)
-                throw new ArgumentNullException(nameof(source));
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
-
-            if (0 == count)
-                yield break;
-
-            // Optimization (see JonasH's comment)
-            if (source is ICollection<T>)
-            {
-                foreach (T item in source.Skip(((ICollection<T>)source).Count - count))
-                    yield return item;
-
-                yield break;
-            }
-
-            if (source is IReadOnlyCollection<T>)
-            {
-                foreach (T item in source.Skip(((IReadOnlyCollection<T>)source).Count - count))
-                    yield return item;
-
-                yield break;
-            }
-
-            // General case, we have to enumerate source
-            Queue<T> result = new Queue<T>();
-
-            foreach (T item in source)
-            {
-                if (result.Count == count)
-                    result.Dequeue();
-
-                result.Enqueue(item);
-            }
-
-            foreach (T item in result)
-                yield return result.Dequeue();
-
-        }
-    }
-#endif
     /// <summary>
     /// In-memory implementation of IGremlinLanguageConnector with TinkerGraph-inspired optimizations
     /// </summary>
@@ -82,6 +23,10 @@ namespace Stardust.Paradox.Data.InMemory
         private readonly InMemoryDatabaseOptions _options;
         private double _consumedRU;
         private bool _disposed = false;
+        
+        // Query logging
+        private readonly List<QueryLogEntry> _queryLog;
+        private readonly object _queryLogLock = new object();
 
         public InMemoryGremlinLanguageConnector() : this(new InMemoryDatabaseOptions())
         {
@@ -95,6 +40,7 @@ namespace Stardust.Paradox.Data.InMemory
             _advancedParser = new AdvancedGremlinQueryParser(_database);
             _tinkerParser = new TinkerGraphQueryParser(_database);
             _consumedRU = 0.0;
+            _queryLog = new List<QueryLogEntry>();
         }
 
         /// <summary>
@@ -103,7 +49,7 @@ namespace Stardust.Paradox.Data.InMemory
         public bool CanParameterizeQueries => true;
 
         /// <summary>
-        /// Gets the total consumed Request Units
+        /// Get the total consumed Request Units
         /// </summary>
         public double ConsumedRU => _consumedRU;
 
@@ -130,6 +76,12 @@ namespace Stardust.Paradox.Data.InMemory
             parametrizedValues = parametrizedValues ?? new Dictionary<string, object>();
 
             var stopwatch = Stopwatch.StartNew();
+            var logEntry = new QueryLogEntry
+            {
+                Query = query,
+                Parameters = new Dictionary<string, object>(parametrizedValues),
+                Timestamp = DateTime.UtcNow
+            };
 
             try
             {
@@ -143,9 +95,12 @@ namespace Stardust.Paradox.Data.InMemory
 
                 // Try TinkerGraph parser first for best performance and compatibility
                 IEnumerable<dynamic> rawResult = null;
+                string parserUsed = null;
+                
                 try
                 {
                     rawResult = _tinkerParser.ParseAndExecute(query, parametrizedValues);
+                    parserUsed = "TinkerGraph";
 
                     if (_options.EnableDebugLogging)
                     {
@@ -169,6 +124,7 @@ namespace Stardust.Paradox.Data.InMemory
                     try
                     {
                         rawResult = _advancedParser.ParseAndExecute(query, parametrizedValues);
+                        parserUsed = "Advanced";
 
                         if (_options.EnableDebugLogging)
                         {
@@ -191,6 +147,7 @@ namespace Stardust.Paradox.Data.InMemory
 
                         // Final fallback to simple parser
                         rawResult = await _simpleParser.ParseAndExecuteAsync(query, parametrizedValues);
+                        parserUsed = "Simple";
                     }
                 }
 
@@ -203,6 +160,18 @@ namespace Stardust.Paradox.Data.InMemory
 
                 stopwatch.Stop();
 
+                // Log successful query
+                logEntry.Success = true;
+                logEntry.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
+                logEntry.ResultCount = results.Count;
+                logEntry.RUCost = ruCost;
+                logEntry.ParserUsed = parserUsed ?? "Unknown";
+                
+                lock (_queryLogLock)
+                {
+                    _queryLog.Add(logEntry);
+                }
+
                 if (_options.EnableDebugLogging)
                 {
                     LogQueryExecution(query, stopwatch.ElapsedMilliseconds, results, ruCost);
@@ -213,6 +182,20 @@ namespace Stardust.Paradox.Data.InMemory
             catch (Exception ex)
             {
                 stopwatch.Stop();
+                
+                // Log failed query
+                logEntry.Success = false;
+                logEntry.ErrorMessage = ex.Message;
+                logEntry.ExecutionTimeMs = stopwatch.ElapsedMilliseconds;
+                logEntry.ResultCount = 0;
+                logEntry.RUCost = 0;
+                logEntry.ParserUsed = "Failed";
+                
+                lock (_queryLogLock)
+                {
+                    _queryLog.Add(logEntry);
+                }
+                
                 LogError(query, ex, stopwatch.ElapsedMilliseconds);
                 throw;
             }
@@ -544,6 +527,89 @@ namespace Stardust.Paradox.Data.InMemory
 
         #endregion
 
+        #region Query Logging and Debug Export
+
+        /// <summary>
+        /// Get the query log with all executed queries
+        /// </summary>
+        public IEnumerable<QueryLogEntry> GetQueryLog()
+        {
+            lock (_queryLogLock)
+            {
+                return _queryLog.ToList();
+            }
+        }
+
+        /// <summary>
+        /// Get query log statistics
+        /// </summary>
+        public Dictionary<string, object> GetQueryLogStatistics()
+        {
+            lock (_queryLogLock)
+            {
+                var totalQueries = _queryLog.Count;
+                var successfulQueries = _queryLog.Count(q => q.Success);
+                var failedQueries = _queryLog.Count(q => !q.Success);
+                var avgExecutionTime = _queryLog.Any() ? _queryLog.Average(q => q.ExecutionTimeMs) : 0.0;
+                var totalRU = _queryLog.Sum(q => q.RUCost);
+                
+                // Parser usage statistics
+                var parserUsage = _queryLog
+                    .Where(q => q.Success && q.ParserUsed != null)
+                    .GroupBy(q => q.ParserUsed)
+                    .ToDictionary(g => g.Key, g => g.Count());
+
+                return new Dictionary<string, object>
+                {
+                    ["totalQueries"] = totalQueries,
+                    ["successfulQueries"] = successfulQueries,
+                    ["failedQueries"] = failedQueries,
+                    ["averageExecutionTimeMs"] = avgExecutionTime,
+                    ["totalRU"] = totalRU,
+                    ["parserUsage"] = parserUsage
+                };
+            }
+        }
+
+        /// <summary>
+        /// Clear the query log
+        /// </summary>
+        public void ClearQueryLog()
+        {
+            lock (_queryLogLock)
+            {
+                _queryLog.Clear();
+            }
+        }
+
+        /// <summary>
+        /// Export debug data as JSON including query log and database structures
+        /// </summary>
+        public string ExportDebugDataAsJson()
+        {
+            var debugData = new Dictionary<string, object>
+            {
+                ["timestamp"] = DateTime.UtcNow,
+                ["queryLog"] = GetQueryLog(),
+                ["queryLogStats"] = GetQueryLogStatistics(),
+                ["databaseStructures"] = _database.ExportInternalStructuresAsJson(),
+                ["performanceMetrics"] = GetPerformanceMetrics()
+            };
+
+            return JsonConvert.SerializeObject(debugData, Formatting.Indented);
+        }
+
+        /// <summary>
+        /// Export debug data to a file
+        /// </summary>
+        public void ExportDebugDataToFile(string filePath)
+        {
+            var json = ExportDebugDataAsJson();
+            File.WriteAllText(filePath, json);
+        }
+
+        #endregion
+
         #region Logging Methods
 
         private void LogQuery(string query, Dictionary<string, object> parameters)
@@ -652,6 +718,26 @@ namespace Stardust.Paradox.Data.InMemory
                 }
                 _disposed = true;
             }
+        }
+
+        #endregion
+
+        #region Query Logging
+
+        /// <summary>
+        /// Query log entry structure
+        /// </summary>
+        public class QueryLogEntry
+        {
+            public string Query { get; set; }
+            public Dictionary<string, object> Parameters { get; set; }
+            public bool Success { get; set; }
+            public string ErrorMessage { get; set; }
+            public long ExecutionTimeMs { get; set; }
+            public int ResultCount { get; set; }
+            public double RUCost { get; set; }
+            public string ParserUsed { get; set; }
+            public DateTime Timestamp { get; set; }
         }
 
         #endregion

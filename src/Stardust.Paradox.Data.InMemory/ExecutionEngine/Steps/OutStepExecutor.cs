@@ -33,7 +33,24 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
+            // Get parameters from context to resolve ParameterReference objects
+            var parameters = context.GetMetadata<Dictionary<string, object>>("parameters") 
+                             ?? new Dictionary<string, object>();
+            
+            // Resolve the edge label parameter if present
             var edgeLabel = step.GetFirstStringArgument();
+            if (!string.IsNullOrEmpty(edgeLabel))
+            {
+                // Check if this is a ParameterReference that needs resolving
+                if (step.Arguments.Count > 0 && step.Arguments[0] is ParameterReference paramRef)
+                {
+                    if (parameters.TryGetValue(paramRef.ParameterName, out var resolvedValue))
+                    {
+                        edgeLabel = resolvedValue?.ToString();
+                    }
+                }
+            }
+            
             var newTraversers = new List<Traverser>();
 
             foreach (var traverser in context.Traversers)

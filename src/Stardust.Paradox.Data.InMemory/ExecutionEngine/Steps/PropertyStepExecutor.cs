@@ -1,5 +1,6 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
@@ -79,31 +80,38 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                                     var newId = value.ToString();
                                     if (newId != id)
                                     {
-                                        // Create new edge with specified ID
+                                        // Collect all existing properties AND connection info BEFORE removing the edge
+                                        var existingProperties = new Dictionary<string, object>();
+                                        foreach (var prop in edge.Properties)
+                                        {
+                                            existingProperties[prop.Key] = prop.Value;
+                                        }
+                                        var edgeLabel = edge.Label;
+                                        var outVertexId = edge.OutVertexId;
+                                        var inVertexId = edge.InVertexId;
+                                        
+                                        // CRITICAL FIX: Remove the old edge BEFORE creating the new one
+                                        // to avoid the new edge's adjacency indices being cleared
+                                        Database.RemoveEdge(id);
+                                        
+                                        // Create new edge with specified ID and all existing properties
                                         var newEdge = Database.AddEdge(
-                                            edge.Label,
-                                            edge.OutVertexId,
-                                            edge.InVertexId,
+                                            edgeLabel,
+                                            outVertexId,
+                                            inVertexId,
+                                            existingProperties,
                                             newId);
 
                                         if (newEdge != null)
                                         {
-                                            // Copy all properties from old edge to new edge
-                                            foreach (var prop in edge.Properties)
-                                            {
-                                                newEdge.SetProperty(prop.Key, prop.Value);
-                                            }
-
-                                            // Remove the old edge
-                                            Database.RemoveEdge(id);
-
                                             // Update the traverser with the new edge
                                             newTraverser.Value = newEdge.ToGremlinResponse();
                                         }
                                         else
                                         {
-                                            // If we can't create the new edge, keep the old one
-                                            newTraverser.Value = edge.ToGremlinResponse();
+                                            // If we can't create the new edge, we're in trouble since we already removed the old one
+                                            // Return empty to indicate failure
+                                            newTraverser.Value = null;
                                         }
                                     }
                                     else

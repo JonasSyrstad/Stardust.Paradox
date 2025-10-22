@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Stardust.Paradox.Data.InMemory.Extensions;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {

@@ -4,11 +4,15 @@ using System.Linq;
 
 namespace Stardust.Paradox.Data.InMemory.Extensions
 {
+
     /// <summary>
     /// Extension methods for LINQ operations not available in .NET Standard 2.0
     /// </summary>
     internal static class LinqExtensions
     {
+#if NET8_0_OR_GREATER
+    
+#else
         /// <summary>
         /// Takes the last N elements from a sequence (not available in .NET Standard 2.0)
         /// </summary>
@@ -47,6 +51,8 @@ namespace Stardust.Paradox.Data.InMemory.Extensions
             return dictionary.TryGetValue(key, out TValue value) ? value : defaultValue;
         }
 
+
+#endif
         /// <summary>
         /// Safe Count method for dynamic enumerable
         /// </summary>
@@ -98,6 +104,7 @@ namespace Stardust.Paradox.Data.InMemory.Extensions
             return (T)value;
         }
     }
-    
-    
+
+
 }
+

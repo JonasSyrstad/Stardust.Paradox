@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using Stardust.Paradox.Data.InMemory.Extensions;
 
 namespace Stardust.Paradox.Data.InMemory.Core;
 

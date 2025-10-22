@@ -34,26 +34,31 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             // 'from' step is a modulator for addE step - it specifies the source vertex for edge creation
             var argument = step.GetFirstStringArgument();
 
-            // Parse the argument to extract vertex ID
-            string sourceId = ExtractVertexIdFromArgument(argument);
+            // Store the raw from specification in the context for use by to() or for immediate execution
+            context.SetMetadata("addE_from_spec", argument);
 
-            // Store the from specification in the context for use by addE
-            context.SetMetadata("addE_from", sourceId);
+            // Try to resolve the vertex ID now
+            string fromVertexId = ResolveVertexId(argument, context);
+            
+            if (!string.IsNullOrEmpty(fromVertexId))
+            {
+                context.SetMetadata("addE_from", fromVertexId);
+            }
 
             // Check if we have all needed parts to execute the edge creation
             TryExecutePendingAddE(context);
         }
 
-        private string ExtractVertexIdFromArgument(string argument)
+        private string ResolveVertexId(string specification, TinkerTraversalContext context)
         {
-            if (string.IsNullOrEmpty(argument))
+            if (string.IsNullOrEmpty(specification))
                 return null;
 
             // Handle V('id') pattern
-            if (argument.StartsWith("V(") && argument.EndsWith(")"))
+            if (specification.StartsWith("V(") && specification.EndsWith(")"))
             {
                 // Extract the ID from V('id')
-                var idPart = argument.Substring(2, argument.Length - 3).Trim();
+                var idPart = specification.Substring(2, specification.Length - 3).Trim();
                 // Remove quotes if present
                 if ((idPart.StartsWith("'") && idPart.EndsWith("'")) ||
                     (idPart.StartsWith("\"") && idPart.EndsWith("\"")))
@@ -63,8 +68,22 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 return idPart;
             }
 
-            // It's a label reference or direct ID
-            return argument;
+            // Try to resolve from labeled vertices in all traversers
+            foreach (var traverser in context.Traversers)
+            {
+                var tagged = traverser.GetTagged<dynamic>(specification);
+                if (tagged != null)
+                {
+                    var vertexId = ExtractId(tagged);
+                    if (!string.IsNullOrEmpty(vertexId))
+                    {
+                        return vertexId;
+                    }
+                }
+            }
+
+            // If we can't resolve it, assume it's a direct vertex ID
+            return specification;
         }
 
         private void TryExecutePendingAddE(TinkerTraversalContext context)
@@ -78,8 +97,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             }
 
             var label = context.GetMetadata<string>("addE_label");
-            var fromSpec = context.GetMetadata<string>("addE_from");
-            var toSpec = context.GetMetadata<string>("addE_to");
+            var fromVertexId = context.GetMetadata<string>("addE_from");
+            var toVertexId = context.GetMetadata<string>("addE_to");
             var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
 
             // Extract the 'id' property if present - it should be used as the edge ID
@@ -95,58 +114,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
             foreach (var traverser in context.Traversers)
             {
-                // Resolve from and to vertices
-                string fromVertexId = null;
-                string toVertexId = null;
+                // Verify both vertices exist
+                var fromVertex = Database.GetVertex(fromVertexId);
+                var toVertex = Database.GetVertex(toVertexId);
 
-                // Resolve fromSpec
-                if (!string.IsNullOrEmpty(fromSpec))
+                if (fromVertex != null && toVertex != null)
                 {
-                    // Check if it's a label reference
-                    var fromVertex = traverser.GetTagged<dynamic>(fromSpec);
-                    if (fromVertex != null)
+                    // Use the properties overload to ensure indices are updated
+                    var edge = Database.AddEdge(label, fromVertexId, toVertexId, properties, edgeId);
+                    if (edge != null)
                     {
-                        fromVertexId = ExtractId(fromVertex);
-                    }
-                    else
-                    {
-                        // Assume it's a direct vertex ID
-                        fromVertexId = fromSpec;
-                    }
-                }
-
-                // Resolve toSpec
-                if (!string.IsNullOrEmpty(toSpec))
-                {
-                    // Check if it's a label reference
-                    var toVertex = traverser.GetTagged<dynamic>(toSpec);
-                    if (toVertex != null)
-                    {
-                        toVertexId = ExtractId(toVertex);
-                    }
-                    else
-                    {
-                        // Assume it's a direct vertex ID
-                        toVertexId = toSpec;
-                    }
-                }
-
-                // Create the edge if we have both vertices
-                if (!string.IsNullOrEmpty(fromVertexId) && !string.IsNullOrEmpty(toVertexId))
-                {
-                    var fromVertexObj = Database.GetVertex(fromVertexId);
-                    var toVertexObj = Database.GetVertex(toVertexId);
-
-                    if (fromVertexObj != null && toVertexObj != null)
-                    {
-                        // Use the properties overload to ensure indices are updated
-                        var edge = Database.AddEdge(label, fromVertexId, toVertexId, properties, edgeId);
-                        if (edge != null)
-                        {
-                            var newTraverser = traverser.Split();
-                            newTraverser.Value = edge.ToGremlinResponse();
-                            newTraversers.Add(newTraverser);
-                        }
+                        var newTraverser = traverser.Split();
+                        newTraverser.Value = edge.ToGremlinResponse();
+                        newTraversers.Add(newTraverser);
                     }
                 }
             }
@@ -160,7 +140,9 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             context.RemoveMetadata("addE_pending");
             context.RemoveMetadata("addE_label");
             context.RemoveMetadata("addE_from");
+            context.RemoveMetadata("addE_from_spec");
             context.RemoveMetadata("addE_to");
+            context.RemoveMetadata("addE_to_spec");
             context.RemoveMetadata("addE_properties");
         }
     }
