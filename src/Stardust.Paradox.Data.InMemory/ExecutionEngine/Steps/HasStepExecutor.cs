@@ -223,6 +223,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                                     }
                                 }
 
+                                // Ensure case-sensitive string comparison for all paths
+                                if (expectedValue is string expStr && actualValue is string actStr)
+                                {
+                                    return expStr.Equals(actStr, StringComparison.Ordinal);
+                                }
+
                                 return Equals(actualValue, expectedValue);
                             }
 

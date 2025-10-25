@@ -43,6 +43,28 @@ namespace Stardust.Paradox.Data.InMemory
             _queryLog = new List<QueryLogEntry>();
         }
 
+        public InMemoryGremlinLanguageConnector(InMemoryGraphDatabase database)
+        {
+            _options = new InMemoryDatabaseOptions();
+            _database = database;
+            _simpleParser = new GremlinQueryParser(_database);
+            _advancedParser = new AdvancedGremlinQueryParser(_database);
+            _tinkerParser = new TinkerGraphQueryParser(_database);
+            _consumedRU = 0.0;
+            _queryLog = new List<QueryLogEntry>();
+        }
+
+        public InMemoryGremlinLanguageConnector(InMemoryGraphDatabase database,InMemoryDatabaseOptions options)
+        {
+            _options = options ?? new InMemoryDatabaseOptions();
+            _database = database;
+            _simpleParser = new GremlinQueryParser(_database);
+            _advancedParser = new AdvancedGremlinQueryParser(_database);
+            _tinkerParser = new TinkerGraphQueryParser(_database);
+            _consumedRU = 0.0;
+            _queryLog = new List<QueryLogEntry>();
+        }
+
         /// <summary>
         /// Gets whether the connector can parameterize queries
         /// </summary>

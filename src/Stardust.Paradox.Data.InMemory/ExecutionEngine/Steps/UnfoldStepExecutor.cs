@@ -33,7 +33,24 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
             foreach (var traverser in context.Traversers)
             {
-                if (traverser.Value is IEnumerable<dynamic> enumerable)
+                // Special handling for Dictionary (from group step)
+                if (traverser.Value is System.Collections.IDictionary dict)
+                {
+                    // Convert dictionary to key-value pair dictionaries
+                    foreach (System.Collections.DictionaryEntry entry in dict)
+                    {
+                        var newTraverser = traverser.Split();
+                        // Create a dictionary with "key" and "value" properties
+                        var kvDict = new Dictionary<string, object>
+                        {
+                            { "key", entry.Key },
+                            { "value", entry.Value }
+                        };
+                        newTraverser.Value = kvDict;
+                        newTraversers.Add(newTraverser);
+                    }
+                }
+                else if (traverser.Value is IEnumerable<dynamic> enumerable && !(traverser.Value is string))
                 {
                     foreach (var item in enumerable)
                     {

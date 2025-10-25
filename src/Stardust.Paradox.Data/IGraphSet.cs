@@ -39,6 +39,7 @@ namespace Stardust.Paradox.Data
     }
     public interface IGraphSetBase<T> where T : IGraphEntity
     {
+        IGraphContext Context { get; }
         Task DeleteAsync(string id);
         Task<IEnumerable<T>> GetAsync(int page, int pageSize = 20);
         Task<IEnumerable<T>> GetAsync(Func<GremlinContext, GremlinQuery> query, int page, int pageSize = 20);

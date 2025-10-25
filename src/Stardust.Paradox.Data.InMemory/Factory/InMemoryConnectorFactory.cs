@@ -10,6 +10,27 @@ namespace Stardust.Paradox.Data.InMemory.Factory;
 public static class InMemoryConnectorFactory
 {
     /// <summary>
+    /// Create a connector with an existing database
+    /// </summary>
+    /// <param name="database">The database instance</param>
+    /// <returns>Connector wrapping the database</returns>
+    public static InMemoryGremlinLanguageConnector Create(InMemoryGraphDatabase database)
+    {
+        return new InMemoryGremlinLanguageConnector(database);
+    }
+
+    /// <summary>
+    /// Create a connector with an existing database and options
+    /// </summary>
+    /// <param name="database">The database instance</param>
+    /// <param name="options">Database options</param>
+    /// <returns>Connector wrapping the database</returns>
+    public static InMemoryGremlinLanguageConnector Create(InMemoryGraphDatabase database, InMemoryDatabaseOptions options)
+    {
+        return new InMemoryGremlinLanguageConnector(database, options);
+    }
+
+    /// <summary>
     /// Create a connector with a specific scenario
     /// </summary>
     /// <param name="scenarioName">Name of the scenario</param>

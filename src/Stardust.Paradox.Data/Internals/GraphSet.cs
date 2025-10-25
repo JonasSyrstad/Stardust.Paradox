@@ -11,7 +11,7 @@ namespace Stardust.Paradox.Data.Internals
     internal class GraphSet<T> : IGraphSet<T> where T : IVertex
     {
         private readonly IGraphContext _context;
-
+        public IGraphContext Context => _context;
         internal GraphSet(IGraphContext context)
         {
             _context = context;

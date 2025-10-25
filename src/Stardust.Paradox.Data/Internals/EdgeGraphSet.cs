@@ -16,7 +16,7 @@ namespace Stardust.Paradox.Data.Internals
         private readonly bool _useVerticesIdsAsEdgeId;
         private string label;
         private static bool _useFallBack;
-
+        public IGraphContext Context => _context;
         internal EdgeGraphSet(IGraphContext context, bool useVerticesIdsAsEdgeId)
         {
             _context = context;

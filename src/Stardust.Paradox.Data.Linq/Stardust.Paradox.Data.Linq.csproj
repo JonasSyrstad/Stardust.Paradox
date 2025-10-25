@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>7.3</LangVersion>
+    <Authors>Stardust.Paradox Contributors</Authors>
+    <Description>LINQ to Gremlin query provider for Stardust.Paradox graph database framework</Description>
+    <PackageTags>gremlin;linq;graph;database;cosmosdb;tinkerpop</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
+    <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" />
+  </ItemGroup>
+
+</Project>

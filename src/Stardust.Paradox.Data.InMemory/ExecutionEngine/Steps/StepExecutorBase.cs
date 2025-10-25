@@ -437,43 +437,46 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         /// </summary>
         private object NormalizePropertyValue(object value)
         {
-            if (value == null)
-                return null;
+  if (value == null)
+           return null;
 
             // Handle string representations of numbers (common in JSON)
             if (value is string strValue)
             {
-                // Try to parse as different numeric types
-                if (int.TryParse(strValue, out int intVal))
-                    return intVal;
-                if (long.TryParse(strValue, out long longVal))
-                    return longVal;
-                if (double.TryParse(strValue, out double doubleVal))
-                    return doubleVal;
-                if (bool.TryParse(strValue, out bool boolVal))
-                    return boolVal;
-                
-                return strValue;
+ // Try to parse as different numeric types
+    if (int.TryParse(strValue, out int intVal))
+          return intVal;
+     if (long.TryParse(strValue, out long longVal))
+  return longVal;
+       if (double.TryParse(strValue, out double doubleVal))
+        return doubleVal;
+      if (bool.TryParse(strValue, out bool boolVal))
+        return boolVal;
+      
+return strValue;
             }
 
-            // Handle numeric types - ensure consistency
+       // Handle numeric types - preserve decimal type for better precision
+            if (value is decimal)
+                return value; // Keep decimal as decimal
+     
             if (value is int || value is long || value is short || value is byte)
-                return Convert.ToInt64(value);
-            
-            if (value is float || value is double || value is decimal)
-                return Convert.ToDouble(value);
-            
+     return Convert.ToInt64(value);
+     
+  if (value is float || value is double)
+   return Convert.ToDouble(value);
+     
             // Handle boolean
-            if (value is bool)
-                return value;
-            
-            // Handle DateTime/DateTimeOffset
+        if (value is bool)
+        return value;
+    
+  // Handle DateTime/DateTimeOffset
             if (value is DateTime || value is DateTimeOffset)
-                return value;
-            
-            // Return as-is for other types
+           return value;
+         
+     // Return as-is for other types
             return value;
-        }
+      }
 
         /// <summary>
         /// Helper method to convert various numeric types to double
@@ -481,47 +484,56 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         protected bool TryConvertToDouble(object value, out double result)
         {
             result = 0.0;
-            
+           
             if (value == null)
-                return false;
-                
-            if (value is double d)
-            {
-                result = d;
-                return true;
-            }
-            
+        return false;
+    
+      if (value is double d)
+         {
+        result = d;
+       return true;
+       }
+  
             if (value is float f)
-            {
-                result = f;
+    {
+          result = f;
                 return true;
-            }
+  }
             
-            if (value is int i)
+     if (value is int i)
             {
-                result = i;
-                return true;
+    result = i;
+      return true;
             }
-            
-            if (value is long l)
-            {
-                result = l;
-                return true;
+         
+      if (value is long l)
+       {
+     result = l;
+         return true;
             }
-            
+  
             if (value is decimal dec)
-            {
-                result = (double)dec;
+    {
+ result = (double)dec;
                 return true;
             }
             
-            if (value is string str && double.TryParse(str, out double parsed))
-            {
-                result = parsed;
-                return true;
-            }
-            
-            return false;
+      if (value is string str && double.TryParse(str, out double parsed))
+{
+         result = parsed;
+     return true;
+      }
+ 
+    // Try to convert as a last resort
+            try
+          {
+                result = Convert.ToDouble(value);
+  return true;
+    }
+      catch
+        {
+      return false;
+    }
         }
 
         /// <summary>
@@ -697,122 +709,194 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         /// <summary>
         /// Evaluate a predicate against a value
         /// </summary>
-        protected bool EvaluatePredicate(object actualValue, string predicate)
+      protected bool EvaluatePredicate(object actualValue, string predicate)
         {
-            // Normalize predicate - ensure it has closing parenthesis
-            if (!predicate.EndsWith(")"))
-                predicate += ")";
+   // Normalize predicate - ensure it has closing parenthesis
+    if (!predicate.EndsWith(")"))
+        predicate += ")";
 
-            // Handle comparison predicates
-            if (predicate.StartsWith("gt("))
-            {
-                var threshold = ExtractPredicateValue(predicate, "gt");
-                return CompareNumeric(actualValue, threshold, (a, b) => a > b);
-            }
-            else if (predicate.StartsWith("gte("))
-            {
-                var threshold = ExtractPredicateValue(predicate, "gte");
-                return CompareNumeric(actualValue, threshold, (a, b) => a >= b);
-            }
+    // Handle comparison predicates
+     if (predicate.StartsWith("gt("))
+      {
+       var threshold = ExtractPredicateValue(predicate, "gt");
+         return CompareNumeric(actualValue, threshold, (a, b) => a > b);
+       }
+else if (predicate.StartsWith("gte("))
+         {
+var threshold = ExtractPredicateValue(predicate, "gte");
+   return CompareNumeric(actualValue, threshold, (a, b) => a >= b);
+    }
             else if (predicate.StartsWith("lt("))
+   {
+  var threshold = ExtractPredicateValue(predicate, "lt");
+    return CompareNumeric(actualValue, threshold, (a, b) => a < b);
+   }
+    else if (predicate.StartsWith("lte("))
             {
-                var threshold = ExtractPredicateValue(predicate, "lt");
-                return CompareNumeric(actualValue, threshold, (a, b) => a < b);
-            }
-            else if (predicate.StartsWith("lte("))
-            {
-                var threshold = ExtractPredicateValue(predicate, "lte");
-                return CompareNumeric(actualValue, threshold, (a, b) => a <= b);
-            }
-            else if (predicate.StartsWith("eq("))
-            {
-                var expected = ExtractPredicateValue(predicate, "eq");
-                return CompareValues(actualValue, expected);
-            }
+        var threshold = ExtractPredicateValue(predicate, "lte");
+      return CompareNumeric(actualValue, threshold, (a, b) => a <= b);
+          }
+  else if (predicate.StartsWith("eq("))
+      {
+      var expected = ExtractPredicateValue(predicate, "eq");
+     return CompareValues(actualValue, expected);
+         }
             else if (predicate.StartsWith("neq("))
-            {
-                var expected = ExtractPredicateValue(predicate, "neq");
-                return !CompareValues(actualValue, expected);
+    {
+         var expected = ExtractPredicateValue(predicate, "neq");
+        return !CompareValues(actualValue, expected);
             }
-            else if (predicate.StartsWith("within("))
-            {
-                var values = ExtractWithinValues(predicate, "within");
-                return values.Any(v => CompareValues(actualValue, v));
-            }
-            else if (predicate.StartsWith("without("))
-            {
-                var values = ExtractWithinValues(predicate, "without");
-                return !values.Any(v => CompareValues(actualValue, v));
-            }
+else if (predicate.StartsWith("within("))
+     {
+   var values = ExtractWithinValues(predicate, "within");
+        return values.Any(v => CompareValues(actualValue, v));
+  }
+     else if (predicate.StartsWith("without("))
+     {
+    var values = ExtractWithinValues(predicate, "without");
+       return !values.Any(v => CompareValues(actualValue, v));
+  }
             // Handle string predicates
-            else if (predicate.StartsWith("containing("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "containing");
-                var actualStr = actualValue?.ToString() ?? "";
-                return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) >= 0;
+      else if (predicate.StartsWith("containing("))
+      {
+       var searchValue = ExtractPredicateValue(predicate, "containing");
+       var actualStr = actualValue?.ToString() ?? "";
+      return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) >= 0;
             }
-            else if (predicate.StartsWith("notContaining("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "notContaining");
-                var actualStr = actualValue?.ToString() ?? "";
-                return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
-            }
+   else if (predicate.StartsWith("notContaining("))
+ {
+   var searchValue = ExtractPredicateValue(predicate, "notContaining");
+       var actualStr = actualValue?.ToString() ?? "";
+            return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
+        }
             else if (predicate.StartsWith("startingWith("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "startingWith");
-                var actualStr = actualValue?.ToString() ?? "";
-                return actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
-            }
-            else if (predicate.StartsWith("notStartingWith("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "notStartingWith");
-                var actualStr = actualValue?.ToString() ?? "";
-                return !actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
-            }
-            else if (predicate.StartsWith("endingWith("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "endingWith");
-                var actualStr = actualValue?.ToString() ?? "";
-                return actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
-            }
-            else if (predicate.StartsWith("notEndingWith("))
-            {
-                var searchValue = ExtractPredicateValue(predicate, "notEndingWith");
-                var actualStr = actualValue?.ToString() ?? "";
-                return !actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
-            }
+ {
+     var searchValue = ExtractPredicateValue(predicate, "startingWith");
+         var actualStr = actualValue?.ToString() ?? "";
+return actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+ }
+  else if (predicate.StartsWith("notStartingWith("))
+     {
+   var searchValue = ExtractPredicateValue(predicate, "notStartingWith");
+     var actualStr = actualValue?.ToString() ?? "";
+        return !actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+ }
+else if (predicate.StartsWith("endingWith("))
+        {
+  var searchValue = ExtractPredicateValue(predicate, "endingWith");
+       var actualStr = actualValue?.ToString() ?? "";
+          return actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+ }
+        else if (predicate.StartsWith("notEndingWith("))
+         {
+    var searchValue = ExtractPredicateValue(predicate, "notEndingWith");
+     var actualStr = actualValue?.ToString() ?? "";
+   return !actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
+      }
 
             return false;
-        }
+}
 
         /// <summary>
-        /// Compare two values with type coercion
+      /// Compare two values with type coercion
         /// </summary>
-        private bool CompareValues(object actual, string expected)
+   private bool CompareValues(object actual, string expected)
         {
             if (actual == null && expected == null)
-                return true;
-            if (actual == null || expected == null)
+       return true;
+  if (actual == null || expected == null)
                 return false;
 
             // Try boolean comparison
-            if (bool.TryParse(expected, out bool expectedBool))
-            {
-                if (actual is bool actualBool)
-                    return actualBool == expectedBool;
-                if (bool.TryParse(actual.ToString(), out bool parsedBool))
-                    return parsedBool == expectedBool;
+        if (bool.TryParse(expected, out bool expectedBool))
+       {
+         if (actual is bool actualBool)
+           return actualBool == expectedBool;
+ if (bool.TryParse(actual.ToString(), out bool parsedBool))
+           return parsedBool == expectedBool;
             }
 
-            // Try numeric comparison
+// Try integer comparison first (before decimal)
+            if (int.TryParse(expected, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int expectedInt))
+   {
+       // Check if the expected value is actually an integer (no decimal point)
+       if (!expected.Contains(".") && !expected.Contains(","))
+     {
+          if (actual is int actualInt)
+   return actualInt == expectedInt;
+          
+           if (actual is long actualLong)
+     return actualLong == expectedInt;
+      
+      if (actual is short actualShort)
+   return actualShort == expectedInt;
+      
+                if (actual is byte actualByte)
+   return actualByte == expectedInt;
+    }
+            }
+
+// Try decimal comparison for decimal numbers
+      if (decimal.TryParse(expected, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal expectedDecimal))
+         {
+         // If actual is decimal, compare directly
+           if (actual is decimal actualDecimal)
+return actualDecimal == expectedDecimal;
+                
+    // Try to convert actual to decimal
+   if (actual is double actualDouble)
+             {
+   // Convert double to decimal for comparison
+         try
+     {
+      var actualAsDecimal = Convert.ToDecimal(actualDouble);
+      return actualAsDecimal == expectedDecimal;
+          }
+  catch
+      {
+  // Fallback to double comparison if conversion fails
+       }
+  }
+        
+     if (actual is float actualFloat)
+    {
+        try
+             {
+     var actualAsDecimal = Convert.ToDecimal(actualFloat);
+         return actualAsDecimal == expectedDecimal;
+     }
+         catch
+      {
+      // Fallback to double comparison if conversion fails
+             }
+  }
+                
+        if (actual is int actualIntForDecimal)
+        return actualIntForDecimal == expectedDecimal;
+ 
+     if (actual is long actualLongForDecimal)
+ return actualLongForDecimal == expectedDecimal;
+ }
+
+            // Try numeric comparison as fallback (for floating point without decimal points)
             if (double.TryParse(expected, out double expectedNum))
-            {
-                if (TryConvertToDouble(actual, out double actualNum))
-                    return Math.Abs(actualNum - expectedNum) < 0.0001;
-            }
+  {
+            if (TryConvertToDouble(actual, out double actualNum))
+     {
+          // For equality comparison, use exact equality
+   return actualNum == expectedNum;
+          }
+   }
 
-            // String comparison
-            return actual.ToString().Equals(expected, StringComparison.OrdinalIgnoreCase);
+          // String comparison - CASE-SENSITIVE to match CosmosDB behavior
+          // But only for actual string-to-string comparisons
+          if (actual is string || expected is string)
+      {
+     return actual.ToString().Equals(expected, StringComparison.OrdinalIgnoreCase);
+          }
+  
+  // For other types, use default equality
+return actual.Equals(expected);
         }
 
         /// <summary>
@@ -820,20 +904,42 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         /// </summary>
         private bool CompareNumeric(object actualValue, string thresholdStr, Func<double, double, bool> comparison)
         {
-            if (double.TryParse(thresholdStr, out double threshold))
+  // First try to parse as decimal for better precision
+       if (decimal.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal thresholdDecimal))
+            {
+    // If actual value is decimal, compare as decimals
+         if (actualValue is decimal actualDecimal)
+          {
+   // Convert comparison to work with decimal
+   var thresholdAsDouble = (double)thresholdDecimal;
+     var actualAsDouble = (double)actualDecimal;
+ return comparison(actualAsDouble, thresholdAsDouble);
+              }
+            
+     // Otherwise convert to double
+                if (TryConvertToDouble(actualValue, out double actualDouble))
+       {
+     var thresholdAsDouble = (double)thresholdDecimal;
+         return comparison(actualDouble, thresholdAsDouble);
+  }
+            }
+      
+         // Fallback to original double parsing
+            if (double.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double threshold))
             {
                 if (TryConvertToDouble(actualValue, out double actual))
-                {
-                    return comparison(actual, threshold);
-                }
+  {
+        return comparison(actual, threshold);
+    }
             }
-            return false;
+       
+         return false;
         }
 
         /// <summary>
         /// Extract value from a predicate like "gt(25)"
         /// </summary>
-        private string ExtractPredicateValue(string predicate, string predicateName)
+    private string ExtractPredicateValue(string predicate, string predicateName)
         {
             var content = ExtractBetweenParentheses(predicate, predicateName);
             return content?.Trim().Trim('\'', '"') ?? "";

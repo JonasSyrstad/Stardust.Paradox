@@ -31,12 +31,86 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             "Filters results based on conditional predicates. " +
             "Supports patterns like hasId(), otherV().hasId(), and select('label').predicate() for filtering.";
 
+        /// <summary>
+        /// Handle logical operators like or(...) and and(...) within where() step
+        /// </summary>
+        private void HandleLogicalOperator(TinkerGraphStep step, TinkerTraversalContext context, string predicate)
+        {
+            bool isOrOperator = predicate.StartsWith("or(");
+     
+            // Extract the conditions between the parentheses
+            var conditionsStart = predicate.IndexOf('(') + 1;
+            var conditionsEnd = predicate.LastIndexOf(')');
+       
+            if (conditionsEnd <= conditionsStart)
+              return; // Invalid format
+
+            var conditionsStr = predicate.Substring(conditionsStart, conditionsEnd - conditionsStart);
+  
+            // Split by commas but respect nested parentheses
+            var conditions = SplitConditions(conditionsStr);
+
+            // Create a new step with the or() or and() arguments for the respective executor
+            var logicalStep = new TinkerGraphStep(isOrOperator ? "or" : "and");
+            foreach (var condition in conditions)
+       {
+          logicalStep.Arguments.Add(condition);
+    }
+    
+            // Get the appropriate executor
+            var executorType = isOrOperator ? typeof(OrStepExecutor) : typeof(AndStepExecutor);
+            var executor = System.Activator.CreateInstance(executorType, Database) as IStepExecutor;
+   
+            if (executor != null)
+            {
+                executor.Execute(logicalStep, context);
+            }
+        }
+
+        /// <summary>
+        /// Split conditions by comma, respecting nested parentheses
+        /// </summary>
+        private List<string> SplitConditions(string conditionsStr)
+        {
+            var conditions = new List<string>();
+            var currentCondition = "";
+            var parenDepth = 0;
+       
+            foreach (var ch in conditionsStr)
+             {
+                if (ch == '(')
+                    parenDepth++;
+                else if (ch == ')')
+                    parenDepth--;
+                else if (ch == ',' && parenDepth == 0)
+                 {
+                    conditions.Add(currentCondition.Trim());
+                    currentCondition = "";
+                    continue;
+               }
+       
+                currentCondition += ch;
+            }
+    
+            if (!string.IsNullOrWhiteSpace(currentCondition))
+                conditions.Add(currentCondition.Trim());
+     
+            return conditions;
+        }
+
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
             if (step.Arguments.Count == 0)
                 return;
 
             var predicate = step.Arguments[0].ToString();
+
+            // Handle or(...) and and(...) logical operators first
+            if (predicate.StartsWith("or(") || predicate.StartsWith("and("))
+            {
+                HandleLogicalOperator(step, context, predicate);
+                return;
+            }
 
             // Handle select('label').not(has(...)) pattern
             var selectNotHasMatch = Regex.Match(predicate, @"select\(['""]?(\w+)['""]?\)\.not\(has\(['""]?(\w+)['""]?\s*,\s*['""]?([^'""]+)['""]?\)\)", RegexOptions.IgnoreCase);

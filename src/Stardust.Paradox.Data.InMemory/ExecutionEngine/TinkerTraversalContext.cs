@@ -182,23 +182,88 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 }
                 else
                 {
-                    // For vertex and edge objects, apply simple deduplication based on ID
-                    var valueKey = GetDeduplicationKey(value);
-                    if (!seen.Contains(valueKey))
+                    // Check if this is a graph element (vertex or edge) that should be deduplicated
+                    bool isGraphElement = IsGraphElementForDeduplication(value);
+                    
+                    if (isGraphElement)
                     {
-                        seen.Add(valueKey);
-                        
-                        // If it's a single value, repeat it according to bulk
+                        // For vertex and edge objects, apply simple deduplication based on ID
+                        var valueKey = GetDeduplicationKey(value);
+                        if (!seen.Contains(valueKey))
+                        {
+                            seen.Add(valueKey);
+                            
+                            // If it's a single value, repeat it according to bulk
+                            for (int i = 0; i < traverser.Bulk; i++)
+                            {
+                                results.Add(value);
+                            }
+                        }
+                        // If already seen, skip to avoid duplicates
+                    }
+                    else
+                    {
+                        // For primitive values (from .values() step), don't deduplicate
+                        // Just repeat according to bulk
                         for (int i = 0; i < traverser.Bulk; i++)
                         {
                             results.Add(value);
                         }
                     }
-                    // If already seen, skip to avoid duplicates
                 }
             }
             
             return results;
+        }
+        
+        /// <summary>
+        /// Check if a value is a graph element that should be deduplicated
+        /// </summary>
+        private bool IsGraphElementForDeduplication(dynamic value)
+        {
+            if (value == null) return false;
+            
+            // Primitive types should not be deduplicated
+            if (value is string || value is int || value is long || value is bool || 
+                value is decimal || value is double || value is float ||
+                value is DateTime || value is Guid)
+            {
+                return false;
+            }
+            
+            try
+            {
+                // Check for GremlinResponseObject (always a graph element)
+                if (value is GremlinResponseObject)
+                {
+                    return true;
+                }
+                
+                // Check for common graph element properties
+                if (value is IDictionary<string, object> dict)
+                {
+                    return dict.ContainsKey("id") && (dict.ContainsKey("label") || dict.ContainsKey("type"));
+                }
+                
+                // Try dynamic property access for graph elements
+                try
+                {
+                    var hasId = value.id != null;
+                    var hasLabel = value.label != null;
+                    var hasType = value.type != null;
+                    
+                    return hasId && (hasLabel || hasType);
+                }
+                catch
+                {
+                    // If we can't access these properties dynamically, it's not a graph element
+                    return false;
+                }
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -598,11 +663,17 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 
         /// <summary>
         /// Range of traversers (skip + limit combined) with TinkerGraph optimization
+        /// In Gremlin, range(low, high) with high=-1 means "skip low and take all remaining"
         /// </summary>
         public void Range(long low, long high)
         {
             Skip(low);
-            Limit(high - low);
+            
+            // In Gremlin, high=-1 means "take all remaining", so don't apply limit
+            if (high != -1)
+            {
+                Limit(high - low);
+            }
         }
 
         /// <summary>
