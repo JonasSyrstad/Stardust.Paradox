@@ -4,6 +4,7 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data.Linq
 {
@@ -1074,31 +1075,31 @@ case ExpressionType.GreaterThanOrEqual:
 
         private string TranslateBinaryLogical(BinaryExpression binary, string parameterName)
         {
-     var left = TranslatePredicate(binary.Left, parameterName);
-   var right = TranslatePredicate(binary.Right, parameterName);
+       var left = TranslatePredicate(binary.Left, parameterName);
+       var right = TranslatePredicate(binary.Right, parameterName);
     
-    // For AndAlso, just concatenate the predicates
+      // For AndAlso, just concatenate the predicates
   if (binary.NodeType == ExpressionType.AndAlso)
-     {
- return left + right;
-      }
-       // For OrElse, collect all OR conditions and flatten them
-      else if (binary.NodeType == ExpressionType.OrElse)
- {
-      // Collect all OR conditions into a flat list
-       var conditions = new List<string>();
- CollectOrConditions(binary, conditions);
-    
-     if (conditions.Count > 0)
        {
-           // Create a single flat or() statement with all conditions
-    return $".where(or({string.Join(", ", conditions)}))";
-         }
-       // Fallback if extraction fails
-          return left + right;
-  }
+     return left + right;
+ }
+      // For OrElse, collect all OR conditions and flatten them
+       else if (binary.NodeType == ExpressionType.OrElse)
+   {
+      // Collect all OR conditions into a flat list
+   var conditions = new List<string>();
+            CollectOrConditions(binary, conditions);
+  
+       if (conditions.Count > 0)
+      {
+     // Create a single flat or() statement with all conditions
+   return $".where(or({string.Join(", ", conditions)}))";
+       }
+   // Fallback if extraction fails
+      return left + right;
+        }
 
-         return string.Empty;
+    return string.Empty;
    }
 
         /// <summary>
@@ -1132,19 +1133,20 @@ if (expression is BinaryExpression binaryExpr && binaryExpr.NodeType == Expressi
   if (string.IsNullOrEmpty(predicate))
      return string.Empty;
  
- // Remove leading dot and any .where() wrapper
-  if (predicate.StartsWith(".where(or(") && predicate.EndsWith("))"))
-    {
-     // This shouldn't happen with the new CollectOrConditions, but handle it anyway
-      predicate = predicate.Substring(".where(or(".Length, predicate.Length - ".where(or(".Length - 2);
-    }
-   else if (predicate.StartsWith("."))
-{
-   predicate = predicate.Substring(1);
-  }
+            // Remove leading dot and any .where() wrapper
+            if (predicate.StartsWith(".where(or(") && predicate.EndsWith("))"))
+            {
+                // This shouldn't happen with the new CollectOrConditions, but handle it anyway
+  predicate = predicate.Substring(".where(or(".Length, predicate.Length - ".where(or(".Length - 2);
+            }
+       else if (predicate.StartsWith("."))
+            {
+     // Remove the leading dot
+          predicate = predicate.Substring(1);
+            }
      
- return predicate;
-        }
+        return predicate;
+   }
 
    private string TranslateNot(UnaryExpression unary, string parameterName)
         {
@@ -1247,13 +1249,26 @@ return compiled();
       {
      // Extract property name from p => p.Companies
     if (expression is MemberExpression memberExpr)
-      {
-   // Convert property name to camelCase for edge label
-         return ToCamelCase(memberExpr.Member.Name);
-   }
+  {
+            var propertyInfo = memberExpr.Member as PropertyInfo;
+       if (propertyInfo != null)
+   {
+     // Check for attributes on the property
+    var edgeLabelAttr = propertyInfo.GetCustomAttribute<EdgeLabelAttribute>();
+         if (edgeLabelAttr != null)
+   return edgeLabelAttr.Label;
+        
+             var reverseLabelAttr = propertyInfo.GetCustomAttribute<ReverseEdgeLabelAttribute>();
+ if (reverseLabelAttr != null)
+   return reverseLabelAttr.ReverseLabel;
+    }
+ 
+   // Fallback: Convert property name to camelCase for edge label
+  return ToCamelCase(memberExpr.Member.Name);
+  }
 
-   return null;
-        }
+return null;
+   }
 
         private string FormatValue(object value)
    {

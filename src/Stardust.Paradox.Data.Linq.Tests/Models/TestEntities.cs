@@ -12,9 +12,16 @@ namespace Stardust.Paradox.Data.Linq.Tests.Models
         decimal Score { get; set; }
         string City { get; set; }
         
+        [OutLabel("worksAt")]
         IEdgeCollection<ICompany> Companies { get; }
+        
+        [OutLabel("friendsWith")]
         IEdgeCollection<IPerson> Friends { get; }
+
+        [OutLabel("assignedTo")]
         IEdgeCollection<IProject> Projects { get; }
+     
+        [OutLabel("hasSkill")]
         IEdgeCollection<ISkill> Skills { get; }
     }
     
@@ -26,6 +33,7 @@ namespace Stardust.Paradox.Data.Linq.Tests.Models
         int EmployeeCount { get; set; }
         int Founded { get; set; }
         
+        [InLabel("worksAt")]
         IEdgeCollection<IPerson> Employees { get; }
     }
     
@@ -37,6 +45,7 @@ namespace Stardust.Paradox.Data.Linq.Tests.Models
         int Budget { get; set; }
         int Priority { get; set; }
         
+        [InLabel("assignedTo")]
         IEdgeCollection<IPerson> TeamMembers { get; }
     }
     
@@ -47,6 +56,7 @@ namespace Stardust.Paradox.Data.Linq.Tests.Models
         string Category { get; set; }
         string Level { get; set; }
         
+        [InLabel("hasSkill")]
         IEdgeCollection<IPerson> Practitioners { get; }
     }
     
