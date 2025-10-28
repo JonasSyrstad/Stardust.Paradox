@@ -295,13 +295,13 @@ namespace Stardust.Paradox.Data.Linq.Tests
         [Fact(Skip = "InMemory execution engine does not correctly evaluate or(has('name', containing('Alice')), has('email', containing('diana'))) - LINQ translator works correctly")]
         public void WhereOr_WithStringContains()
         {
-   // Arrange & Act
-         var result = Context.People.AsQueryable()
-     .Where(p => p.Name.Contains("Alice") || p.Email.Contains("diana"))
-     .ToList();
+            // Arrange & Act
+            var result = Context.People.AsQueryable()
+        .Where(p => p.Name.Contains("Alice") || p.Email.Contains("diana"))
+        .ToList();
 
             // Assert
- result.Should().HaveCount(2);
+            result.Should().HaveCount(2);
         }
 
         [Fact()]
@@ -323,15 +323,15 @@ namespace Stardust.Paradox.Data.Linq.Tests
 
         [Fact()]
         public void All_ChecksConditionForAllElements()
-      {
-     // Arrange & Act
-          // Note: Testing p.Email != null instead of p.Email.Length > 0
-     // because .Length property access cannot be directly translated to Gremlin
-     var allHaveEmail = Context.People.AsQueryable()
-           .All(p => p.Email != null);
+        {
+            // Arrange & Act
+            // Note: Testing p.Email != null instead of p.Email.Length > 0
+            // because .Length property access cannot be directly translated to Gremlin
+            var allHaveEmail = Context.People.AsQueryable()
+                  .All(p => p.Email != null);
 
- // Assert
+            // Assert
             allHaveEmail.Should().BeTrue();
         }
-}
+    }
 }
