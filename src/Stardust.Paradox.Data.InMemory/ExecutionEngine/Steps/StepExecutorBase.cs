@@ -698,12 +698,15 @@ return strValue;
         /// <summary>
         /// Check if a string is a predicate (gt, lt, within, etc.)
         /// </summary>
-        private bool IsPredicate(string value)
-        {
-            return value.StartsWith("gt(") || value.StartsWith("gte(") ||
-                   value.StartsWith("lt(") || value.StartsWith("lte(") ||
-                   value.StartsWith("eq(") || value.StartsWith("neq(") ||
-                   value.StartsWith("within(") || value.StartsWith("without(");
+      private bool IsPredicate(string value)
+   {
+  return value.StartsWith("gt(") || value.StartsWith("gte(") ||
+ value.StartsWith("lt(") || value.StartsWith("lte(") ||
+value.StartsWith("eq(") || value.StartsWith("neq(") ||
+       value.StartsWith("within(") || value.StartsWith("without(") ||
+          value.StartsWith("containing(") || value.StartsWith("notContaining(") ||
+       value.StartsWith("startingWith(") || value.StartsWith("notStartingWith(") ||
+        value.StartsWith("endingWith(") || value.StartsWith("notEndingWith(");
         }
 
         /// <summary>
@@ -768,8 +771,8 @@ else if (predicate.StartsWith("within("))
    var searchValue = ExtractPredicateValue(predicate, "notContaining");
        var actualStr = actualValue?.ToString() ?? "";
             return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
-        }
-            else if (predicate.StartsWith("startingWith("))
+ }
+  else if (predicate.StartsWith("startingWith("))
  {
      var searchValue = ExtractPredicateValue(predicate, "startingWith");
          var actualStr = actualValue?.ToString() ?? "";

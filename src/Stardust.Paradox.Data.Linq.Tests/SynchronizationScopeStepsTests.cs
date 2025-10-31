@@ -131,7 +131,7 @@ var gremlin = query.ToString();
             gremlin.Should().Contain(".limit(3)");
         }
 
-      [Fact(Skip = "Local with Count returns int, not IVertex - needs different signature")]
+      [Fact()]
         public void Local_WithAggregation_ShouldGenerateCorrectGremlin()
   {
       // Arrange & Act
@@ -279,7 +279,7 @@ var query = Context.People.AsQueryable()
           gremlin.Should().Contain(".group()");
  }
 
-      [Fact(Skip = "Local with projection to anonymous type requires different handling")]
+      [Fact()]
         public void Local_WithProjection_ShouldGenerateCorrectGremlin()
   {
   // Arrange & Act

@@ -228,7 +228,7 @@ var gremlin = query.ToString();
             gremlin.Should().Contain(".select('person')");
 }
 
- [Fact(Skip = "SelectByLabels requires starting from correct type")]
+ [Fact()]
   public void SelectByLabels_WithMultipleLabels_ShouldGenerateCorrectGremlin()
    {
      // Arrange & Act

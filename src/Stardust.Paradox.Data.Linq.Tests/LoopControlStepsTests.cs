@@ -193,7 +193,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
 
         #region Loops() Tests
 
-        [Fact(Skip = "Loops() in predicates requires special translator support - pending implementation")]
+        [Fact()]
         public void Loops_InRepeat_ShouldGenerateCorrectGremlin()
         {
             // Arrange & Act
@@ -235,7 +235,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
             gremlin.Should().Contain(".until(");
         }
 
-        [Fact(Skip = "Cross-type repeat (Person->Company) requires special handling - use separate query")]
+        [Fact()]
         public void Repeat_WithCompanyTraversal_ShouldGenerateCorrectGremlin()
         {
             // Arrange & Act
@@ -253,7 +253,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
             gremlin.Should().Contain("hasLabel('company')");
         }
 
-        [Fact(Skip = "Cross-type multi-hop repeat requires special handling")]
+        [Fact()]
         public void Repeat_WithMultipleEdgeTypes_ShouldGenerateCorrectGremlin()
         {
             // Arrange & Act

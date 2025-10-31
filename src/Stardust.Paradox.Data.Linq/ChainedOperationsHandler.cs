@@ -1,8 +1,10 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Stardust.Paradox.Data.Linq
 {
@@ -12,6 +14,12 @@ namespace Stardust.Paradox.Data.Linq
     /// </summary>
     internal class ChainedOperationsHandler
     {
+        // Method cache for reflection-based method lookups
+        private static readonly ConcurrentDictionary<string, MethodInfo> _methodCache =
+            new ConcurrentDictionary<string, MethodInfo>(
+                concurrencyLevel: Environment.ProcessorCount * 2,
+                capacity: 32);
+
         /// <summary>
         /// Checks if the expression contains operations that need client-side handling after projection
         /// </summary>
@@ -56,9 +64,12 @@ namespace Stardust.Paradox.Data.Linq
             if (extractor.Operations.Count == 0)
                 return projectedData;
 
-            // Convert to queryable
-            var asQueryableMethod = typeof(Queryable).GetMethods()
-             .First(m => m.Name == "AsQueryable" && m.IsGenericMethod && m.GetParameters().Length == 1);
+            // Convert to queryable using cached method
+            var asQueryableKey = "AsQueryable_1";
+            var asQueryableMethod = _methodCache.GetOrAdd(asQueryableKey, _ =>
+               typeof(Queryable).GetMethods()
+ .First(m => m.Name == "AsQueryable" && m.IsGenericMethod && m.GetParameters().Length == 1));
+
             var queryable = asQueryableMethod.MakeGenericMethod(elementType).Invoke(null, new[] { projectedData });
 
             // Apply each operation in order
@@ -80,17 +91,19 @@ namespace Stardust.Paradox.Data.Linq
                 }
             }
 
-            // Convert result to expected type
+            // Convert result to expected type using cached method
             if (resultType.IsGenericType)
             {
                 var genericDef = resultType.GetGenericTypeDefinition();
                 if (genericDef == typeof(List<>) || genericDef == typeof(IEnumerable<>))
                 {
                     // Convert IQueryable to List
-                    var toListMethod = typeof(Enumerable).GetMethods()
-                        .First(m => m.Name == "ToList" && m.GetParameters().Length == 1)
-                      .MakeGenericMethod(currentElementType);
-                    return toListMethod.Invoke(null, new[] { currentResult });
+                    var toListKey = "ToList_1";
+                    var toListMethod = _methodCache.GetOrAdd(toListKey, _ =>
+          typeof(Enumerable).GetMethods()
+       .First(m => m.Name == "ToList" && m.GetParameters().Length == 1));
+
+                    return toListMethod.MakeGenericMethod(currentElementType).Invoke(null, new[] { currentResult });
                 }
             }
 
@@ -212,15 +225,17 @@ namespace Stardust.Paradox.Data.Linq
             public object Apply(object queryable, Type elementType)
             {
                 var methodName = _isThenBy
-       ? (_descending ? "ThenByDescending" : "ThenBy")
-         : (_descending ? "OrderByDescending" : "OrderBy");
+     ? (_descending ? "ThenByDescending" : "ThenBy")
+      : (_descending ? "OrderByDescending" : "OrderBy");
                 var keyType = _keySelector.ReturnType;
 
-                var orderByMethod = typeof(Queryable).GetMethods()
-             .First(m => m.Name == methodName && m.GetParameters().Length == 2)
-              .MakeGenericMethod(elementType, keyType);
+                // Use cached method lookup
+                var cacheKey = $"{methodName}_2";
+                var orderByMethod = _methodCache.GetOrAdd(cacheKey, _ =>
+     typeof(Queryable).GetMethods()
+                    .First(m => m.Name == methodName && m.GetParameters().Length == 2));
 
-                return orderByMethod.Invoke(null, new[] { queryable, _keySelector });
+                return orderByMethod.MakeGenericMethod(elementType, keyType).Invoke(null, new[] { queryable, _keySelector });
             }
         }
 
@@ -237,11 +252,13 @@ namespace Stardust.Paradox.Data.Linq
             {
                 var keyType = _keySelector.ReturnType;
 
-                var groupByMethod = typeof(Queryable).GetMethods()
-                .First(m => m.Name == "GroupBy" && m.GetParameters().Length == 2)
-             .MakeGenericMethod(elementType, keyType);
+                // Use cached method lookup
+                var cacheKey = "GroupBy_2";
+                var groupByMethod = _methodCache.GetOrAdd(cacheKey, _ =>
+                typeof(Queryable).GetMethods()
+      .First(m => m.Name == "GroupBy" && m.GetParameters().Length == 2));
 
-                return groupByMethod.Invoke(null, new[] { queryable, _keySelector });
+                return groupByMethod.MakeGenericMethod(elementType, keyType).Invoke(null, new[] { queryable, _keySelector });
             }
 
             public Type GetResultElementType(Type sourceElementType)
@@ -264,11 +281,13 @@ namespace Stardust.Paradox.Data.Linq
             {
                 var resultType = _selector.ReturnType;
 
-                var selectMethod = typeof(Queryable).GetMethods()
-          .First(m => m.Name == "Select" && m.GetParameters().Length == 2)
-        .MakeGenericMethod(elementType, resultType);
+                // Use cached method lookup
+                var cacheKey = "Select_2";
+                var selectMethod = _methodCache.GetOrAdd(cacheKey, _ =>
+       typeof(Queryable).GetMethods()
+      .First(m => m.Name == "Select" && m.GetParameters().Length == 2));
 
-                return selectMethod.Invoke(null, new[] { queryable, _selector });
+                return selectMethod.MakeGenericMethod(elementType, resultType).Invoke(null, new[] { queryable, _selector });
             }
 
             public Type GetResultElementType()

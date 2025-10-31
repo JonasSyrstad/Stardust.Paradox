@@ -19,7 +19,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
 
         #region Real-World Query Scenarios
 
-    [Fact(Skip = "Loops() in predicates requires translator support - shows intended API")]
+    [Fact()]
  public void FindAllTransitiveFriends_WithRepeatUntilEmit_ShouldGenerateCorrectGremlin()
         {
             // Arrange & Act - Find all transitive friends up to depth 5
@@ -105,7 +105,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
          gremlin.Should().Contain(".times(10)");
         }
 
-        [Fact(Skip = "GroupBy + Barrier + Local with complex types needs additional API support")]
+        [Fact()]
         public void FindSkillNetwork_WithLocalAndBarrier_ShouldGenerateCorrectGremlin()
   {
   // Arrange & Act - Find top 3 skilled people for each skill category
@@ -154,7 +154,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
             gremlin.Should().Contain(".limit(10)");
         }
 
-  [Fact(Skip = "Cycle detection with As in Until predicate needs translator support")]
+  [Fact()]
         public void CycleDetection_WithRepeatUntilPath_ShouldGenerateCorrectGremlin()
     {
     // Arrange & Act - Detect cycles in friend network
@@ -251,7 +251,7 @@ gremlin.Should().Contain(".repeat(");
         gremlin.Should().Contain(".dedup()");
         }
 
-        [Fact(Skip = "GroupBy + Local needs special handling for IGrouping types")]
+        [Fact]
         public void PaginatedResults_WithLocalAndBarrier_ShouldGenerateCorrectGremlin()
         {
       // Arrange & Act - Get paginated results per group
@@ -293,7 +293,7 @@ gremlin.Should().Contain(".repeat(");
        gremlin.Should().Contain(".dedup()");
         }
 
-        [Fact(Skip = "Match pattern with Id comparisons needs translator support")]
+        [Fact()]
         public void CommonEmployer_WithMatchSelectPath_ShouldGenerateCorrectGremlin()
   {
   // Arrange & Act - Find common employers with path tracking
@@ -389,7 +389,7 @@ gremlin.Should().Contain(".repeat(");
      gremlin.Should().Contain(".select('start', 'hop1', 'hop2')");
         }
 
- [Fact(Skip = "Loops() in emit predicate requires translator support")]
+ [Fact()]
         public void VariableHopConnection_WithRepeatEmit_ShouldGenerateCorrectGremlin()
   {
     // Arrange & Act - Find all hops from 1 to 4
@@ -414,7 +414,7 @@ gremlin.Should().Contain(".repeat(");
 
         #region Error Handling and Edge Cases
 
-        [Fact(Skip = "Loops() in until predicate requires translator support")]
+        [Fact()]
      public void ComplexQuery_WithAllNewSteps_ShouldGenerateValidGremlin()
         {
             // Arrange & Act - Combine all new steps

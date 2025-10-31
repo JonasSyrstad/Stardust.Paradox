@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Stardust.Paradox.Data.Linq.Tests.Models;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Stardust.Paradox.Data.Linq.Tests
 {
@@ -10,6 +11,12 @@ namespace Stardust.Paradox.Data.Linq.Tests
     /// </summary>
     public class UnionAndBranchTests : LinqTestBase
     {
+        private readonly ITestOutputHelper _output;
+
+        public UnionAndBranchTests(ITestOutputHelper output)
+        {
+            _output = output;
+        }
         [Fact()]
         public void Concat_CombinesTwoQueries()
         {
@@ -292,14 +299,14 @@ namespace Stardust.Paradox.Data.Linq.Tests
             result.Should().NotBeEmpty();
         }
 
-        [Fact(Skip = "InMemory execution engine does not correctly evaluate or(has('name', containing('Alice')), has('email', containing('diana'))) - LINQ translator works correctly")]
+        [Fact()]
         public void WhereOr_WithStringContains()
         {
             // Arrange & Act
             var result = Context.People.AsQueryable()
         .Where(p => p.Name.Contains("Alice") || p.Email.Contains("diana"))
         .ToList();
-
+            _output.WriteLine(Connector.GetQueryLog().First().Query);
             // Assert
             result.Should().HaveCount(2);
         }

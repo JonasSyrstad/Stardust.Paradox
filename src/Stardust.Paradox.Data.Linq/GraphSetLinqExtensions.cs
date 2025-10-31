@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -14,32 +15,48 @@ namespace Stardust.Paradox.Data.Linq
     /// </summary>
     public static class GraphSetLinqExtensions
     {
-        /// <summary>
-        /// Creates a LINQ-queryable interface for a vertex graph set
+  // Provider cache to reuse providers for same entity types
+     private static readonly ConcurrentDictionary<(IGraphContext, string), GremlinQueryProvider> _providerCache =
+  new ConcurrentDictionary<(IGraphContext, string), GremlinQueryProvider>(
+      concurrencyLevel: Environment.ProcessorCount,
+   capacity: 32);
+
+  /// <summary>
+     /// Creates a LINQ-queryable interface for a vertex graph set
         /// </summary>
         /// <typeparam name="T">The vertex type</typeparam>
         /// <param name="graphSet">The graph set</param>
         /// <returns>An IQueryable for LINQ operations</returns>
         public static IQueryable<T> AsQueryable<T>(this IGraphSet<T> graphSet)
-            where T : IVertex
-        {
-            var label = GetLabel(typeof(T));
-            var provider = new GremlinQueryProvider(graphSet.Context, label);
-            return new GraphQueryable<T>(provider);
+         where T : IVertex
+    {
+  var label = GetLabel(typeof(T));
+    
+     // Use cached provider for same context and label
+   var key = (graphSet.Context, label);
+var provider = _providerCache.GetOrAdd(key, _ => 
+  new GremlinQueryProvider(graphSet.Context, label));
+     
+ return new GraphQueryable<T>(provider);
         }
 
-        /// <summary>
+   /// <summary>
         /// Creates a LINQ-queryable interface for an edge graph set
-        /// </summary>
+/// </summary>
         /// <typeparam name="T">The edge type</typeparam>
-        /// <param name="graphSet">The edge graph set</param>
-        /// <returns>An IQueryable for LINQ operations</returns>
-        public static IQueryable<T> AsQueryable<T>(this IEdgeGraphSet<T> graphSet)
-            where T : IEdgeEntity
-        {
-            var label = GetLabel(typeof(T));
-            var provider = new GremlinQueryProvider(graphSet.Context, label);
-            return new GraphQueryable<T>(provider);
+ /// <param name="graphSet">The edge graph set</param>
+    /// <returns>An IQueryable for LINQ operations</returns>
+    public static IQueryable<T> AsQueryable<T>(this IEdgeGraphSet<T> graphSet)
+     where T : IEdgeEntity
+  {
+     var label = GetLabel(typeof(T));
+  
+        // Use cached provider for same context and label
+  var key = (graphSet.Context, label);
+        var provider = _providerCache.GetOrAdd(key, _ => 
+new GremlinQueryProvider(graphSet.Context, label));
+      
+   return new GraphQueryable<T>(provider);
         }
 
         /// <summary>
