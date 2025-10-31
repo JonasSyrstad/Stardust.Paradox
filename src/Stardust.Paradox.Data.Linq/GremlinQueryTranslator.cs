@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Text;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Linq.Visitors;
+using Stardust.Paradox.Data.Linq.Infrastructure;
 
 namespace Stardust.Paradox.Data.Linq
 {
@@ -233,12 +234,17 @@ public bool UseSingleOrDefault => _useSingleOrDefault;
 
         // IVisitorContext helper methods
         string IVisitorContext.ToCamelCase(string name) => ToCamelCase(name);
-        string IVisitorContext.TranslatePredicate(Expression expression, string parameterName) => TranslatePredicate(expression, parameterName);
+ string IVisitorContext.TranslatePredicate(Expression expression, string parameterName) => TranslatePredicate(expression, parameterName);
         string IVisitorContext.GetPropertyName(Expression expression) => GetPropertyName(expression);
         object IVisitorContext.GetValue(Expression expression) => GetValue(expression);
-   string IVisitorContext.FormatValueWithParameterization(object value) => FormatValueWithParameterization(value);
-    Expression IVisitorContext.StripQuotes(Expression expression) => StripQuotes(expression);
-Expression IVisitorContext.VisitExpression(Expression expression) => Visit(expression);
+      string IVisitorContext.FormatValueWithParameterization(object value) => FormatValueWithParameterization(value);
+        Expression IVisitorContext.StripQuotes(Expression expression) => StripQuotes(expression);
+        Expression IVisitorContext.VisitExpression(Expression expression) => Visit(expression);
+
+        // Edge label resolution methods
+        string IVisitorContext.GetInEdgeLabel(Type entityType, MemberInfo member) => EdgeLabelResolver.GetInEdgeLabel(entityType, member);
+        string IVisitorContext.GetOutEdgeLabel(Type entityType, MemberInfo member) => EdgeLabelResolver.GetOutEdgeLabel(entityType, member);
+        string IVisitorContext.GetAnyEdgeLabel(Type entityType, MemberInfo member) => EdgeLabelResolver.GetAnyEdgeLabel(entityType, member);
 
         // Keep existing helper methods (used by context and legacy code)
     internal string TranslatePredicate(Expression expression, string parameterName)
@@ -480,7 +486,7 @@ var right = TranslatePredicate(binary.Right, parameterName);
             return GetPropertyName(unaryExpr.Operand);
      }
 
-            return null;
+      return null;
         }
 
         internal object GetValue(Expression expression)
@@ -539,16 +545,23 @@ var getter = getterLambda.Compile();
         }
 
  protected override Expression VisitConstant(ConstantExpression node)
-        {
-   // Check if this is a GraphQueryable
- if (node.Value != null && node.Value.GetType().IsGenericType &&
-      node.Value.GetType().GetGenericTypeDefinition() == typeof(GraphQueryable<>))
-       {
-         // Extract element type
-       _elementType = node.Type.GetGenericArguments()[0];
+ {
+            // Check if this is a GraphQueryable using cached type operations
+   if (node.Value != null && ReflectionCache.IsGenericType(node.Value.GetType()))
+            {
+var nodeType = node.Value.GetType();
+   if (nodeType.GetGenericTypeDefinition() == typeof(GraphQueryable<>))
+  {
+  // Extract element type using cached generic arguments
+        var genericArgs = ReflectionCache.GetGenericArguments(node.Type);
+          if (genericArgs.Length > 0)
+      {
+           _elementType = genericArgs[0];
          }
+            }
+            }
 
             return node;
-    }
+        }
     }
 }

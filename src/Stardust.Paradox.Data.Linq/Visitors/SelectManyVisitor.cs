@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Stardust.Paradox.Data.Linq.Infrastructure;
 
 namespace Stardust.Paradox.Data.Linq.Visitors
 {
@@ -25,10 +26,10 @@ namespace Stardust.Paradox.Data.Linq.Visitors
             context.ClientSideProjection = lambda;
       
             // For SelectMany, the element type is the element inside the collection, not the collection itself
-            // The lambda returns IEnumerable<T>, so we need to extract T
-            if (lambda.ReturnType.IsGenericType)
+            // The lambda returns IEnumerable<T>, so we need to extract T using cached reflection
+            if (ReflectionCache.IsGenericType(lambda.ReturnType))
             {
-                var genericArgs = lambda.ReturnType.GetGenericArguments();
+                var genericArgs = ReflectionCache.GetGenericArguments(lambda.ReturnType);
                 if (genericArgs.Length > 0)
                 {
                     context.ElementType = genericArgs[0]; // Extract T from IEnumerable<T>

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text;
 
 namespace Stardust.Paradox.Data.Linq.Visitors
@@ -144,5 +145,20 @@ bool IsFirstQuery { get; set; }
  /// Visits a child expression using the translator's Visit method
         /// </summary>
         Expression VisitExpression(Expression expression);
+
+        /// <summary>
+        /// Gets the In-edge label for a navigation property (from fluent config or attributes)
+        /// </summary>
+        string GetInEdgeLabel(Type entityType, MemberInfo member);
+
+        /// <summary>
+        /// Gets the Out-edge label for a navigation property (from fluent config or attributes)
+        /// </summary>
+        string GetOutEdgeLabel(Type entityType, MemberInfo member);
+
+        /// <summary>
+      /// Gets any edge label (In or Out) for a navigation property
+        /// </summary>
+  string GetAnyEdgeLabel(Type entityType, MemberInfo member);
     }
 }

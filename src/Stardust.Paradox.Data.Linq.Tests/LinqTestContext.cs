@@ -49,16 +49,16 @@ configuration.ConfigureCollection<IPerson>()
     .AddOutEdge(p => p.Projects, "assignedTo");
    
 configuration.ConfigureCollection<IPerson>()
-  .AddOutEdge(p => p.Skills, "hasSkill");
+  .Out(p => p.Skills, "hasSkill").In(s => s.Practitioners);
      
    configuration.ConfigureCollection<ICompany>()
    .AddInEdge(c => c.Employees, "worksAt");
    
   configuration.ConfigureCollection<IProject>()
  .AddInEdge(pr => pr.TeamMembers, "assignedTo");
-    
-     configuration.ConfigureCollection<ISkill>()
- .AddInEdge(s => s.Practitioners, "hasSkill");
+
+  configuration.ConfigureCollection<ISkill>();
+ //.AddInEdge(s => s.Practitioners, "hasSkill");
      
       configuration.ConfigureCollection<IEmployment>();
   configuration.ConfigureCollection<IFriendship>();

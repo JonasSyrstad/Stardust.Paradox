@@ -1,10 +1,11 @@
 ﻿using Stardust.Paradox.Data.Annotations;
+using Stardust.Paradox.Data.CodeGeneration;
 using Stardust.Paradox.Data.Traversals;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
-using Stardust.Paradox.Data.CodeGeneration;
+using System.Reflection.Emit;
 
 namespace Stardust.Paradox.Data
 {
@@ -108,6 +109,7 @@ namespace Stardust.Paradox.Data
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
                 CodeGenerator._FluentConfig.Add(typeof(T), t);
+
             }
 
             if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(func.Name, "binding is already added");
@@ -116,6 +118,7 @@ namespace Stardust.Paradox.Data
                 EdgeLabel = _label
 
             });
+            CodeGenerator._EdgeLabelMap.Add($"{prop.Member.DeclaringType.FullName}.{prop.Member.Name}", _label);
             return _c;
         }
     }

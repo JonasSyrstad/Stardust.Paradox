@@ -43,6 +43,7 @@ namespace Stardust.Paradox.Data
             {
                 ReverseEdgeLabel = label
             });
+            CodeGenerator._EdgeLabelMap.Add($"{prop.Member.DeclaringType.FullName}.{prop.Member.Name}", label);
             return new GraphConfiguration<T>(_context, label, _collectionLabel);
         }
 
@@ -79,6 +80,7 @@ namespace Stardust.Paradox.Data
                 EagerLoading = eagerLoading
 
             });
+            CodeGenerator._EdgeLabelMap.Add($"{prop.Member.DeclaringType.FullName}.{prop.Member.Name}", label);
             return new GraphConfiguration<T>(_context, label, _collectionLabel);
         }
 
@@ -124,6 +126,7 @@ namespace Stardust.Paradox.Data
             {
                 t = new Dictionary<MemberInfo, FluentConfig>();
                 CodeGenerator._FluentConfig.Add(typeof(T), t);
+                CodeGenerator._EdgeLabelMap.Add($"{prop.Member.DeclaringType.FullName}.{prop.Member.Name}", label);
             }
             if (t.TryGetValue(prop.Member, out FluentConfig def)) throw new ArgumentOutOfRangeException(inPropertyLambda.Name, "binding is already added");
             t.Add(prop.Member, new FluentConfig

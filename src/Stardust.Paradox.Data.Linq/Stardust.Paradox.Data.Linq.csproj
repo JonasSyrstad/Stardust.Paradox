@@ -3,14 +3,63 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>7.3</LangVersion>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    
+    <!-- Package Information -->
+    <PackageId>Stardust.Paradox.Data.Linq</PackageId>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
     <Authors>Stardust.Paradox Contributors</Authors>
-    <Description>LINQ to Gremlin query provider for Stardust.Paradox graph database framework</Description>
-    <PackageTags>gremlin;linq;graph;database;cosmosdb;tinkerpop</PackageTags>
+    <Company>Stardust</Company>
+    <Product>Stardust.Paradox.Data.Linq</Product>
+    <Title>Stardust Paradox LINQ to Gremlin Provider</Title>
+    <Summary>LINQ to Gremlin query provider for type-safe graph database queries</Summary>
+    <Description>Powerful LINQ to Gremlin query provider for Stardust.Paradox graph database framework. Write natural C# LINQ queries that are automatically translated to efficient Gremlin traversals for CosmosDB, Apache TinkerPop, and other Gremlin-compatible graph databases. Features include full LINQ support (Where, Select, OrderBy, GroupBy, aggregations), type-safe graph traversals (Out, In, OutE, InE), lambda expressions, pattern matching, set operations, and async/await support. Perfect for Entity Framework-style graph database development with IntelliSense and compile-time checking.</Description>
+    <Copyright>Copyright © Stardust 2025</Copyright>
+    
+    <!-- Package Metadata -->
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>logo_smal.png</PackageIcon>
+    <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryBranch>V2.5</RepositoryBranch>
+    <PackageTags>gremlin;linq;graph;database;cosmosdb;tinkerpop;azure;query-provider;type-safe;entity-framework;graph-traversal;apache-tinkerpop;stardust;paradox</PackageTags>
+    <PackageReleaseNotes>Initial release of LINQ to Gremlin query provider with comprehensive LINQ support, type-safe graph traversals, lambda expressions, and async operations.</PackageReleaseNotes>
+    
+    <!-- Build Configuration -->
+    <Deterministic>true</Deterministic>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    
+    <!-- Package Configuration -->
+    <IncludeSource>true</IncludeSource>
+    <DevelopmentDependency>false</DevelopmentDependency>
+    <IsPackable>true</IsPackable>
+    <PackageType>Dependency</PackageType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
-    <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" />
+    <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" PrivateAssets="None" />
+    <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" PrivateAssets="None" />
+  </ItemGroup>
+
+  <!-- Package Content -->
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="logo_smal.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <!-- Source Link for debugging -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
   </ItemGroup>
 
 </Project>

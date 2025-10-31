@@ -6,7 +6,7 @@ using Stardust.Paradox.Data.Annotations;
 
 namespace Stardust.Paradox.Data.Linq
 {
-    /// <summary>
+  /// <summary>
     /// Extension methods for graph traversal operations on IQueryable
     /// </summary>
     public static class GraphTraversalExtensions
@@ -18,14 +18,14 @@ namespace Stardust.Paradox.Data.Linq
     this IQueryable<TSource> source,
  Expression<Func<TSource, IEdgeCollection<TTarget>>> edgeSelector)
        where TSource : IVertex
-    where TTarget : IVertex
+  where TTarget : IVertex
    {
    if (source == null) throw new ArgumentNullException(nameof(source));
         if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
 
     var method = typeof(GraphTraversalExtensions).GetMethod(nameof(Out), 
      BindingFlags.Public | BindingFlags.Static);
-       var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget));
+    var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget));
 
    return source.Provider.CreateQuery<TTarget>(
   Expression.Call(
@@ -38,10 +38,10 @@ namespace Stardust.Paradox.Data.Linq
  /// <summary>
    /// Traverse incoming edges from source vertices
         /// </summary>
-        public static IQueryable<TSource> In<TSource, TTarget>(
+      public static IQueryable<TSource> In<TSource, TTarget>(
   this IQueryable<TTarget> source,
  Expression<Func<TTarget, IEdgeCollection<TSource>>> edgeSelector)
-        where TSource : IVertex
+ where TSource : IVertex
             where TTarget : IVertex
    {
  if (source == null) throw new ArgumentNullException(nameof(source));
@@ -60,7 +60,59 @@ var method = typeof(GraphTraversalExtensions).GetMethod(nameof(In),
      }
 
         /// <summary>
-    /// Traverse outgoing edges and return the edges
+        /// Traverse outgoing edges and return the edges (simple overload returning IEdge)
+   /// </summary>
+        public static IQueryable<IEdge<TTarget>> OutE<TSource, TTarget>(
+      this IQueryable<TSource> source,
+         Expression<Func<TSource, IEdgeCollection<TTarget>>> edgeSelector)
+          where TSource : IVertex
+     where TTarget : IVertex
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+            if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
+
+    var method = typeof(GraphTraversalExtensions)
+     .GetMethods(BindingFlags.Public | BindingFlags.Static)
+ .Where(m => m.Name == nameof(OutE) && m.GetGenericArguments().Length == 2)
+            .First();
+      var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget));
+
+  return source.Provider.CreateQuery<IEdge<TTarget>>(
+             Expression.Call(
+            null,
+   genericMethod,
+         source.Expression,
+          Expression.Quote(edgeSelector)));
+        }
+
+        /// <summary>
+     /// Traverse incoming edges and return the edges (simple overload returning IEdge)
+        /// </summary>
+        public static IQueryable<IEdge<TSource>> InE<TSource, TTarget>(
+   this IQueryable<TTarget> source,
+      Expression<Func<TTarget, IEdgeCollection<TSource>>> edgeSelector)
+  where TSource : IVertex
+    where TTarget : IVertex
+        {
+     if (source == null) throw new ArgumentNullException(nameof(source));
+ if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
+
+       var method = typeof(GraphTraversalExtensions)
+     .GetMethods(BindingFlags.Public | BindingFlags.Static)
+  .Where(m => m.Name == nameof(InE) && m.GetGenericArguments().Length == 2)
+            .First();
+     var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget));
+
+         return source.Provider.CreateQuery<IEdge<TSource>>(
+              Expression.Call(
+          null,
+      genericMethod,
+           source.Expression,
+         Expression.Quote(edgeSelector)));
+        }
+
+    /// <summary>
+    /// Traverse outgoing edges and return the edges (typed edge overload)
         /// </summary>
    public static IQueryable<TEdge> OutE<TSource, TTarget, TEdge>(
             this IQueryable<TSource> source,
@@ -72,8 +124,10 @@ where TTarget : IVertex
   if (source == null) throw new ArgumentNullException(nameof(source));
       if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
 
-     var method = typeof(GraphTraversalExtensions).GetMethod(nameof(OutE), 
-     BindingFlags.Public | BindingFlags.Static);
+     var method = typeof(GraphTraversalExtensions)
+         .GetMethods(BindingFlags.Public | BindingFlags.Static)
+     .Where(m => m.Name == nameof(OutE) && m.GetGenericArguments().Length == 3)
+           .First();
    var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget), typeof(TEdge));
 
   return source.Provider.CreateQuery<TEdge>(
@@ -82,10 +136,10 @@ where TTarget : IVertex
            genericMethod,
       source.Expression,
  Expression.Quote(edgeSelector)));
-        }
+      }
 
   /// <summary>
-      /// Traverse incoming edges and return the edges
+      /// Traverse incoming edges and return the edges (typed edge overload)
         /// </summary>
         public static IQueryable<TEdge> InE<TSource, TTarget, TEdge>(
   this IQueryable<TSource> source,
@@ -97,8 +151,10 @@ where TTarget : IVertex
   if (source == null) throw new ArgumentNullException(nameof(source));
     if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
 
-          var method = typeof(GraphTraversalExtensions).GetMethod(nameof(InE), 
-       BindingFlags.Public | BindingFlags.Static);
+       var method = typeof(GraphTraversalExtensions)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .Where(m => m.Name == nameof(InE) && m.GetGenericArguments().Length == 3)
+                .First();
 var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget), typeof(TEdge));
 
      return source.Provider.CreateQuery<TEdge>(
@@ -107,6 +163,48 @@ null,
        genericMethod,
     source.Expression,
      Expression.Quote(edgeSelector)));
+        }
+
+        /// <summary>
+     /// Traverse outgoing edges by edge type (no lambda, just edge type)
+        /// </summary>
+        public static IQueryable<TEdge> OutE<TEdge>(this IQueryable<IVertex> source)
+        where TEdge : IEdgeEntity
+     {
+    if (source == null) throw new ArgumentNullException(nameof(source));
+
+     var method = typeof(GraphTraversalExtensions)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+       .Where(m => m.Name == nameof(OutE) && m.GetGenericArguments().Length == 1)
+     .First();
+            var genericMethod = method.MakeGenericMethod(typeof(TEdge));
+
+     return source.Provider.CreateQuery<TEdge>(
+       Expression.Call(
+                 null,
+      genericMethod,
+          source.Expression));
+        }
+
+        /// <summary>
+    /// Traverse incoming edges by edge type (no lambda, just edge type)
+        /// </summary>
+public static IQueryable<TEdge> InE<TEdge>(this IQueryable<IVertex> source)
+            where TEdge : IEdgeEntity
+        {
+    if (source == null) throw new ArgumentNullException(nameof(source));
+
+            var method = typeof(GraphTraversalExtensions)
+        .GetMethods(BindingFlags.Public | BindingFlags.Static)
+           .Where(m => m.Name == nameof(InE) && m.GetGenericArguments().Length == 1)
+     .First();
+      var genericMethod = method.MakeGenericMethod(typeof(TEdge));
+
+        return source.Provider.CreateQuery<TEdge>(
+          Expression.Call(
+      null,
+        genericMethod,
+        source.Expression));
         }
 
     /// <summary>
@@ -125,9 +223,9 @@ if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
         BindingFlags.Public | BindingFlags.Static);
    var genericMethod = method.MakeGenericMethod(typeof(TSource), typeof(TTarget));
 
-      return source.Provider.CreateQuery<TTarget>(
+   return source.Provider.CreateQuery<TTarget>(
    Expression.Call(
-          null,
+      null,
         genericMethod,
    source.Expression,
       Expression.Quote(edgeSelector)));
@@ -139,10 +237,10 @@ if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
  public static IQueryable<TEdge> BothE<TSource, TTarget, TEdge>(
        this IQueryable<TSource> source,
  Expression<Func<TSource, IEdgeCollection<TTarget>>> edgeSelector)
-      where TSource : IVertex
+   where TSource : IVertex
 where TTarget : IVertex
 where TEdge : IEdgeEntity
-        {
+     {
 if (source == null) throw new ArgumentNullException(nameof(source));
       if (edgeSelector == null) throw new ArgumentNullException(nameof(edgeSelector));
 
@@ -153,94 +251,10 @@ if (source == null) throw new ArgumentNullException(nameof(source));
  return source.Provider.CreateQuery<TEdge>(
          Expression.Call(
     null,
-       genericMethod,
-         source.Expression,
+  genericMethod,
+      source.Expression,
   Expression.Quote(edgeSelector)));
    }
-
-   /// <summary>
- /// From an edge, traverse to the outgoing vertex
-        /// </summary>
-        public static IQueryable<TVertex> OutV<TEdge, TVertex>(
-      this IQueryable<TEdge> source)
-   where TEdge : IEdgeEntity
-   where TVertex : IVertex
-        {
-     if (source == null) throw new ArgumentNullException(nameof(source));
-
- var method = typeof(GraphTraversalExtensions).GetMethod(nameof(OutV), 
-         BindingFlags.Public | BindingFlags.Static);
-   var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
-
-     return source.Provider.CreateQuery<TVertex>(
-   Expression.Call(
-     null,
- genericMethod,
-     source.Expression));
-  }
-
-    /// <summary>
-        /// From an edge, traverse to the incoming vertex
-        /// </summary>
-        public static IQueryable<TVertex> InV<TEdge, TVertex>(
-   this IQueryable<TEdge> source)
-    where TEdge : IEdgeEntity
-where TVertex : IVertex
- {
-      if (source == null) throw new ArgumentNullException(nameof(source));
-
- var method = typeof(GraphTraversalExtensions).GetMethod(nameof(InV), 
-         BindingFlags.Public | BindingFlags.Static);
-       var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
-
-      return source.Provider.CreateQuery<TVertex>(
-Expression.Call(
-  null,
-        genericMethod,
-    source.Expression));
-     }
-
-  /// <summary>
-/// From an edge, traverse to both vertices
- /// </summary>
-    public static IQueryable<TVertex> BothV<TEdge, TVertex>(
- this IQueryable<TEdge> source)
-     where TEdge : IEdgeEntity
- where TVertex : IVertex
-        {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-
-  var method = typeof(GraphTraversalExtensions).GetMethod(nameof(BothV), 
-      BindingFlags.Public | BindingFlags.Static);
- var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
-
-  return source.Provider.CreateQuery<TVertex>(
-    Expression.Call(
-        null,
- genericMethod,
-          source.Expression));
-    }
-
-        /// <summary>
-        /// From an edge, traverse to the other vertex (opposite of the source)
-        /// </summary>
-        public static IQueryable<TVertex> OtherV<TEdge, TVertex>(
-    this IQueryable<TEdge> source)
-     where TEdge : IEdgeEntity
-    where TVertex : IVertex
-   {
-        if (source == null) throw new ArgumentNullException(nameof(source));
-
-      var method = typeof(GraphTraversalExtensions).GetMethod(nameof(OtherV), 
-    BindingFlags.Public | BindingFlags.Static);
-            var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
-
- return source.Provider.CreateQuery<TVertex>(
-      Expression.Call(
-  null,
-  genericMethod,
-        source.Expression));
-      }
 
 /// <summary>
       /// Repeat a traversal pattern for a graph recursion
@@ -524,11 +538,11 @@ where TResult : IVertex
   /// </summary>
       public static IQueryable<TResult> Local<TSource, TResult>(
         this IQueryable<TSource> source,
-            Expression<Func<IQueryable<TSource>, IQueryable<TResult>>> localTraversal)
+    Expression<Func<IQueryable<TSource>, IQueryable<TResult>>> localTraversal)
         where TSource : IVertex
 where TResult : IVertex
-      {
-            if (source == null) throw new ArgumentNullException(nameof(source));
+    {
+       if (source == null) throw new ArgumentNullException(nameof(source));
      if (localTraversal == null) throw new ArgumentNullException(nameof(localTraversal));
 
           var method = typeof(GraphTraversalExtensions).GetMethod(nameof(Local),
@@ -542,5 +556,89 @@ where TResult : IVertex
         source.Expression,
     Expression.Quote(localTraversal)));
     }
+
+        /// <summary>
+ /// From an edge, traverse to the outgoing vertex
+    /// </summary>
+        public static IQueryable<TVertex> OutV<TEdge, TVertex>(
+      this IQueryable<TEdge> source)
+   where TEdge : IEdgeEntity
+   where TVertex : IVertex
+      {
+     if (source == null) throw new ArgumentNullException(nameof(source));
+
+ var method = typeof(GraphTraversalExtensions).GetMethod(nameof(OutV), 
+      BindingFlags.Public | BindingFlags.Static);
+   var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
+
+     return source.Provider.CreateQuery<TVertex>(
+   Expression.Call(
+     null,
+ genericMethod,
+     source.Expression));
+  }
+
+    /// <summary>
+        /// From an edge, traverse to the incoming vertex
+        /// </summary>
+        public static IQueryable<TVertex> InV<TEdge, TVertex>(
+   this IQueryable<TEdge> source)
+    where TEdge : IEdgeEntity
+where TVertex : IVertex
+ {
+      if (source == null) throw new ArgumentNullException(nameof(source));
+
+ var method = typeof(GraphTraversalExtensions).GetMethod(nameof(InV), 
+         BindingFlags.Public | BindingFlags.Static);
+       var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
+
+      return source.Provider.CreateQuery<TVertex>(
+Expression.Call(
+  null,
+      genericMethod,
+    source.Expression));
+     }
+
+  /// <summary>
+/// From an edge, traverse to both vertices
+ /// </summary>
+    public static IQueryable<TVertex> BothV<TEdge, TVertex>(
+ this IQueryable<TEdge> source)
+     where TEdge : IEdgeEntity
+ where TVertex : IVertex
+{
+        if (source == null) throw new ArgumentNullException(nameof(source));
+
+  var method = typeof(GraphTraversalExtensions).GetMethod(nameof(BothV), 
+      BindingFlags.Public | BindingFlags.Static);
+ var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
+
+  return source.Provider.CreateQuery<TVertex>(
+    Expression.Call(
+        null,
+ genericMethod,
+          source.Expression));
+    }
+
+        /// <summary>
+      /// From an edge, traverse to the other vertex (opposite of the source)
+        /// </summary>
+        public static IQueryable<TVertex> OtherV<TEdge, TVertex>(
+    this IQueryable<TEdge> source)
+     where TEdge : IEdgeEntity
+where TVertex : IVertex
+   {
+        if (source == null) throw new ArgumentNullException(nameof(source));
+
+      var method = typeof(GraphTraversalExtensions).GetMethod(nameof(OtherV), 
+    BindingFlags.Public | BindingFlags.Static);
+     var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
+
+ return source.Provider.CreateQuery<TVertex>(
+      Expression.Call(
+  null,
+  genericMethod,
+        source.Expression));
+      }
     }
 }

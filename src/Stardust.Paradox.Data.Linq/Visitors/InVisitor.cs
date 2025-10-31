@@ -27,17 +27,19 @@ namespace Stardust.Paradox.Data.Linq.Visitors
                 context.GremlinQuery.Append(".in()");
             }
 
-            // Update element type - for In<TSource, TTarget>, we want TSource (index 0)
+            // Update element type - for In<TSource, TTarget>, we want TSource (index 0)  
+            // Note: For generic methods, GetGenericArguments() is called directly on MethodInfo
+            // This is different from Type.GetGenericArguments() which ReflectionCache handles
             if (node.Method.IsGenericMethod)
-            {
-                var genericArgs = node.Method.GetGenericArguments();
-                if (genericArgs.Length >= 2)
-                {
-                    context.ElementType = genericArgs[0]; // TSource
-                }
-            }
+ {
+       var genericArgs = node.Method.GetGenericArguments();
+       if (genericArgs.Length >= 2)
+    {
+       context.ElementType = genericArgs[0]; // TSource
+        }
+     }
 
-            return node;
+   return node;
         }
     }
 }

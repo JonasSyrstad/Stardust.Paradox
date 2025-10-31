@@ -25,6 +25,27 @@ namespace Stardust.Paradox.Data.CodeGeneration
             var def = GetMemberBinding(entityType, member);
             return def?.EdgeLabel;
         }
+        
+        public static string GetEdgeLabel(string propertyName)
+        {
+            if (_EdgeLabelMap.TryGetValue(propertyName, out var existing))
+                return existing;
+            return null;
+        }
+
+        public static string GetEdgeLabel(MemberInfo property)
+        {
+            var propertyName = $"{property.DeclaringType.FullName}.{property.Name}";
+            return GetEdgeLabel(propertyName);
+        }
+
+        public static string GetEdgeLabel(PropertyInfo property)
+        {
+            var propertyName = $"{property.DeclaringType.FullName}.{property.Name}";
+            return GetEdgeLabel(propertyName);
+        }
+
+        internal static Dictionary<string,string> _EdgeLabelMap=new Dictionary<string, string>();
 
         private static EagerAttribute EagerLoading(Type entityType, MemberInfo member)
         {
