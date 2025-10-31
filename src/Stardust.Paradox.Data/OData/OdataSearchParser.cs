@@ -14,24 +14,18 @@ namespace Stardust.Paradox.Data.OData
             // Remove quotes from search clause
             var searchTerm = searchClause.Trim().Trim('"', '\'');
             
-            // For simplicity, use a where clause that checks if any property contains the search term
-            // This is a simplified implementation - a full implementation would need more complex logic
-            var result = baseGremlinQuery;
-            
-            // Apply OR condition across all searchable properties  
+            // Apply OR condition across all searchable properties
+            // Use Has with Containing predicate for each property
             if (searchPropertyNames.Length > 0)
             {
-                result = result.Where(p =>
-                {
-                    // Build OR chain for multiple properties
-                    var orPredicates = searchPropertyNames.Select<string, Func<PredicateGremlinQuery, GremlinQuery>>(
-                        propName => q => q.Values(propName).Is(v => v.Containing(searchTerm))
-                    ).ToArray();
-                    return p.Or(orPredicates);
-                });
+                var orPredicates = searchPropertyNames.Select<string, Func<PredicateGremlinQuery, GremlinQuery>>(
+                    propName => q => q.Has(propName, v => v.Containing(searchTerm))
+                ).ToArray();
+          
+                return baseGremlinQuery.Or(orPredicates);
             }
             
-            return result;
+            return baseGremlinQuery;
         }
     }
 }

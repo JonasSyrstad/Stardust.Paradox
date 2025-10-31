@@ -627,76 +627,141 @@ return strValue;
         #region Predicate Evaluation Helpers
 
         /// <summary>
-        /// Evaluate a logical condition string (like "has('age', gt(25))")
-        /// </summary>
-        protected bool EvaluateLogicalCondition(Traverser traverser, string conditionStr)
+        /// Evaluate a logical condition string (like "has('age', gt(25))" or nested "and(has(...), has(...))")
+ /// Enhanced to support nested logical operators (and/or) within conditions
+    /// </summary>
+     protected bool EvaluateLogicalCondition(Traverser traverser, string conditionStr)
         {
-            if (string.IsNullOrWhiteSpace(conditionStr))
+     if (string.IsNullOrWhiteSpace(conditionStr))
                 return false;
 
-            // Parse the condition string
+      // Parse the condition string
             conditionStr = conditionStr.Trim();
 
-            // Handle has() conditions
-            if (conditionStr.StartsWith("has("))
+     // Handle nested and() conditions
+     if (conditionStr.StartsWith("and("))
             {
-                return EvaluateHasCondition(traverser, conditionStr);
+                return EvaluateAndCondition(traverser, conditionStr);
             }
 
-            return false;
-        }
+      // Handle nested or() conditions
+     if (conditionStr.StartsWith("or("))
+        {
+       return EvaluateOrCondition(traverser, conditionStr);
+ }
+
+        // Handle has() conditions
+         if (conditionStr.StartsWith("has("))
+{
+         return EvaluateHasCondition(traverser, conditionStr);
+            }
+
+   return false;
+      }
 
         /// <summary>
-        /// Evaluate a has() condition
+        /// Evaluate an and() condition with nested sub-conditions
+        /// Example: and(has('age', gte(25)), has('age', lte(30)))
+   /// </summary>
+        private bool EvaluateAndCondition(Traverser traverser, string conditionStr)
+        {
+            // Extract content between and( and )
+            var content = ExtractBetweenParentheses(conditionStr, "and");
+            if (string.IsNullOrEmpty(content))
+      return true; // Empty and() returns true
+
+     // Split into individual conditions
+            var conditions = SplitConditionArguments(content);
+            
+  // All conditions must be true
+            foreach (var condition in conditions)
+{
+             if (!EvaluateLogicalCondition(traverser, condition.Trim()))
+                {
+         return false;
+     }
+        }
+
+            return true;
+     }
+
+        /// <summary>
+        /// Evaluate an or() condition with nested sub-conditions
+        /// Example: or(has('name', 'Alice'), has('name', 'Bob'))
+        /// </summary>
+        private bool EvaluateOrCondition(Traverser traverser, string conditionStr)
+     {
+            // Extract content between or( and )
+    var content = ExtractBetweenParentheses(conditionStr, "or");
+  if (string.IsNullOrEmpty(content))
+      return false; // Empty or() returns false
+
+   // Split into individual conditions
+         var conditions = SplitConditionArguments(content);
+       
+     // At least one condition must be true
+          foreach (var condition in conditions)
+  {
+     if (EvaluateLogicalCondition(traverser, condition.Trim()))
+   {
+         return true;
+   }
+  }
+
+         return false;
+  }
+
+      /// <summary>
+ /// Evaluate a has() condition
         /// </summary>
         private bool EvaluateHasCondition(Traverser traverser, string conditionStr)
-        {
-            // Extract content between has( and )
-            var content = ExtractBetweenParentheses(conditionStr, "has");
-            if (string.IsNullOrEmpty(content))
-                return false;
+    {
+   // Extract content between has( and )
+ var content = ExtractBetweenParentheses(conditionStr, "has");
+         if (string.IsNullOrEmpty(content))
+   return false;
 
-            var parts = SplitConditionArguments(content);
-            if (parts.Count == 0)
-                return false;
+       var parts = SplitConditionArguments(content);
+       if (parts.Count == 0)
+       return false;
 
             var propertyKey = parts[0].Trim().Trim('\'', '"');
 
-            if (parts.Count == 1)
-            {
+   if (parts.Count == 1)
+       {
                 // has('property') - check if property exists
-                var properties = ExtractProperties(traverser.Value);
-                return properties != null && properties.ContainsKey(propertyKey);
-            }
+         var properties = ExtractProperties(traverser.Value);
+      return properties != null && properties.ContainsKey(propertyKey);
+     }
             else if (parts.Count == 2)
             {
-                // has('property', value) or has('property', predicate)
+    // has('property', value) or has('property', predicate)
                 var valueOrPredicate = parts[1].Trim();
-                var properties = ExtractProperties(traverser.Value);
-                
-                if (properties == null || !properties.ContainsKey(propertyKey))
-                    return false;
+        var properties = ExtractProperties(traverser.Value);
+    
+ if (properties == null || !properties.ContainsKey(propertyKey))
+     return false;
 
-                var actualValue = properties[propertyKey];
+      var actualValue = properties[propertyKey];
 
-                // Check if it's a predicate
-                if (IsPredicate(valueOrPredicate))
-                {
-                    return EvaluatePredicate(actualValue, valueOrPredicate);
+         // Check if it's a predicate
+    if (IsPredicate(valueOrPredicate))
+    {
+        return EvaluatePredicate(actualValue, valueOrPredicate);
                 }
-                else
-                {
-                    // Direct value comparison
-                    var expectedValue = valueOrPredicate.Trim('\'', '"');
-                    return CompareValues(actualValue, expectedValue);
-                }
-            }
+      else
+   {
+           // Direct value comparison
+       var expectedValue = valueOrPredicate.Trim('\'', '"');
+            return CompareValues(actualValue, expectedValue);
+       }
+      }
 
-            return false;
+    return false;
         }
 
-        /// <summary>
-        /// Check if a string is a predicate (gt, lt, within, etc.)
+     /// <summary>
+   /// Check if a string is a predicate (gt, lt, within, etc.)
         /// </summary>
       private bool IsPredicate(string value)
    {
@@ -704,16 +769,16 @@ return strValue;
  value.StartsWith("lt(") || value.StartsWith("lte(") ||
 value.StartsWith("eq(") || value.StartsWith("neq(") ||
        value.StartsWith("within(") || value.StartsWith("without(") ||
-          value.StartsWith("containing(") || value.StartsWith("notContaining(") ||
+    value.StartsWith("containing(") || value.StartsWith("notContaining(") ||
        value.StartsWith("startingWith(") || value.StartsWith("notStartingWith(") ||
         value.StartsWith("endingWith(") || value.StartsWith("notEndingWith(");
-        }
+     }
 
         /// <summary>
         /// Evaluate a predicate against a value
-        /// </summary>
+     /// </summary>
       protected bool EvaluatePredicate(object actualValue, string predicate)
-        {
+ {
    // Normalize predicate - ensure it has closing parenthesis
     if (!predicate.EndsWith(")"))
         predicate += ")";
@@ -729,53 +794,53 @@ else if (predicate.StartsWith("gte("))
 var threshold = ExtractPredicateValue(predicate, "gte");
    return CompareNumeric(actualValue, threshold, (a, b) => a >= b);
     }
-            else if (predicate.StartsWith("lt("))
+          else if (predicate.StartsWith("lt("))
    {
   var threshold = ExtractPredicateValue(predicate, "lt");
     return CompareNumeric(actualValue, threshold, (a, b) => a < b);
-   }
+ }
     else if (predicate.StartsWith("lte("))
             {
-        var threshold = ExtractPredicateValue(predicate, "lte");
+    var threshold = ExtractPredicateValue(predicate, "lte");
       return CompareNumeric(actualValue, threshold, (a, b) => a <= b);
-          }
+     }
   else if (predicate.StartsWith("eq("))
-      {
+    {
       var expected = ExtractPredicateValue(predicate, "eq");
      return CompareValues(actualValue, expected);
          }
             else if (predicate.StartsWith("neq("))
     {
          var expected = ExtractPredicateValue(predicate, "neq");
-        return !CompareValues(actualValue, expected);
-            }
+      return !CompareValues(actualValue, expected);
+      }
 else if (predicate.StartsWith("within("))
      {
-   var values = ExtractWithinValues(predicate, "within");
+var values = ExtractWithinValues(predicate, "within");
         return values.Any(v => CompareValues(actualValue, v));
   }
      else if (predicate.StartsWith("without("))
      {
     var values = ExtractWithinValues(predicate, "without");
-       return !values.Any(v => CompareValues(actualValue, v));
+     return !values.Any(v => CompareValues(actualValue, v));
   }
-            // Handle string predicates
+         // Handle string predicates
       else if (predicate.StartsWith("containing("))
       {
        var searchValue = ExtractPredicateValue(predicate, "containing");
        var actualStr = actualValue?.ToString() ?? "";
-      return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) >= 0;
+    return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) >= 0;
             }
    else if (predicate.StartsWith("notContaining("))
  {
    var searchValue = ExtractPredicateValue(predicate, "notContaining");
        var actualStr = actualValue?.ToString() ?? "";
-            return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
+ return actualStr.IndexOf(searchValue, StringComparison.OrdinalIgnoreCase) < 0;
  }
   else if (predicate.StartsWith("startingWith("))
  {
      var searchValue = ExtractPredicateValue(predicate, "startingWith");
-         var actualStr = actualValue?.ToString() ?? "";
+    var actualStr = actualValue?.ToString() ?? "";
 return actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
  }
   else if (predicate.StartsWith("notStartingWith("))
@@ -785,19 +850,19 @@ return actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
         return !actualStr.StartsWith(searchValue, StringComparison.OrdinalIgnoreCase);
  }
 else if (predicate.StartsWith("endingWith("))
-        {
+     {
   var searchValue = ExtractPredicateValue(predicate, "endingWith");
        var actualStr = actualValue?.ToString() ?? "";
           return actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
  }
-        else if (predicate.StartsWith("notEndingWith("))
-         {
-    var searchValue = ExtractPredicateValue(predicate, "notEndingWith");
+ else if (predicate.StartsWith("notEndingWith("))
+    {
+var searchValue = ExtractPredicateValue(predicate, "notEndingWith");
      var actualStr = actualValue?.ToString() ?? "";
    return !actualStr.EndsWith(searchValue, StringComparison.OrdinalIgnoreCase);
       }
 
-            return false;
+    return false;
 }
 
         /// <summary>
@@ -805,13 +870,13 @@ else if (predicate.StartsWith("endingWith("))
         /// </summary>
    private bool CompareValues(object actual, string expected)
         {
-            if (actual == null && expected == null)
-       return true;
+   if (actual == null && expected == null)
+     return true;
   if (actual == null || expected == null)
-                return false;
+ return false;
 
-            // Try boolean comparison
-        if (bool.TryParse(expected, out bool expectedBool))
+    // Try boolean comparison
+    if (bool.TryParse(expected, out bool expectedBool))
        {
          if (actual is bool actualBool)
            return actualBool == expectedBool;
@@ -821,59 +886,59 @@ else if (predicate.StartsWith("endingWith("))
 
 // Try integer comparison first (before decimal)
             if (int.TryParse(expected, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int expectedInt))
-   {
+{
        // Check if the expected value is actually an integer (no decimal point)
-       if (!expected.Contains(".") && !expected.Contains(","))
+   if (!expected.Contains(".") && !expected.Contains(","))
      {
           if (actual is int actualInt)
    return actualInt == expectedInt;
-          
-           if (actual is long actualLong)
+     
+   if (actual is long actualLong)
      return actualLong == expectedInt;
       
       if (actual is short actualShort)
    return actualShort == expectedInt;
       
-                if (actual is byte actualByte)
+    if (actual is byte actualByte)
    return actualByte == expectedInt;
     }
             }
 
 // Try decimal comparison for decimal numbers
-      if (decimal.TryParse(expected, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal expectedDecimal))
-         {
+    if (decimal.TryParse(expected, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal expectedDecimal))
+       {
          // If actual is decimal, compare directly
-           if (actual is decimal actualDecimal)
+       if (actual is decimal actualDecimal)
 return actualDecimal == expectedDecimal;
-                
+   
     // Try to convert actual to decimal
    if (actual is double actualDouble)
-             {
+         {
    // Convert double to decimal for comparison
-         try
+       try
      {
-      var actualAsDecimal = Convert.ToDecimal(actualDouble);
+ var actualAsDecimal = Convert.ToDecimal(actualDouble);
       return actualAsDecimal == expectedDecimal;
           }
-  catch
+catch
       {
   // Fallback to double comparison if conversion fails
        }
   }
         
-     if (actual is float actualFloat)
+ if (actual is float actualFloat)
     {
         try
              {
      var actualAsDecimal = Convert.ToDecimal(actualFloat);
          return actualAsDecimal == expectedDecimal;
      }
-         catch
+    catch
       {
       // Fallback to double comparison if conversion fails
              }
   }
-                
+   
         if (actual is int actualIntForDecimal)
         return actualIntForDecimal == expectedDecimal;
  
@@ -888,11 +953,11 @@ return actualDecimal == expectedDecimal;
      {
           // For equality comparison, use exact equality
    return actualNum == expectedNum;
-          }
+    }
    }
 
           // String comparison - CASE-SENSITIVE to match CosmosDB behavior
-          // But only for actual string-to-string comparisons
+      // But only for actual string-to-string comparisons
           if (actual is string || expected is string)
       {
      return actual.ToString().Equals(expected, StringComparison.OrdinalIgnoreCase);
@@ -900,132 +965,132 @@ return actualDecimal == expectedDecimal;
   
   // For other types, use default equality
 return actual.Equals(expected);
-        }
+     }
 
-        /// <summary>
+  /// <summary>
         /// Compare numeric values using a comparison function
-        /// </summary>
+     /// </summary>
         private bool CompareNumeric(object actualValue, string thresholdStr, Func<double, double, bool> comparison)
-        {
+{
   // First try to parse as decimal for better precision
-       if (decimal.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal thresholdDecimal))
-            {
+   if (decimal.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out decimal thresholdDecimal))
+ {
     // If actual value is decimal, compare as decimals
-         if (actualValue is decimal actualDecimal)
+       if (actualValue is decimal actualDecimal)
           {
    // Convert comparison to work with decimal
    var thresholdAsDouble = (double)thresholdDecimal;
      var actualAsDouble = (double)actualDecimal;
  return comparison(actualAsDouble, thresholdAsDouble);
               }
-            
+         
      // Otherwise convert to double
-                if (TryConvertToDouble(actualValue, out double actualDouble))
-       {
+        if (TryConvertToDouble(actualValue, out double actualDouble))
+    {
      var thresholdAsDouble = (double)thresholdDecimal;
          return comparison(actualDouble, thresholdAsDouble);
   }
             }
-      
+   
          // Fallback to original double parsing
-            if (double.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double threshold))
-            {
-                if (TryConvertToDouble(actualValue, out double actual))
+     if (double.TryParse(thresholdStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double threshold))
   {
-        return comparison(actual, threshold);
+  if (TryConvertToDouble(actualValue, out double actual))
+  {
+      return comparison(actual, threshold);
     }
-            }
-       
-         return false;
+        }
+   
+       return false;
         }
 
         /// <summary>
         /// Extract value from a predicate like "gt(25)"
-        /// </summary>
+    /// </summary>
     private string ExtractPredicateValue(string predicate, string predicateName)
-        {
+   {
             var content = ExtractBetweenParentheses(predicate, predicateName);
             return content?.Trim().Trim('\'', '"') ?? "";
-        }
+      }
 
-        /// <summary>
+    /// <summary>
         /// Extract multiple values from within() or without() predicate
         /// </summary>
         private List<string> ExtractWithinValues(string predicate, string predicateName)
         {
             var content = ExtractBetweenParentheses(predicate, predicateName);
-            if (string.IsNullOrEmpty(content))
-                return new List<string>();
+   if (string.IsNullOrEmpty(content))
+     return new List<string>();
 
-            var values = new List<string>();
+ var values = new List<string>();
             var current = "";
-            var inQuotes = false;
-            var quoteChar = '\0';
+  var inQuotes = false;
+       var quoteChar = '\0';
 
-            foreach (char c in content)
+      foreach (char c in content)
             {
-                if (!inQuotes && (c == '\'' || c == '"'))
-                {
-                    inQuotes = true;
-                    quoteChar = c;
-                }
-                else if (inQuotes && c == quoteChar)
-                {
-                    inQuotes = false;
-                }
-                else if (!inQuotes && c == ',')
-                {
-                    if (!string.IsNullOrWhiteSpace(current))
-                    {
-                        values.Add(current.Trim().Trim('\'', '"'));
-                        current = "";
-                    }
-                }
-                else if (c != '\'' && c != '"')
-                {
-                    current += c;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                values.Add(current.Trim().Trim('\'', '"'));
-            }
-
-            return values;
+       if (!inQuotes && (c == '\'' || c == '"'))
+          {
+      inQuotes = true;
+           quoteChar = c;
+         }
+    else if (inQuotes && c == quoteChar)
+          {
+     inQuotes = false;
         }
+  else if (!inQuotes && c == ',')
+     {
+        if (!string.IsNullOrWhiteSpace(current))
+   {
+       values.Add(current.Trim().Trim('\'', '"'));
+               current = "";
+    }
+          }
+      else if (c != '\'' && c != '"')
+                {
+         current += c;
+                }
+ }
+
+      if (!string.IsNullOrWhiteSpace(current))
+     {
+      values.Add(current.Trim().Trim('\'', '"'));
+            }
+
+        return values;
+ }
 
         /// <summary>
         /// Extract content between parentheses for a given prefix
         /// </summary>
-        private string ExtractBetweenParentheses(string text, string prefix)
+      private string ExtractBetweenParentheses(string text, string prefix)
         {
             var start = prefix.Length + 1; // Skip "prefix("
-            if (start >= text.Length)
-                return "";
+         if (start >= text.Length)
+    return "";
 
-            var depth = 1;
-            var end = start;
+     var depth = 1;
+      var end = start;
 
             for (int i = start; i < text.Length && depth > 0; i++)
             {
-                if (text[i] == '(')
-                    depth++;
+    if (text[i] == '(')
+       depth++;
                 else if (text[i] == ')')
-                {
-                    depth--;
-                    if (depth == 0)
-                    {
-                        end = i;
-                        break;
-                    }
-                }
+          {
+            depth--;
+            if (depth == 0)
+  {
+          end = i;
+             break;
             }
+     }
+         }
 
-            if (depth == 0 && end > start)
+    if (depth == 0 && end > start)
             {
-                return text.Substring(start, end - start);
-            }
+          return text.Substring(start, end - start);
+       }
 
             // If no closing found, take rest of string
             return text.Substring(start).TrimEnd(')');
@@ -1033,60 +1098,60 @@ return actual.Equals(expected);
 
         /// <summary>
         /// Split condition arguments respecting quotes and parentheses
-        /// </summary>
+ /// </summary>
         protected List<string> SplitConditionArguments(string content)
-        {
-            var parts = new List<string>();
+   {
+       var parts = new List<string>();
             var current = "";
             var inQuotes = false;
-            var quoteChar = '\0';
-            var parenDepth = 0;
+        var quoteChar = '\0';
+      var parenDepth = 0;
 
             foreach (char c in content)
             {
-                if (!inQuotes && (c == '\'' || c == '"'))
-                {
-                    inQuotes = true;
-                    quoteChar = c;
-                    current += c;
-                }
+  if (!inQuotes && (c == '\'' || c == '"'))
+      {
+           inQuotes = true;
+          quoteChar = c;
+        current += c;
+           }
                 else if (inQuotes && c == quoteChar)
-                {
-                    inQuotes = false;
-                    current += c;
-                }
-                else if (!inQuotes && c == '(')
-                {
-                    parenDepth++;
-                    current += c;
-                }
-                else if (!inQuotes && c == ')')
-                {
-                    parenDepth--;
-                    current += c;
-                }
-                else if (!inQuotes && parenDepth == 0 && c == ',')
-                {
-                    if (!string.IsNullOrWhiteSpace(current))
-                    {
-                        parts.Add(current.Trim());
-                        current = "";
-                    }
-                }
-                else
-                {
-                    current += c;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(current))
-            {
-                parts.Add(current.Trim());
-            }
-
-            return parts;
+      {
+     inQuotes = false;
+            current += c;
+       }
+    else if (!inQuotes && c == '(')
+     {
+          parenDepth++;
+      current += c;
         }
+  else if (!inQuotes && c == ')')
+      {
+      parenDepth--;
+      current += c;
+         }
+   else if (!inQuotes && parenDepth == 0 && c == ',')
+    {
+         if (!string.IsNullOrWhiteSpace(current))
+      {
+            parts.Add(current.Trim());
+            current = "";
+               }
+}
+      else
+          {
+    current += c;
+                }
+            }
+
+         if (!string.IsNullOrWhiteSpace(current))
+         {
+            parts.Add(current.Trim());
+            }
+
+      return parts;
+   }
 
         #endregion
-    }
+ }
 }

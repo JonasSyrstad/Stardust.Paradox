@@ -152,17 +152,64 @@ namespace Stardust.Paradox.Data.OData
                     return query;
                 
                 case FilterType.Or:
-                    return query.Or(filter.SubExpressions
-                        .Select<FilterExpression, Func<PredicateGremlinQuery, GremlinQuery>>(
-                            expr => q => ApplySingleConditionForOr(q, expr.Condition))
-                        .ToArray());
+                   // For OR, we need to handle both simple conditions AND nested filter expressions
+               return query.Or(filter.SubExpressions
+           .Select<FilterExpression, Func<PredicateGremlinQuery, GremlinQuery>>(
+   expr => q => ApplyFilterExpressionForOr(q, expr))
+             .ToArray());
+            
+        case FilterType.Condition:
+       return ApplySingleCondition(query, filter.Condition);
+    
+   default:
+   return query;
+          }
+     }
+
+        /// <summary>
+        /// Apply a filter expression within an OR context. 
+        /// This handles both simple conditions and nested logical expressions (AND/OR with parentheses).
+        /// </summary>
+        private static GremlinQuery ApplyFilterExpressionForOr(PredicateGremlinQuery predicateQuery, FilterExpression expr)
+        {
+            switch (expr.Type)
+ {
+      case FilterType.Condition:
+     // Simple condition - apply directly
+          return ApplySingleConditionForOr(predicateQuery, expr.Condition);
                 
-                case FilterType.Condition:
-                    return ApplySingleCondition(query, filter.Condition);
-                
-                default:
-                    return query;
-            }
+     case FilterType.And:
+     // Nested AND within OR: (cond1 AND cond2 AND ...) 
+         // Use the and() step with multiple predicates
+   var andPredicates = expr.SubExpressions
+ .Where(e => e.Type == FilterType.Condition && e.Condition != null)
+ .Select<FilterExpression, Func<PredicateGremlinQuery, GremlinQuery>>(
+        subExpr => q => ApplySingleConditionForOr(q, subExpr.Condition))
+      .ToArray();
+       
+  if (andPredicates.Length > 0)
+  {
+         return predicateQuery.And(andPredicates);
+       }
+        return predicateQuery;
+   
+     case FilterType.Or:
+         // Nested OR within OR: we can flatten this or handle recursively
+       // Handle recursively by creating a nested or() step
+   var nestedOrPredicates = expr.SubExpressions
+     .Select<FilterExpression, Func<PredicateGremlinQuery, GremlinQuery>>(
+  subExpr => q => ApplyFilterExpressionForOr(q, subExpr))
+      .ToArray();
+       
+ if (nestedOrPredicates.Length > 0)
+    {
+return predicateQuery.Or(nestedOrPredicates);
+    }
+  return predicateQuery;
+       
+     default:
+       return predicateQuery;
+       }
         }
 
         private static GremlinQuery ApplySingleCondition(GremlinQuery query, Condition condition)
@@ -321,7 +368,8 @@ namespace Stardust.Paradox.Data.OData
         private static Condition ParseCondition(string condition)
         {
             // Parse: propertyName operator value
-            var match = Regex.Match(condition, @"(\w+)\s+(eq|ne|gt|ge|lt|le|contains|startswith|endswith)\s+(.+)", RegexOptions.IgnoreCase);
+            // Make the space before value optional to handle cases like "age    eq30"
+    var match = Regex.Match(condition, @"(\w+)\s+(eq|ne|gt|ge|lt|le|contains|startswith|endswith)\s*(.+)", RegexOptions.IgnoreCase);
             if (!match.Success) return null;
 
             var propertyName = match.Groups[1].Value;
@@ -335,12 +383,12 @@ namespace Stardust.Paradox.Data.OData
             ParseValue(value, out var parsedValue, out var valueType);
 
             return new Condition
-            {
-                PropertyName = propertyName,
-                Operator = op,
-                Value = parsedValue,
-                ValueType = valueType
-            };
+      {
+  PropertyName = propertyName,
+    Operator = op,
+    Value = parsedValue,
+    ValueType = valueType
+};
         }
 
         private static GremlinQuery ApplyEqualFilter(GremlinQuery query, string propertyName, object value, ValueType type)
