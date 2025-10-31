@@ -22,32 +22,67 @@ private static readonly ConcurrentDictionary<Type, Type> _proxyTypeCache = new C
         /// Checks if a Select projection requires client-side evaluation
    /// </summary>
         public static bool RequiresClientSideEvaluation(LambdaExpression projection)
-        {
+    {
    if (projection == null)
  return false;
 
-            var body = projection.Body;
+      var body = projection.Body;
 
         // Simple member access (e.g., p => p.Name) - can be done server-side
-            if (body is MemberExpression)
-                return false;
+     if (body is MemberExpression)
+    return false;
 
-            // Anonymous type with only member expressions - can be done server-side
+   // Check for edge traversal patterns: p.OutE(...).As<T>() or p.InE(...).As<T>()
+    // These should be translated to Gremlin server-side
+     if (IsEdgeTraversalWithCast(body))
+         return false;
+
+// Anonymous type with only member expressions - can be done server-side
         if (body is NewExpression newExpr)
-      {
-          // Check if all arguments are simple member expressions
-return newExpr.Arguments.Any(arg => !IsSimpleMemberAccess(arg));
+{
+   // Check if all arguments are simple member expressions or edge traversals
+return newExpr.Arguments.Any(arg => !IsSimpleMemberAccess(arg) && !IsEdgeTraversalWithCast(arg));
  }
 
-            // Everything else requires client-side evaluation
-            return true;
-        }
+ // Everything else requires client-side evaluation
+   return true;
+      }
 
         private static bool IsSimpleMemberAccess(Expression expr)
-        {
+     {
             return expr is MemberExpression memberExpr &&
-         memberExpr.Expression is ParameterExpression;
-    }
+ memberExpr.Expression is ParameterExpression;
+      }
+
+        /// <summary>
+        /// Checks if expression is an edge traversal pattern: p.OutE(...).Cast<T>() or p.InE(...).Cast<T>()
+     /// </summary>
+        private static bool IsEdgeTraversalWithCast(Expression expr)
+        {
+            // Pattern: p.OutE(...).Cast<T>() or p.InE(...).Cast<T>()
+     if (expr is MethodCallExpression methodCall)
+            {
+   // Check if it's the Cast<T>() method
+         if (methodCall.Method.Name == "Cast" && methodCall.Method.IsGenericMethod)
+  {
+            // Check if the object is an OutE or InE call result
+   if (methodCall.Object != null)
+           {
+              // The object is the IEdgeTraversal returned by OutE/InE
+// We need to check the arguments[0] to see if it's a MethodCallExpression for OutE/InE
+ return true; // Any Cast call on an IEdgeTraversal is server-side
+     }
+       }
+       // Also check for OutE/InE without Cast<T/>
+                else if (methodCall.Method.Name == "OutE" || methodCall.Method.Name == "InE")
+       {
+// These methods return IEdgeTraversal which should be handled server-side
+         return true;
+        }
+  }
+
+            return false;
+      }
 
         /// <summary>
         /// Creates a client-side projection function from a lambda expression
@@ -321,25 +356,25 @@ if (value is IList list && list.Count > 0 && !prop.PropertyType.IsArray)
         private static Type GenerateProxyType(Type interfaceType)
         {
 #if NETSTANDARD2_0 || NET6_0_OR_GREATER
-            var assemblyName = new AssemblyName($"DynamicProxies_{Guid.NewGuid():N}");
-            var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
-          assemblyName,
-                AssemblyBuilderAccess.Run);
-            var moduleBuilder = assemblyBuilder.DefineDynamicModule("ProxyModule");
+         var assemblyName = new AssemblyName($"DynamicProxies_{Guid.NewGuid():N}");
+  var assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(
+ assemblyName,
+        AssemblyBuilderAccess.Run);
+      var moduleBuilder = assemblyBuilder.DefineDynamicModule("ProxyModule");
 
       // Get all interfaces (including the target and all base interfaces)
  var allInterfaces = new List<Type> { interfaceType };
-            allInterfaces.AddRange(interfaceType.GetInterfaces());
+      allInterfaces.AddRange(interfaceType.GetInterfaces());
 
-            var typeBuilder = moduleBuilder.DefineType(
+    var typeBuilder = moduleBuilder.DefineType(
 $"{interfaceType.Name}Proxy_{Guid.NewGuid():N}",
-         TypeAttributes.Public | TypeAttributes.Class,
+TypeAttributes.Public | TypeAttributes.Class,
         null,
       allInterfaces.ToArray());
 
          // Get all unique properties from all interfaces
           var allProperties = new Dictionary<string, PropertyInfo>();
-       foreach (var iface in allInterfaces)
+   foreach (var iface in allInterfaces)
      {
     foreach (var prop in iface.GetProperties(BindingFlags.Public | BindingFlags.Instance))
       {
@@ -349,12 +384,12 @@ $"{interfaceType.Name}Proxy_{Guid.NewGuid():N}",
        allProperties[prop.Name] = prop;
       }
        }
-   }
+ }
 
      // Get all unique events from all interfaces
-         var allEvents = new Dictionary<string, EventInfo>();
+      var allEvents = new Dictionary<string, EventInfo>();
     foreach (var iface in allInterfaces)
-            {
+   {
     foreach (var evt in iface.GetEvents(BindingFlags.Public | BindingFlags.Instance))
        {
     if (!allEvents.ContainsKey(evt.Name))
@@ -364,32 +399,51 @@ $"{interfaceType.Name}Proxy_{Guid.NewGuid():N}",
          }
         }
 
-            // Implement each unique property with a backing field
+    // Get all unique methods from all interfaces (excluding property getters/setters and event add/remove)
+  var allMethods = new Dictionary<string, MethodInfo>();
+    foreach (var iface in allInterfaces)
+    {
+ foreach (var method in iface.GetMethods(BindingFlags.Public | BindingFlags.Instance))
+ {
+            // Skip special methods (property getters/setters, event add/remove)
+            if (method.IsSpecialName)
+       continue;
+
+            // Use method signature as key to avoid duplicates
+         var methodKey = $"{method.Name}_{string.Join("_", method.GetParameters().Select(p => p.ParameterType.Name))}";
+    if (!allMethods.ContainsKey(methodKey))
+            {
+                allMethods[methodKey] = method;
+            }
+        }
+    }
+
+      // Implement each unique property with a backing field
       foreach (var prop in allProperties.Values)
   {
           // Define backing field
-                var fieldBuilder = typeBuilder.DefineField(
-           $"_{prop.Name}",
-             prop.PropertyType,
-          FieldAttributes.Private);
+    var fieldBuilder = typeBuilder.DefineField(
+     $"_{prop.Name}",
+ prop.PropertyType,
+        FieldAttributes.Private);
 
-        // Define property
+ // Define property
      var propertyBuilder = typeBuilder.DefineProperty(
-         prop.Name,
+  prop.Name,
           PropertyAttributes.HasDefault,
   prop.PropertyType,
-           null);
+         null);
 
        // Implement getter if the property has one
      if (prop.GetMethod != null)
-     {
+  {
             var getterBuilder = typeBuilder.DefineMethod(
             $"get_{prop.Name}",
 MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Final,
   prop.PropertyType,
       Type.EmptyTypes);
 
-     var getterIL = getterBuilder.GetILGenerator();
+ var getterIL = getterBuilder.GetILGenerator();
     getterIL.Emit(OpCodes.Ldarg_0);
          getterIL.Emit(OpCodes.Ldfld, fieldBuilder);
         getterIL.Emit(OpCodes.Ret);
@@ -397,11 +451,11 @@ MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.SpecialNam
      propertyBuilder.SetGetMethod(getterBuilder);
     }
 
-           // Implement setter if the property has one
+    // Implement setter if the property has one
     if (prop.SetMethod != null)
-          {
-            var setterBuilder = typeBuilder.DefineMethod(
-                     $"set_{prop.Name}",
+       {
+       var setterBuilder = typeBuilder.DefineMethod(
+       $"set_{prop.Name}",
       MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Final,
        null,
   new[] { prop.PropertyType });
@@ -412,15 +466,15 @@ MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.SpecialNam
         setterIL.Emit(OpCodes.Stfld, fieldBuilder);
       setterIL.Emit(OpCodes.Ret);
 
-          propertyBuilder.SetSetMethod(setterBuilder);
-          }
+    propertyBuilder.SetSetMethod(setterBuilder);
+   }
  }
 
        // Implement each unique event with a backing field
-          foreach (var evt in allEvents.Values)
-            {
+      foreach (var evt in allEvents.Values)
+     {
     // Define backing field for the event delegate
-           var eventFieldBuilder = typeBuilder.DefineField(
+    var eventFieldBuilder = typeBuilder.DefineField(
          $"_{evt.Name}",
 evt.EventHandlerType,
 FieldAttributes.Private);
@@ -431,8 +485,8 @@ FieldAttributes.Private);
     EventAttributes.None,
          evt.EventHandlerType);
 
-    // Implement add method
-       if (evt.AddMethod != null)
+  // Implement add method
+     if (evt.AddMethod != null)
     {
             var addBuilder = typeBuilder.DefineMethod(
    $"add_{evt.Name}",
@@ -442,10 +496,10 @@ FieldAttributes.Private);
 
       var addIL = addBuilder.GetILGenerator();
    // Implement as: _field = (HandlerType)Delegate.Combine(_field, value);
-     addIL.Emit(OpCodes.Ldarg_0);
+   addIL.Emit(OpCodes.Ldarg_0);
            addIL.Emit(OpCodes.Ldarg_0);
      addIL.Emit(OpCodes.Ldfld, eventFieldBuilder);
-          addIL.Emit(OpCodes.Ldarg_1);
+     addIL.Emit(OpCodes.Ldarg_1);
        addIL.Emit(OpCodes.Call, typeof(Delegate).GetMethod("Combine", new[] { typeof(Delegate), typeof(Delegate) }));
   addIL.Emit(OpCodes.Castclass, evt.EventHandlerType);
    addIL.Emit(OpCodes.Stfld, eventFieldBuilder);
@@ -456,27 +510,97 @@ FieldAttributes.Private);
 
          // Implement remove method
         if (evt.RemoveMethod != null)
-                {
+      {
       var removeBuilder = typeBuilder.DefineMethod(
          $"remove_{evt.Name}",
          MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.SpecialName | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Final,
-         null,
+ null,
    new[] { evt.EventHandlerType });
 
-          var removeIL = removeBuilder.GetILGenerator();
+       var removeIL = removeBuilder.GetILGenerator();
       // Implement as: _field = (HandlerType)Delegate.Remove(_field, value);
  removeIL.Emit(OpCodes.Ldarg_0);
    removeIL.Emit(OpCodes.Ldarg_0);
     removeIL.Emit(OpCodes.Ldfld, eventFieldBuilder);
-        removeIL.Emit(OpCodes.Ldarg_1);
+    removeIL.Emit(OpCodes.Ldarg_1);
      removeIL.Emit(OpCodes.Call, typeof(Delegate).GetMethod("Remove", new[] { typeof(Delegate), typeof(Delegate) }));
-                    removeIL.Emit(OpCodes.Castclass, evt.EventHandlerType);
-          removeIL.Emit(OpCodes.Stfld, eventFieldBuilder);
+     removeIL.Emit(OpCodes.Castclass, evt.EventHandlerType);
+removeIL.Emit(OpCodes.Stfld, eventFieldBuilder);
    removeIL.Emit(OpCodes.Ret);
 
       eventBuilder.SetRemoveOnMethod(removeBuilder);
      }
-            }
+       }
+
+    // Implement each unique method with a default implementation
+    foreach (var method in allMethods.Values)
+    {
+    var parameters = method.GetParameters();
+        var parameterTypes = parameters.Select(p => p.ParameterType).ToArray();
+
+        var methodBuilder = typeBuilder.DefineMethod(
+            method.Name,
+            MethodAttributes.Public | MethodAttributes.Virtual | MethodAttributes.HideBySig | MethodAttributes.NewSlot | MethodAttributes.Final,
+      method.ReturnType,
+        parameterTypes);
+
+        var methodIL = methodBuilder.GetILGenerator();
+
+        // Implement a default return value based on return type
+        if (method.ReturnType == typeof(void))
+        {
+      // For void methods, just return
+            methodIL.Emit(OpCodes.Ret);
+  }
+      else if (method.ReturnType.IsGenericType && method.ReturnType.GetGenericTypeDefinition() == typeof(System.Threading.Tasks.Task<>))
+        {
+ // For Task<T>, return Task.FromResult(default(T))
+ var taskResultType = method.ReturnType.GetGenericArguments()[0];
+            var fromResultMethod = typeof(System.Threading.Tasks.Task)
+            .GetMethod("FromResult", BindingFlags.Public | BindingFlags.Static)
+  .MakeGenericMethod(taskResultType);
+
+     // Load default value for T
+  if (taskResultType.IsValueType)
+    {
+                var local = methodIL.DeclareLocal(taskResultType);
+                methodIL.Emit(OpCodes.Ldloca_S, local);
+    methodIL.Emit(OpCodes.Initobj, taskResultType);
+     methodIL.Emit(OpCodes.Ldloc_0);
+       }
+      else
+          {
+         methodIL.Emit(OpCodes.Ldnull);
+     }
+
+            // Call Task.FromResult
+         methodIL.Emit(OpCodes.Call, fromResultMethod);
+        methodIL.Emit(OpCodes.Ret);
+        }
+        else if (method.ReturnType == typeof(System.Threading.Tasks.Task))
+        {
+    // For Task, return Task.CompletedTask
+          var completedTaskProperty = typeof(System.Threading.Tasks.Task)
+                .GetProperty("CompletedTask", BindingFlags.Public | BindingFlags.Static);
+            methodIL.Emit(OpCodes.Call, completedTaskProperty.GetMethod);
+            methodIL.Emit(OpCodes.Ret);
+        }
+ else if (method.ReturnType.IsValueType)
+        {
+// For value types, load default value
+        var local = methodIL.DeclareLocal(method.ReturnType);
+         methodIL.Emit(OpCodes.Ldloca_S, local);
+     methodIL.Emit(OpCodes.Initobj, method.ReturnType);
+            methodIL.Emit(OpCodes.Ldloc_0);
+            methodIL.Emit(OpCodes.Ret);
+     }
+        else
+        {
+     // For reference types, return null
+            methodIL.Emit(OpCodes.Ldnull);
+            methodIL.Emit(OpCodes.Ret);
+        }
+    }
 
 #if NET6_0_OR_GREATER
      return typeBuilder.CreateType();

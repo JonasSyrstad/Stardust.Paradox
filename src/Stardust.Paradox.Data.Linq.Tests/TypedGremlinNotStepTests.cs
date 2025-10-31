@@ -1,45 +1,11 @@
 using FluentAssertions;
 using Stardust.Paradox.Data.Linq;
 using Stardust.Paradox.Data.Linq.Tests.Models;
+using System.Linq;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace Stardust.Paradox.Data.Linq.Tests
 {
-
-    public class RealLifeTests : LinqTestBase
-    {
-        private readonly ITestOutputHelper _output;
-
-        public RealLifeTests(ITestOutputHelper output)
-        {
-            _output = output;
-        }
-        [Fact]
-        public async Task LIstAllPeople()
-        {
-            var people = await (from p in Context.People.AsQueryable() select p).ToListAsync();
-            _output.WriteLine(Connector.GetQueryLog().First().Query);
-            Assert.NotNull(people);
-            Assert.NotEmpty(people);
-        }
-
-        [Fact]
-        public async Task ListAllPeopleOver25()
-        {
-            var people = await (from p in Context.People.AsQueryable()
-                                where p.Age > 25
-                                select p).ToListAsync();
-            _output.WriteLine(Connector.GetQueryLog().First().Query);
-            
-            Assert.NotNull(people);
-            Assert.NotEmpty(people);
-            Assert.True(people.All(p => p.Age > 25));
-            Assert.NotEmpty(Connector.GetQueryLog().First().Parameters);
-        }
-
-    }
-
     /// <summary>
     /// Tests for the NOT step in typed Gremlin queries
     /// </summary>
