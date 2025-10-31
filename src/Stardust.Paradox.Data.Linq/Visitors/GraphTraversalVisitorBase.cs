@@ -39,20 +39,17 @@ namespace Stardust.Paradox.Data.Linq.Visitors
           {
           // Get the parameter's type (e.g., IPerson)
        entityType = paramExpr.Type;
-      Console.WriteLine($"[GraphTraversalVisitorBase] Extracted entityType from parameter: {entityType?.Name}");
-          }
+      }
       else if (memberExpr.Expression != null)
                 {
            // Fallback to the expression's type
  entityType = memberExpr.Expression.Type;
-        Console.WriteLine($"[GraphTraversalVisitorBase] Extracted entityType from expression: {entityType?.Name}");
-   }
+        }
 
       if (entityType != null)
     {
         // Try to get edge label from fluent configuration or attributes
     var edgeLabel = EdgeLabelResolver.GetAnyEdgeLabel(entityType, propertyInfo);
-       Console.WriteLine($"[GraphTraversalVisitorBase] EdgeLabelResolver returned: '{edgeLabel}' for {entityType.Name}.{propertyInfo.Name}");
      if (!string.IsNullOrEmpty(edgeLabel))
              return edgeLabel;
               }
@@ -60,7 +57,6 @@ namespace Stardust.Paradox.Data.Linq.Visitors
 
          // Fallback: Convert property name to camelCase for edge label
          var fallback = ToCamelCase(memberExpr.Member.Name);
-        Console.WriteLine($"[GraphTraversalVisitorBase] Falling back to camelCase property name: '{fallback}'");
  return fallback;
           }
 
