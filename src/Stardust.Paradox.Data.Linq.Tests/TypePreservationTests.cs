@@ -255,7 +255,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
             var friendshipEdges = people.OutE<IPerson, IPerson, IFriendship>(p => p.Friends);
 
             // Act - OtherV should get the other end of edges
-            IQueryable<IPerson> otherPeople = friendshipEdges.OtherV<IFriendship, IPerson>();
+            IQueryable<IPerson> otherPeople = friendshipEdges.OtherV<IPerson>();
 
             // Assert
             otherPeople.Should().NotBeNull();

@@ -36,37 +36,37 @@ namespace Stardust.Paradox.Data.Linq.Tests
             // Configure all entities
             lock (_lock)
             {
-                
-                if(_isInitialized) return true;
+
+                if (_isInitialized) return true;
                 // Configure vertices and their edge relationships
                 configuration.ConfigureCollection<IPerson>()
                .AddOutEdge(p => p.Companies, "worksAt");
-   
-configuration.ConfigureCollection<IPerson>()
-       .AddOutEdge(p => p.Friends, "friendsWith");
-   
-      configuration.ConfigureCollection<IPerson>()
-    .AddOutEdge(p => p.Projects, "assignedTo");
-   
-configuration.ConfigureCollection<IPerson>()
-  .Out(p => p.Skills, "hasSkill").In(s => s.Practitioners);
-     
-   configuration.ConfigureCollection<ICompany>()
-   .AddInEdge(c => c.Employees, "worksAt");
-   
-  configuration.ConfigureCollection<IProject>()
- .AddInEdge(pr => pr.TeamMembers, "assignedTo");
 
-  configuration.ConfigureCollection<ISkill>();
- //.AddInEdge(s => s.Practitioners, "hasSkill");
-     
-      configuration.ConfigureCollection<IEmployment>();
-  configuration.ConfigureCollection<IFriendship>();
-     configuration.ConfigureCollection<IAssignment>();
- configuration.ConfigureCollection<IUserSkill>();
-         
-         _isInitialized = true;
-         }
+                configuration.ConfigureCollection<IPerson>()
+                       .AddOutEdge(p => p.Friends, "friendsWith");
+
+                configuration.ConfigureCollection<IPerson>()
+              .AddOutEdge(p => p.Projects, "assignedTo");
+
+                configuration.ConfigureCollection<IPerson>()
+                  .Out(p => p.Skills, "hasSkill").In(s => s.Practitioners);
+
+                configuration.ConfigureCollection<ICompany>()
+                .AddInEdge(c => c.Employees, "worksAt");
+
+                configuration.ConfigureCollection<IProject>()
+               .AddInEdge(pr => pr.TeamMembers, "assignedTo");
+
+                configuration.ConfigureCollection<ISkill>();
+                //.AddInEdge(s => s.Practitioners, "hasSkill");
+
+                configuration.ConfigureCollection<IEmployment>();
+                configuration.ConfigureCollection<IFriendship>();
+                configuration.ConfigureCollection<IAssignment>();
+                configuration.ConfigureCollection<IUserSkill>();
+
+                _isInitialized = true;
+            }
 
 
             return true;

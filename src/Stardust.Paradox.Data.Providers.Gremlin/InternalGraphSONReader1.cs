@@ -4,6 +4,10 @@ using Newtonsoft.Json.Linq;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {
+    public class InternalGraphSonWriter1 : GraphSONWriter
+    {
+       
+    }
     public class InternalGraphSONReader1 : GraphSONReader
     {
         

@@ -35,59 +35,86 @@ public class ConnectionTester
     /// </summary>
     public async Task<ConnectionTestResult> TestConnectionAsync(CosmosDbConnection connection)
     {
+        return await TestConnectionAsync(connection, maxRetries: 3);
+    }
+
+    /// <summary>
+    /// Test a connection with retry logic
+    /// </summary>
+    public async Task<ConnectionTestResult> TestConnectionAsync(CosmosDbConnection connection, int maxRetries = 3)
+    {
         var result = new ConnectionTestResult();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var attempt = 0;
 
-        try
+        while (attempt <= maxRetries)
         {
-            _logger?.LogInformation("Testing connection to {Hostname}/{Database}/{Graph}", 
-                connection.Hostname, connection.DatabaseName, connection.GraphName);
-
-            // Create connector
-            var connector = new GremlinNetLanguageConnector(
-                connection.Hostname,
-                connection.DatabaseName,
-                connection.GraphName,
-                connection.AccessKey);
-
-            // Test 1: Basic connectivity with simple read query
-            await TestBasicConnectivity(connector, result);
-            
-            if (result.IsSuccessful)
+            try
             {
-                // Test 2: Verify read-only access
-                await TestReadOnlyAccess(connector, result);
+                attempt++;
+                _logger?.LogInformation("Testing connection to {Hostname}/{Database}/{Graph} (attempt {Attempt}/{MaxAttempts})", 
+                    connection.Hostname, connection.DatabaseName, connection.GraphName, attempt, maxRetries + 1);
+
+                // Create connector
+                var connector = new GremlinNetLanguageConnector(
+                    connection.Hostname,
+                    connection.DatabaseName,
+                    connection.GraphName,
+                    connection.AccessKey);
+
+                // Test 1: Basic connectivity with simple read query
+                await TestBasicConnectivity(connector, result);
                 
-                // Test 3: Get database statistics
-                await GetDatabaseStatistics(connector, result);
-            }
+                if (result.IsSuccessful)
+                {
+                    // Test 2: Verify read-only access
+                    await TestReadOnlyAccess(connector, result);
+                    
+                    // Test 3: Get database statistics
+                    await GetDatabaseStatistics(connector, result);
+                }
 
-            stopwatch.Stop();
-            result.ResponseTime = stopwatch.Elapsed;
-            
-            if (result.IsSuccessful)
+                stopwatch.Stop();
+                result.ResponseTime = stopwatch.Elapsed;
+                
+                if (result.IsSuccessful)
+                {
+                    result.Message = result.IsReadOnly 
+                        ? "✅ Connection successful and verified as read-only"
+                        : "⚠️ Connection successful but may have write permissions";
+                }
+
+                _logger?.LogInformation("Connection test completed in {ElapsedMs}ms. Success: {Success}, ReadOnly: {ReadOnly}", 
+                    stopwatch.ElapsedMilliseconds, result.IsSuccessful, result.IsReadOnly);
+
+                return result;
+            }
+            catch (Exception ex)
             {
-                result.Message = result.IsReadOnly 
-                    ? "✅ Connection successful and verified as read-only"
-                    : "⚠️ Connection successful but may have write permissions";
-            }
-
-            _logger?.LogInformation("Connection test completed in {ElapsedMs}ms. Success: {Success}, ReadOnly: {ReadOnly}", 
-                stopwatch.ElapsedMilliseconds, result.IsSuccessful, result.IsReadOnly);
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            result.IsSuccessful = false;
-            result.IsReadOnly = false;
-            result.Exception = ex;
-            result.ResponseTime = stopwatch.Elapsed;
-            result.Message = $"❌ Connection failed: {GetFriendlyErrorMessage(ex)}";
+                _logger?.LogWarning(ex, "Connection test attempt {Attempt} failed", attempt);
             
-            _logger?.LogError(ex, "Connection test failed");
+                if (attempt > maxRetries)
+                {
+                    stopwatch.Stop();
+                    result.IsSuccessful = false;
+                    result.IsReadOnly = false;
+                    result.Exception = ex;
+                    result.ResponseTime = stopwatch.Elapsed;
+                    result.Message = $"❌ Connection failed after {attempt} attempts: {GetFriendlyErrorMessage(ex)}";
+                    
+                    _logger?.LogError(ex, "Connection test failed after {Attempts} attempts", attempt);
+                    return result;
+                }
+
+                // Exponential backoff: 1s, 2s, 4s
+                var delayMs = (int)Math.Pow(2, attempt - 1) * 1000;
+                _logger?.LogInformation("Retrying in {DelayMs}ms...", delayMs);
+                await Task.Delay(delayMs);
+            }
         }
 
-        return result;
+        // Should never reach here
+        throw new InvalidOperationException("Unexpected code path in connection test");
     }
 
     /// <summary>
@@ -250,35 +277,140 @@ public class ConnectionTester
         var message = ex.Message;
 
         // Common error patterns and their friendly messages
-        if (message.Contains("name resolution", StringComparison.OrdinalIgnoreCase))
+     if (message.Contains("name resolution", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("No such host", StringComparison.OrdinalIgnoreCase))
         {
-            return "Could not resolve hostname. Please check the hostname and your internet connection.";
+  return "Could not resolve hostname. Please check the hostname format and your internet connection. Expected format: accountname.gremlin.cosmosdb.azure.com";
         }
         
         if (message.Contains("authentication", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("unauthorized", StringComparison.OrdinalIgnoreCase))
+        message.Contains("unauthorized", StringComparison.OrdinalIgnoreCase) ||
+   message.Contains("401", StringComparison.OrdinalIgnoreCase))
         {
-            return "Authentication failed. Please check your access key.";
+         return "Authentication failed. Please verify your access key is correct and not expired.";
         }
         
-        if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+      if (message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
         {
-            return "Connection timed out. Please check your network connection and try again.";
+    return "Connection timed out. Check your network connection, firewall settings, and verify the hostname is correct.";
         }
-        
-        if (message.Contains("ssl", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("certificate", StringComparison.OrdinalIgnoreCase))
+      
+  if (message.Contains("ssl", StringComparison.OrdinalIgnoreCase) ||
+        message.Contains("certificate", StringComparison.OrdinalIgnoreCase) ||
+     message.Contains("tls", StringComparison.OrdinalIgnoreCase))
         {
-            return "SSL/Certificate error. Please check your connection settings.";
-        }
+     return "SSL/TLS error. This might indicate a network security issue or outdated .NET runtime. Try updating your system certificates.";
+    }
 
         if (message.Contains("database", StringComparison.OrdinalIgnoreCase) &&
-            message.Contains("not found", StringComparison.OrdinalIgnoreCase))
+     message.Contains("not found", StringComparison.OrdinalIgnoreCase))
         {
-            return "Database or graph not found. Please check the database and graph names.";
+        return "Database or graph not found. Please verify the database name and graph name are correct and exist in your CosmosDB account.";
         }
 
-        // Return the original message if no pattern matches
-        return message.Length > 100 ? message.Substring(0, 97) + "..." : message;
+        if (message.Contains("404", StringComparison.OrdinalIgnoreCase))
+  {
+ return "Resource not found (404). Please verify your database name, graph name, and that they exist in your CosmosDB account.";
+ }
+
+    if (message.Contains("403", StringComparison.OrdinalIgnoreCase) ||
+     message.Contains("forbidden", StringComparison.OrdinalIgnoreCase))
+     {
+ return "Access forbidden (403). Your access key may not have the necessary permissions or might be for a different database.";
+        }
+
+        if (message.Contains("429", StringComparison.OrdinalIgnoreCase) ||
+     message.Contains("throttle", StringComparison.OrdinalIgnoreCase))
+      {
+   return "Request throttled (429). The database is receiving too many requests. This usually resolves automatically.";
+        }
+
+        if (message.Contains("connection refused", StringComparison.OrdinalIgnoreCase))
+        {
+ return "Connection refused. Check that the hostname and port are correct, and that your firewall allows outbound connections on port 443.";
+        }
+
+  if (message.Contains("Invalid hostname", StringComparison.OrdinalIgnoreCase) ||
+         message.Contains("hostname is invalid", StringComparison.OrdinalIgnoreCase))
+ {
+ return "Hostname format is invalid. Please use format: accountname.gremlin.cosmosdb.azure.com (without https:// or port numbers)";
+        }
+
+// Return the original message if no pattern matches, but truncate if too long
+      return message.Length > 150 ? message.Substring(0, 147) + "..." : message;
     }
+
+    /// <summary>
+    /// Performs diagnostic checks on connection configuration
+    /// </summary>
+    public ConnectionTestResult DiagnoseConnection(CosmosDbConnection connection)
+    {
+        var result = new ConnectionTestResult { IsSuccessful = true };
+        var issues = new List<string>();
+
+    // Check hostname format
+        if (string.IsNullOrWhiteSpace(connection.Hostname))
+        {
+  issues.Add("Hostname is empty");
+        }
+   else
+   {
+   if (connection.Hostname.Contains("://"))
+    {
+       issues.Add("Hostname contains protocol prefix (http:// or https://) - this should be removed");
+  }
+      if (connection.Hostname.Contains(":") && connection.Hostname.IndexOf(':') > 0)
+   {
+      var colonIndex = connection.Hostname.IndexOf(':');
+  var portPart = connection.Hostname.Substring(colonIndex + 1);
+   if (int.TryParse(portPart, out _))
+       {
+ issues.Add($"Hostname contains port number - this should be removed (port is always 443 for CosmosDB)");
+          }
+     }
+            if (!connection.Hostname.Contains("."))
+   {
+     issues.Add("Hostname doesn't appear to be a valid domain name");
+      }
+   if (!connection.Hostname.EndsWith(".azure.com", StringComparison.OrdinalIgnoreCase) &&
+      !connection.Hostname.EndsWith(".cosmosdb.azure.com", StringComparison.OrdinalIgnoreCase))
+ {
+       issues.Add("Hostname doesn't match expected CosmosDB format (*.cosmosdb.azure.com)");
+   }
+    }
+
+  // Check database name
+ if (string.IsNullOrWhiteSpace(connection.DatabaseName))
+ {
+   issues.Add("Database name is empty");
+ }
+
+      // Check graph name
+   if (string.IsNullOrWhiteSpace(connection.GraphName))
+ {
+ issues.Add("Graph name is empty");
+ }
+
+        // Check access key
+   if (string.IsNullOrWhiteSpace(connection.AccessKey))
+        {
+   issues.Add("Access key is empty");
+   }
+        else if (connection.AccessKey.Length < 20)
+   {
+ issues.Add("Access key appears too short - CosmosDB keys are typically 88+ characters");
+  }
+
+        if (issues.Any())
+        {
+       result.IsSuccessful = false;
+    result.Message = "❌ Configuration issues detected:\n" + string.Join("\n", issues.Select(i => $"  • {i}"));
+}
+        else
+        {
+   result.Message = "✅ Configuration appears valid";
+  }
+
+        return result;
+  }
 }

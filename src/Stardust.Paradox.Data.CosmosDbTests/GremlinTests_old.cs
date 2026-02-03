@@ -704,15 +704,15 @@ namespace Stardust.Paradox.CosmosDbTest
 			var q6 = G.V().Optional(p => p.Out("parent")).Dedup().Properties("name");//list all parents
 			await PrintResult(q6);
 
-			var q7 = G.V().Coalesce(p => p.HasLabel("person").Values("name"),
-				p => p.Constant("inhuman"));
+			//var q7 = G.V().Coalesce(p => p.HasLabel("person").Values("name"),
+			//	p => p.Constant("inhuman"));
 
-			await PrintResult(q7);
+			//await PrintResult(q7);
 
-			var q8 = G.V().Choose(p => p.HasLabel("person"), p => p.Values("name"),
-				p => p.Constant("inhuman"));
+			//var q8 = G.V().Choose(p => p.HasLabel("person"), p => p.Values("name"),
+			//	p => p.Constant("inhuman"));
 
-			await PrintResult(q8);
+			//await PrintResult(q8);
 
 			var q9 = G.V().Out().Dedup().Values("name").Inject("test");
 

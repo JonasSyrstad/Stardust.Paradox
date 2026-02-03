@@ -396,23 +396,26 @@ var method = typeof(GraphTraversalExtensions).GetMethod(nameof(Times),
       source.Expression));
         }
 
-  /// <summary>
+      /// <summary>
         /// Label the current step for later reference in select or where operations
         /// </summary>
-      public static IQueryable<T> As<T>(
+public static IQueryable<T> As<T>(
    this IQueryable<T> source,
     string label)
-         where T : IVertex
+     where T : IGraphEntity
       {
    if (source == null) throw new ArgumentNullException(nameof(source));
   if (string.IsNullOrWhiteSpace(label)) throw new ArgumentException("Label cannot be empty", nameof(label));
 
-    var method = typeof(GraphTraversalExtensions).GetMethod(nameof(As),
-       BindingFlags.Public | BindingFlags.Static);
+    var method = typeof(GraphTraversalExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+          .First(m => m.Name == nameof(As) &&
+           m.GetGenericArguments().Length == 1 &&
+    m.GetParameters().Length == 2 &&
+         m.GetParameters()[1].ParameterType == typeof(string));
   var genericMethod = method.MakeGenericMethod(typeof(T));
 
  return source.Provider.CreateQuery<T>(
-                Expression.Call(
+          Expression.Call(
           null,
      genericMethod,
 source.Expression,
@@ -586,18 +589,55 @@ where TResult : IVertex
     where TEdge : IEdgeEntity
 where TVertex : IVertex
  {
-      if (source == null) throw new ArgumentNullException(nameof(source));
+    if (source == null) throw new ArgumentNullException(nameof(source));
 
- var method = typeof(GraphTraversalExtensions).GetMethod(nameof(InV), 
-         BindingFlags.Public | BindingFlags.Static);
+ var method = typeof(GraphTraversalExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+        .Where(m => m.Name == nameof(InV) && 
+             m.GetGenericArguments().Length == 2 &&
+        m.GetParameters().Length == 1 &&
+     m.GetParameters()[0].ParameterType.IsGenericType &&
+m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(IQueryable<>))
+ .First();
        var genericMethod = method.MakeGenericMethod(typeof(TEdge), typeof(TVertex));
 
-      return source.Provider.CreateQuery<TVertex>(
+    return source.Provider.CreateQuery<TVertex>(
 Expression.Call(
   null,
-      genericMethod,
+    genericMethod,
     source.Expression));
      }
+
+  /// <summary>
+/// From an edge, traverse to the incoming vertex - shorthand without specifying edge type
+      /// </summary>
+      public static IQueryable<TVertex> InV<TVertex>(
+   this IQueryable source)
+  where TVertex : IVertex
+ {
+  if (source == null) throw new ArgumentNullException(nameof(source));
+
+  // Get the element type from the source
+    var sourceElementType = source.ElementType;
+if (!typeof(IEdgeEntity).IsAssignableFrom(sourceElementType))
+   {
+   throw new ArgumentException("Source must be a queryable of edge types", nameof(source));
+  }
+  
+   var method = typeof(GraphTraversalExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+       .Where(m => m.Name == nameof(InV) && 
+             m.GetGenericArguments().Length == 2 &&
+                   m.GetParameters().Length == 1 &&
+     m.GetParameters()[0].ParameterType.IsGenericType &&
+m.GetParameters()[0].ParameterType.GetGenericTypeDefinition() == typeof(IQueryable<>))
+       .First();
+      var genericMethod = method.MakeGenericMethod(sourceElementType, typeof(TVertex));
+     
+ return source.Provider.CreateQuery<TVertex>(
+    Expression.Call(
+ null,
+ genericMethod,
+  source.Expression));
+   }
 
   /// <summary>
 /// From an edge, traverse to both vertices
@@ -640,5 +680,32 @@ where TVertex : IVertex
   genericMethod,
         source.Expression));
       }
+
+ /// <summary>
+     /// From an edge, traverse to the other vertex (opposite of the source) - shorthand without specifying edge type
+      /// </summary>
+        public static IQueryable<TVertex> OtherV<TVertex>(
+   this IQueryable source)
+   where TVertex : IVertex
+   {
+      if (source == null) throw new ArgumentNullException(nameof(source));
+
+  // Get the element type from the source
+    var sourceElementType = source.ElementType;
+  if (!typeof(IEdgeEntity).IsAssignableFrom(sourceElementType))
+       {
+       throw new ArgumentException("Source must be a queryable of edge types", nameof(source));
+  }
+  
+   var method = typeof(GraphTraversalExtensions).GetMethods(BindingFlags.Public | BindingFlags.Static)
+       .First(m => m.Name == nameof(OtherV) && m.GetGenericArguments().Length == 2);
+      var genericMethod = method.MakeGenericMethod(sourceElementType, typeof(TVertex));
+     
+   return source.Provider.CreateQuery<TVertex>(
+    Expression.Call(
+ null,
+ genericMethod,
+  source.Expression));
+        }
     }
 }

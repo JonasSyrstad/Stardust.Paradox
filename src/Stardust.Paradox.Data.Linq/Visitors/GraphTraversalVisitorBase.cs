@@ -22,8 +22,10 @@ namespace Stardust.Paradox.Data.Linq.Visitors
 
         public virtual bool CanVisit(MethodCallExpression node, IVisitorContext context)
         {
-            return node.Method.DeclaringType == typeof(GraphTraversalExtensions) &&
-                node.Method.Name == MethodName;
+            // Check if it's from GraphTraversalExtensions or GraphSetLinqExtensions
+            return (node.Method.DeclaringType == typeof(GraphTraversalExtensions) ||
+                   node.Method.DeclaringType == typeof(GraphSetLinqExtensions)) &&
+                   node.Method.Name == MethodName;
         }
 
         public abstract Expression Visit(MethodCallExpression node, IVisitorContext context);

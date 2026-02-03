@@ -11,7 +11,12 @@ namespace Stardust.Paradox.Data.ScenarioConnector;
 public class CosmosDbConnection
 {
     public string Name { get; set; } = string.Empty;
-    public string Hostname { get; set; } = string.Empty;
+    private string _hostname = string.Empty;
+    public string Hostname 
+    { 
+        get => _hostname; 
+        set => _hostname = NormalizeHostname(value); 
+    }
     public string DatabaseName { get; set; } = string.Empty;
     public string GraphName { get; set; } = string.Empty;
     public string AccessKey { get; set; } = string.Empty;
@@ -19,6 +24,46 @@ public class CosmosDbConnection
     public DateTime LastUsed { get; set; } = DateTime.UtcNow;
 
     public string GetDisplayName() => $"{Name} ({Hostname}/{DatabaseName}/{GraphName})";
+
+    /// <summary>
+    /// Normalizes a hostname by removing protocol prefixes, port numbers, trailing slashes, and whitespace
+    /// </summary>
+  private static string NormalizeHostname(string hostname)
+    {
+     if (string.IsNullOrWhiteSpace(hostname))
+    return string.Empty;
+
+        // Trim whitespace
+        hostname = hostname.Trim();
+
+        // Remove protocol prefix if present (https://, http://, wss://, ws://)
+      var protocolPrefixes = new[] { "https://", "http://", "wss://", "ws://" };
+    foreach (var prefix in protocolPrefixes)
+        {
+    if (hostname.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+ {
+             hostname = hostname.Substring(prefix.Length);
+break;
+    }
+        }
+
+        // Remove trailing slashes
+        hostname = hostname.TrimEnd('/');
+
+        // Remove port number if present (e.g., :443, :8182)
+        var colonIndex = hostname.IndexOf(':');
+        if (colonIndex > 0)
+        {
+            // Make sure it's a port and not part of the hostname
+    var portPart = hostname.Substring(colonIndex + 1);
+         if (int.TryParse(portPart, out _))
+   {
+   hostname = hostname.Substring(0, colonIndex);
+      }
+   }
+
+        return hostname;
+    }
 }
 
 /// <summary>
@@ -70,24 +115,80 @@ public class ConnectionManager
     /// </summary>
     public void AddConnection(CosmosDbConnection connection)
     {
-        if (string.IsNullOrWhiteSpace(connection.Name))
-            throw new ArgumentException("Connection name cannot be empty");
-        
-        if (string.IsNullOrWhiteSpace(connection.Hostname))
-            throw new ArgumentException("Hostname cannot be empty");
+        // Validate and sanitize connection details
+ValidateConnection(connection);
+
+   if (string.IsNullOrWhiteSpace(connection.Name))
+  throw new ArgumentException("Connection name cannot be empty");
+  
+   if (string.IsNullOrWhiteSpace(connection.Hostname))
+     throw new ArgumentException("Hostname cannot be empty");
         
         if (string.IsNullOrWhiteSpace(connection.AccessKey))
             throw new ArgumentException("Access key cannot be empty");
 
         // Check for duplicate names
         if (_connections.Any(c => c.Name.Equals(connection.Name, StringComparison.OrdinalIgnoreCase)))
-            throw new ArgumentException($"Connection with name '{connection.Name}' already exists");
+ throw new ArgumentException($"Connection with name '{connection.Name}' already exists");
 
         connection.CreatedAt = DateTime.UtcNow;
         connection.LastUsed = DateTime.UtcNow;
-        
+   
         _connections.Add(connection);
-        SaveConnections();
+     SaveConnections();
+    }
+
+  /// <summary>
+    /// Validates connection details and provides helpful error messages
+    /// </summary>
+    private void ValidateConnection(CosmosDbConnection connection)
+    {
+        if (connection == null)
+            throw new ArgumentNullException(nameof(connection));
+
+        // Validate name
+    if (string.IsNullOrWhiteSpace(connection.Name))
+        throw new ArgumentException("Connection name is required", nameof(connection));
+
+        // Validate hostname format
+   if (!string.IsNullOrWhiteSpace(connection.Hostname))
+   {
+            // Check if hostname looks like a valid CosmosDB hostname
+  if (!connection.Hostname.Contains("."))
+   {
+    throw new ArgumentException(
+    "Hostname appears invalid. Expected format: accountname.gremlin.cosmosdb.azure.com",
+ nameof(connection));
+    }
+
+            // Warn if hostname still has protocol (shouldn't happen with normalization)
+   if (connection.Hostname.Contains("://"))
+ {
+   throw new ArgumentException(
+ "Hostname should not include protocol (http:// or https://)",
+          nameof(connection));
+    }
+        }
+
+        // Validate database name
+      if (string.IsNullOrWhiteSpace(connection.DatabaseName))
+      throw new ArgumentException("Database name is required", nameof(connection));
+
+        // Validate graph name
+        if (string.IsNullOrWhiteSpace(connection.GraphName))
+  throw new ArgumentException("Graph name is required", nameof(connection));
+
+        // Validate access key
+   if (string.IsNullOrWhiteSpace(connection.AccessKey))
+   throw new ArgumentException("Access key is required", nameof(connection));
+
+        // Check access key length (CosmosDB keys are typically base64 encoded, ~88 chars)
+        if (connection.AccessKey.Length < 20)
+        {
+throw new ArgumentException(
+          "Access key appears too short. Please verify your access key.", 
+     nameof(connection));
+        }
     }
 
     /// <summary>
