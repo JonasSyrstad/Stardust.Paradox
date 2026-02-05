@@ -22,6 +22,7 @@ namespace Stardust.Paradox.Data.InMemory.Tests.CosmosDbMigrated
         }
 
         public bool CanParameterizeQueries => _inMemoryConnector.CanParameterizeQueries;
+		public Features Features => _inMemoryConnector.Features;
         public double ConsumedRU => _inMemoryConnector.ConsumedRU;
     }
 }

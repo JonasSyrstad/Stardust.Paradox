@@ -92,6 +92,16 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         
         // Metadata for optimization
         public Dictionary<string, object> Metadata { get; }
+        
+        /// <summary>
+        /// Nested traversal for steps like repeat(), until(), where(), etc.
+        /// </summary>
+        public List<TinkerGraphStep> NestedTraversal { get; set; }
+        
+        /// <summary>
+        /// Additional traversals for steps like union(), coalesce(), choose(), etc.
+        /// </summary>
+        public List<List<TinkerGraphStep>> AdditionalTraversals { get; set; }
 
         public TinkerGraphStep(string stepName)
         {
@@ -102,6 +112,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             StepType = TinkerGraphStepType.SideEffect; // Default
             IsStartStep = false;
             IsOptimized = false;
+            NestedTraversal = null;
+            AdditionalTraversals = null;
         }
 
         public void AddLabel(string label)

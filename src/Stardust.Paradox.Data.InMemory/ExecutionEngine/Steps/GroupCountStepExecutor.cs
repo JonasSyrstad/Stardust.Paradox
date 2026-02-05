@@ -120,7 +120,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
                 if (!groups.ContainsKey(key))
                 {
-                    groups[key] = 0;
+                    groups[key] = 0L;
                 }
 
                 groups[key] += traverser.Bulk;

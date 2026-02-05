@@ -1,6 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
 using Stardust.Paradox.Data.InMemory.Core;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -29,7 +28,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public string StepName => "e";
 
-        public string StepDescription => 
+        public string StepDescription =>
             "Navigates to specific edges by ID or gets all edges. " +
             "E(id1, id2, ...) retrieves edges with the given IDs. " +
             "E() without arguments retrieves all edges in the graph.";
@@ -38,22 +37,23 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         {
             // Check if this is a start step (no existing traversers)
             bool isStartStep = !context.Traversers.Any();
-            
-            Console.WriteLine($"[DEBUG EStepExecutor] isStartStep={isStartStep}, Arguments={step.Arguments.Count}");
-            
+
             if (step.Arguments.Any())
             {
                 // E(id1, id2, ...) - get specific edges by ID
                 var edgeIds = step.Arguments.Select(arg => arg.ToString()).ToList();
-                Console.WriteLine($"[DEBUG EStepExecutor] Looking for edges with IDs: {string.Join(", ", edgeIds)}");
-                
+
                 var newTraversers = new List<Traverser>();
-                
+
                 foreach (var edgeId in edgeIds)
                 {
                     var edge = _database.GetEdge(edgeId);
-                    Console.WriteLine($"[DEBUG EStepExecutor] GetEdge('{edgeId}') returned: {(edge == null ? "NULL" : "found")}");
-                    
+                    if (edge == null)
+                    {
+                        edge = _database.GetAllEdges().FirstOrDefault(e =>
+                            e.Id != null && e.Id.Equals(edgeId, System.StringComparison.OrdinalIgnoreCase));
+                    }
+
                     if (edge != null)
                     {
                         if (isStartStep)
@@ -62,7 +62,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                             var newTraverser = new Traverser(edge.ToGremlinResponse());
                             newTraverser.AddToPath(edge.ToGremlinResponse());
                             newTraversers.Add(newTraverser);
-                            Console.WriteLine($"[DEBUG EStepExecutor] Added traverser for edge {edgeId} (start step)");
                         }
                         else
                         {
@@ -74,22 +73,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                                 newTraverser.AddToPath(edge.ToGremlinResponse());
                                 newTraversers.Add(newTraverser);
                             }
-                            Console.WriteLine($"[DEBUG EStepExecutor] Added traverser for edge {edgeId} (mid-traversal)");
                         }
                     }
                 }
-                
-                Console.WriteLine($"[DEBUG EStepExecutor] Created {newTraversers.Count} new traversers");
+
                 context.Traversers = newTraversers;
             }
             else
             {
                 // E() - get all edges
                 var allEdges = _database.GetAllEdges().Select(e => e.ToGremlinResponse()).ToList();
-                Console.WriteLine($"[DEBUG EStepExecutor] E() without arguments, found {allEdges.Count} edges");
-                
+
                 var newTraversers = new List<Traverser>();
-                
+
                 if (isStartStep)
                 {
                     // Start step: Create initial traversers for all edges
@@ -114,7 +110,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         }
                     }
                 }
-                
+
                 context.Traversers = newTraversers;
             }
         }

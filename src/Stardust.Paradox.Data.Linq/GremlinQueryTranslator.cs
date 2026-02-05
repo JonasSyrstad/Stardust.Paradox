@@ -332,6 +332,18 @@ namespace Stardust.Paradox.Data.Linq
                 }
                 else
                 {
+                    // For string equality/inequality, prefer the 2-arg has(key,value) form for strict matching.
+                    // This avoids predicate-based execution paths that may apply case-insensitive semantics.
+                    if (value is string && (op == "eq" || op == "neq"))
+                    {
+                        if (op == "eq")
+                        {
+                            return $".has('{ToCamelCase(propertyName)}', {FormatValueWithParameterization(value)})";
+                        }
+
+                        return $".has('{ToCamelCase(propertyName)}', neq({FormatValueWithParameterization(value)}))";
+                    }
+
                     // Normal value comparison - use parameterization
                     return $".has('{ToCamelCase(propertyName)}', {op}({FormatValueWithParameterization(value)}))";
                 }

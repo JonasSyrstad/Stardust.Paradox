@@ -132,34 +132,143 @@ if (sortConfig.Descending)
      /// </summary>
   private class PropertyValueComparer : IComparer<object>
         {
+        /// <summary>
+        /// Comparer that handles different property value types according to TinkerPop Orderability semantics.
+        /// 
+        /// Type Priority (from lowest to highest):
+        /// 1. null, 2. Boolean, 3. Number, 4. Date, 5. String, 
+        /// 6. Vertex, 7. Edge, 8. VertexProperty, 9. Property,
+        /// 10. Path, 11. Set, 12. List, 13. Map, 14. Unknown
+        /// 
+        /// Within numerics: -Infinity < negative numbers < 0 < positive numbers < +Infinity < NaN
+        /// </summary>
         public int Compare(object x, object y)
             {
-   if (x == null && y == null) return 0;
-     if (x == null) return -1;
-       if (y == null) return 1;
+                // Handle nulls - null is lowest priority
+                if (x == null && y == null) return 0;
+                if (x == null) return -1;
+                if (y == null) return 1;
 
-      // If both are numeric, compare as numbers
-                if (IsNumeric(x) && IsNumeric(y))
-      {
-      var xNum = Convert.ToDouble(x);
-                    var yNum = Convert.ToDouble(y);
-              return xNum.CompareTo(yNum);
+                // Get type priorities
+                var xPriority = GetTypePriority(x);
+                var yPriority = GetTypePriority(y);
+                
+                // If different types, order by type priority
+                if (xPriority != yPriority)
+                {
+                    return xPriority.CompareTo(yPriority);
                 }
-
-      // If both are booleans, compare as booleans
-          if (x is bool xBool && y is bool yBool)
-      {
-       return xBool.CompareTo(yBool);
-          }
-
-    // Otherwise compare as strings
-                return string.Compare(x.ToString(), y.ToString(), StringComparison.Ordinal);
-        }
+                
+                // Same type priority - compare within type
+                return CompareWithinType(x, y, xPriority);
+            }
+            
+            private int GetTypePriority(object value)
+            {
+                if (value == null) return 0;
+                if (value is bool) return 1;
+                if (IsNumeric(value)) return 2;
+                if (value is DateTime || value is DateTimeOffset) return 3;
+                if (value is string) return 4;
+                if (value is Core.InMemoryVertex || 
+                    (value is Core.GremlinResponseObject gro && gro.type == "vertex")) return 5;
+                if (value is Core.InMemoryEdge ||
+                    (value is Core.GremlinResponseObject gre && gre.type == "edge")) return 6;
+                if (value is System.Collections.Generic.ISet<object>) return 10;
+                if (value is System.Collections.IList) return 11;
+                if (value is System.Collections.IDictionary) return 12;
+                return 99; // Unknown
+            }
+            
+            private int CompareWithinType(object x, object y, int typePriority)
+            {
+                switch (typePriority)
+                {
+                    case 1: // Boolean: FALSE < TRUE
+                        return ((bool)x).CompareTo((bool)y);
+                        
+                    case 2: // Numeric with NaN handling
+                        return CompareNumeric(x, y);
+                        
+                    case 3: // DateTime
+                        return CompareDateTime(x, y);
+                        
+                    case 4: // String: lexicographic
+                        return string.Compare(x.ToString(), y.ToString(), StringComparison.Ordinal);
+                        
+                    case 5: // Vertex: by id
+                    case 6: // Edge: by id
+                        return CompareById(x, y);
+                        
+                    default:
+                        return string.Compare(x.ToString(), y.ToString(), StringComparison.Ordinal);
+                }
+            }
+            
+            private int CompareNumeric(object x, object y)
+            {
+                var xNum = Convert.ToDouble(x);
+                var yNum = Convert.ToDouble(y);
+                
+                // Handle NaN - NaN is greater than all other numbers including +Infinity
+                var xIsNaN = double.IsNaN(xNum);
+                var yIsNaN = double.IsNaN(yNum);
+                
+                if (xIsNaN && yIsNaN) return 0;
+                if (xIsNaN) return 1; // NaN is greatest
+                if (yIsNaN) return -1;
+                
+                // Handle infinity
+                var xIsPosInf = double.IsPositiveInfinity(xNum);
+                var yIsPosInf = double.IsPositiveInfinity(yNum);
+                var xIsNegInf = double.IsNegativeInfinity(xNum);
+                var yIsNegInf = double.IsNegativeInfinity(yNum);
+                
+                if (xIsNegInf && yIsNegInf) return 0;
+                if (xIsNegInf) return -1;
+                if (yIsNegInf) return 1;
+                
+                if (xIsPosInf && yIsPosInf) return 0;
+                if (xIsPosInf) return 1;
+                if (yIsPosInf) return -1;
+                
+                return xNum.CompareTo(yNum);
+            }
+            
+            private int CompareDateTime(object x, object y)
+            {
+                DateTime xDt, yDt;
+                
+                if (x is DateTime xDateTime) xDt = xDateTime;
+                else if (x is DateTimeOffset xDto) xDt = xDto.DateTime;
+                else xDt = DateTime.MinValue;
+                
+                if (y is DateTime yDateTime) yDt = yDateTime;
+                else if (y is DateTimeOffset yDto) yDt = yDto.DateTime;
+                else yDt = DateTime.MinValue;
+                
+                return xDt.CompareTo(yDt);
+            }
+            
+            private int CompareById(object x, object y)
+            {
+                var xId = GetId(x);
+                var yId = GetId(y);
+                return string.Compare(xId, yId, StringComparison.Ordinal);
+            }
+            
+            private string GetId(object value)
+            {
+                if (value is Core.InMemoryVertex v) return v.Id;
+                if (value is Core.InMemoryEdge e) return e.Id;
+                if (value is Core.GremlinResponseObject gro) return gro.id?.ToString();
+                return value.ToString();
+            }
 
    private bool IsNumeric(object value)
-          {
-    return value is int || value is long || value is float || value is double || value is decimal;
-     }
+           {
+     return value is int || value is long || value is float || value is double || value is decimal;
+      }
   }
 
       private object GetPropertyValue(Traverser traverser, string propertyName)

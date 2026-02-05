@@ -13,6 +13,11 @@ namespace Stardust.Paradox.Data
         Task<IEnumerable<dynamic>> ExecuteAsync(string query,Dictionary<string,object> parametrizedValues);
 
 		bool CanParameterizeQueries { get; }
+
+		/// <summary>
+		/// Declares supported connector capabilities.
+		/// </summary>
+		Features Features { get; }
 	    double ConsumedRU { get;}
     }
 }
