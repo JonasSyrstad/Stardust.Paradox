@@ -2,7 +2,7 @@ name: Build Gremlin Studio
 
 on:
   push:
-    branches: [ V2.5, main ]
+    branches: [ V2.5,V2.6, main ]
     paths:
       - 'src/StardustGremlinStudio/**'
       - '.github/workflows/gremlin-studio-build.yml'

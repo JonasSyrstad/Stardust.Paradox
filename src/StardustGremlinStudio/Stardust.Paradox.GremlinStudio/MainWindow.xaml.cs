@@ -12,6 +12,11 @@ namespace Stardust.Paradox.GremlinStudio;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+    
+    /// <summary>
+    /// Gets the GraphCanvasBorder element from XAML.
+    /// </summary>
+    private Border GraphCanvasBorder => (Border)FindName("GraphCanvasBorder");
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -182,15 +187,15 @@ public partial class MainWindow : Window
         if (border == null) return;
         
         var vm = DataContext as ViewModels.MainViewModel;
-        if (vm == null) return;
+        if (vm?.SelectedTab == null) return;
 
         // Left or middle button pans the canvas (when clicking on background, not on nodes)
         if (e.LeftButton == MouseButtonState.Pressed || e.MiddleButton == MouseButtonState.Pressed)
         {
             _isPanning = true;
             _dragStartPoint = e.GetPosition(border);
-            _dragStartTranslateX = vm.GraphPanX;
-            _dragStartTranslateY = vm.GraphPanY;
+            _dragStartTranslateX = vm.SelectedTab.GraphPanX;
+            _dragStartTranslateY = vm.SelectedTab.GraphPanY;
             border.CaptureMouse();
             border.Cursor = Cursors.Hand;
         }
@@ -202,7 +207,7 @@ public partial class MainWindow : Window
         if (border == null) return;
 
         var vm = DataContext as ViewModels.MainViewModel;
-        if (vm == null) return;
+        if (vm?.SelectedTab == null) return;
 
         var currentPoint = e.GetPosition(border);
 
@@ -215,8 +220,8 @@ public partial class MainWindow : Window
             var deltaX = currentPoint.X - _dragStartPoint.X;
             var deltaY = currentPoint.Y - _dragStartPoint.Y;
             
-            vm.GraphPanX = _dragStartTranslateX + deltaX;
-            vm.GraphPanY = _dragStartTranslateY + deltaY;
+            vm.SelectedTab.GraphPanX = _dragStartTranslateX + deltaX;
+            vm.SelectedTab.GraphPanY = _dragStartTranslateY + deltaY;
         }
     }
 
@@ -258,6 +263,23 @@ public partial class MainWindow : Window
         vm.StartNodeDrag(node, startPoint.X, startPoint.Y);
         GraphCanvasBorder.CaptureMouse();
         GraphCanvasBorder.Cursor = Cursors.SizeAll;
+    }
+
+    #endregion
+
+    #region Tab Selection
+
+    private void TabHeader_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is ViewModels.QueryTabViewModel tab)
+        {
+            var vm = DataContext as ViewModels.MainViewModel;
+            if (vm != null)
+            {
+                vm.SelectedTab = tab;
+            }
+            e.Handled = true;
+        }
     }
 
     #endregion

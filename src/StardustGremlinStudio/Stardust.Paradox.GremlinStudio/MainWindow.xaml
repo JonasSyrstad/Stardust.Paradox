@@ -38,6 +38,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:BoolToEdgeThicknessConverter x:Key="BoolToEdgeThicknessConverter"/>
 <converters:BoolToLabelBackgroundConverter x:Key="BoolToLabelBackgroundConverter"/>
 <converters:BoolToPinTooltipConverter x:Key="BoolToPinTooltipConverter"/>
+<converters:EqualityConverter x:Key="EqualityConverter"/>
 
 <!-- Modern Window Caption Button Style -->
 <Style x:Key="CaptionButtonStyle" TargetType="Button">
@@ -577,13 +578,86 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     ToolTip="Expand panel"
                     Background="{DynamicResource TertiaryBackgroundBrush}"/>
 
+            <!-- Query Tabs Area -->
             <Grid Grid.Column="2" Margin="12">
+                <!-- Tab Header Strip -->
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="3*" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
+                
+                <!-- Tab Headers with New Tab Button -->
+                <Border Grid.Row="0" Background="{DynamicResource TertiaryBackgroundBrush}" CornerRadius="6,6,0,0">
+                    <DockPanel>
+                        <Button DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}" 
+                                Style="{StaticResource CompactButtonStyle}" 
+                                Width="28" Height="28" Margin="4" 
+                                ToolTip="New Query Tab" FontWeight="Bold" FontSize="14"/>
+                        <ItemsControl ItemsSource="{Binding QueryTabs}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal"/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border x:Name="TabBorder" 
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1,1,1,0"
+                                            CornerRadius="6,6,0,0" 
+                                            Margin="2,4,0,0" 
+                                            Padding="8,6"
+                                            Cursor="Hand"
+                                            MouseLeftButtonDown="TabHeader_MouseLeftButtonDown">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="True">
+                                                        <DataTrigger.Binding>
+                                                            <MultiBinding Converter="{StaticResource EqualityConverter}">
+                                                                <Binding/>
+                                                                <Binding Path="DataContext.SelectedTab" RelativeSource="{RelativeSource AncestorType=Window}"/>
+                                                            </MultiBinding>
+                                                        </DataTrigger.Binding>
+                                                        <Setter Property="Background" Value="{DynamicResource PrimaryBackgroundBrush}"/>
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                                        <Setter Property="BorderThickness" Value="1,2,1,0"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock x:Name="TabNameText" Text="{Binding TabName}" VerticalAlignment="Center" 
+                                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                            <Button Content="✕" Width="18" Height="18" Padding="0" Margin="8,0,0,0"
+                                                    Command="{Binding DataContext.CloseTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    Visibility="{Binding CanClose, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    Background="Transparent" BorderThickness="0" FontSize="10"
+                                                    Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                    ToolTip="Close Tab"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </DockPanel>
+                </Border>
+                
+                <!-- Tab Content -->
+                <Border Grid.Row="1" Background="{DynamicResource PrimaryBackgroundBrush}" 
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                    <ContentControl Content="{Binding SelectedTab}">
+                        <ContentControl.ContentTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="3*" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="2*" />
+                                    </Grid.RowDefinitions>
 
                 <!-- Query Toolbar -->
                 <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
@@ -600,36 +674,12 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </StackPanel>
                     </Button>
                     <Separator />
+                    <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0"/>
+                    <TextBlock Text="{Binding ConnectionDisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
+                               Foreground="{DynamicResource AccentBrush}"/>
+                    <Separator/>
                     <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0"/>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"/>
-                    <Separator/>
-                    <!-- Query History Dropdown -->
-                    <TextBlock Text="History:" VerticalAlignment="Center" Margin="4,0"/>
-                    <ComboBox ItemsSource="{Binding QueryHistory}" 
-                              SelectedItem="{Binding SelectedHistoryItem}"
-                              Width="200" MaxDropDownHeight="300">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="📌" Margin="0,0,4,0"
-                                               Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding DisplayText}" 
-                                               TextTrimming="CharacterEllipsis" ToolTip="{Binding Query}"/>
-                                    <Button Grid.Column="2" Content="📌" Width="20" Height="20" Padding="0" Margin="4,0,0,0"
-                                            Command="{Binding DataContext.TogglePinQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                            CommandParameter="{Binding}"
-                                            ToolTip="{Binding IsPinned, Converter={StaticResource BoolToPinTooltipConverter}}"
-                                            Background="Transparent" BorderThickness="0"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <Button Content="Clear" Command="{Binding ClearQueryHistoryCommand}" Padding="6,2" ToolTip="Clear unpinned history"/>
                 </ToolBar>
 
                 <!-- Query Editor -->
@@ -1187,6 +1237,11 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </TabItem>
                     </TabControl>
                 </GroupBox>
+                                    </Grid>
+                                </DataTemplate>
+                            </ContentControl.ContentTemplate>
+                        </ContentControl>
+                    </Border>
             </Grid>
         </Grid>
     </DockPanel>
