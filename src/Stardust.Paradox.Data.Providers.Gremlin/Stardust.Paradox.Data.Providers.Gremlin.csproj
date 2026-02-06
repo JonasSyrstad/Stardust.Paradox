@@ -12,14 +12,17 @@ A database connector based on gremlin.net</Description>
     <PackageIcon>logo_smal.png</PackageIcon>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <PackageTags>CosmosDB Gremlin Tinkerpop EntityFramework</PackageTags>
-    <PackageReleaseNotes>Exposing the gremlin.net ConnectionPoolSettings and WebSocketConfiguration to allow tuning of the gremlin driver. Trying to recover from connection issues in WebSocetClient.
-Handling ServerUnavailableException and try to reset the gremlin client
-Added retry on connection issues</PackageReleaseNotes>
+    <PackageReleaseNotes>
+      Exposing the gremlin.net ConnectionPoolSettings and WebSocketConfiguration to allow tuning of the gremlin driver. Trying to recover from connection issues in WebSocetClient.
+      Handling ServerUnavailableException and try to reset the gremlin client
+      Added retry on connection issues
+    </PackageReleaseNotes>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Version>2.3.8-rc1</Version>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ProjectGuid>F55201A3-4B61-4F49-A730-34FEBBB95FC3</ProjectGuid>
   </PropertyGroup>
 
   <ItemGroup>

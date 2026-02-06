@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace Stardust.Paradox.Data.CodeGeneration
+﻿namespace Stardust.Paradox.Data.CodeGeneration
 {
     internal static class CasingHelper
     {

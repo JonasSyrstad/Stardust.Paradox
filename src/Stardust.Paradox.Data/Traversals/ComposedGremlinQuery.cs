@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace Stardust.Paradox.Data.Traversals
+﻿namespace Stardust.Paradox.Data.Traversals
 {
     public class ComposedGremlinQuery : GremlinQuery
     {
@@ -11,20 +9,14 @@ namespace Stardust.Paradox.Data.Traversals
             _queryBase = queryBase;
         }
 
+        public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
+
         protected internal override string CompileQuery()
         {
             var query = _query.StartsWith(".") ? _query.Remove(0, 1) : _query;
             var baseQ = _queryBase.CompileQuery();
-            if ((!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith("."))) query = $".{query}";
+            if (!string.IsNullOrWhiteSpace(baseQ) && !baseQ.EndsWith(".")) query = $".{query}";
             return baseQ + query;
         }
-
-        public override bool IsUpdatableGremlinQuery => _queryBase.IsUpdatableGremlinQuery;
-
-	    //internal override object ComposeParameter(object value)
-	    //{
-		   // return _queryBase.ComposeParameter(value);
-	    //}
-	   
-	}
+    }
 }

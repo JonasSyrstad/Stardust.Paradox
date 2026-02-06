@@ -15,7 +15,5 @@ namespace Stardust.Paradox.Data
 
         void Add(Pair<T2, T1> pair);
         void Add(T2 item2, T1 item1);
-
-
     }
 }

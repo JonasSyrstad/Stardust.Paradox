@@ -1,14 +1,11 @@
-using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
-using Microsoft.Azure.Graphs;
-using Microsoft.Azure.Graphs.Elements;
-using Newtonsoft.Json.Linq;
-using Stardust.Paradox.Data;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.Azure.Documents;
+using Microsoft.Azure.Documents.Client;
+using Microsoft.Azure.Graphs;
+using Stardust.Paradox.Data;
 using Stardust.Particles;
 
 namespace Stardust.Paradox.CosmosDbTest
@@ -42,7 +39,7 @@ namespace Stardust.Paradox.CosmosDbTest
         //}
 
         public async Task<IEnumerable<dynamic>> ExecuteAsync(string query,
-	        Dictionary<string, object> parametrizedValues)
+            Dictionary<string, object> parametrizedValues)
         {
             var graph = await DocumentCollection().ConfigureAwait(false);
             var gremlinQ = _client.CreateGremlinQuery(graph, query);
@@ -59,10 +56,11 @@ namespace Stardust.Paradox.CosmosDbTest
 			supportsPaging: true);
 	    public double ConsumedRU { get; }
 
-	    private async Task<DocumentCollection> DocumentCollection()
+        private async Task<DocumentCollection> DocumentCollection()
         {
             if (_graph != null) return _graph;
-            Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database { Id = "graphTest" }).ConfigureAwait(false);
+            Database database = await _client.CreateDatabaseIfNotExistsAsync(new Database {Id = "graphTest"})
+                .ConfigureAwait(false);
             _graph = await _client.CreateDocumentCollectionIfNotExistsAsync(
                 UriFactory.CreateDatabaseUri("graphTest"),
                 new DocumentCollection { Id = "graphTest" },

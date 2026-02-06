@@ -4,17 +4,16 @@ using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.Internals
 {
-	public abstract class LanguageConnectorBase
-	{
-		private ILogging _logger;
+    public abstract class LanguageConnectorBase
+    {
+        private readonly ILogging _logger;
 
-		protected LanguageConnectorBase(ILogging logger)
-		{
-			_logger = logger;
-		}
-		public bool OutputDebugLog { get; set; }
+        protected LanguageConnectorBase(ILogging logger)
+        {
+            _logger = logger;
+        }
 
-		public bool OutputAllQueries { get; set; }
+        public bool OutputDebugLog { get; set; }
 
 		protected bool Log(string query, Exception ex, object properties)
 		{
@@ -32,9 +31,19 @@ namespace Stardust.Paradox.Data.Internals
                 LoggInner(ex);
             }
 
-			Console.WriteLine(query);
-			return false;
-		}
+        protected bool Log(string query, Exception ex)
+        {
+            if (!OutputDebugLog) return false;
+            if (_logger != null)
+            {
+                _logger.DebugMessage($"Failed query: {query}", LogType.Information, GetType().FullName);
+                _logger.Exception(ex, $"{GetType().FullName}({ex.GetType()})");
+            }
+            else
+            {
+                Logging.DebugMessage($"Failed query: {query}", LogType.Information, GetType().FullName);
+                Logging.Exception(ex, $"{GetType().FullName}({ex.GetType()})");
+            }
 
         private void LoggInner(Exception ex)
         {

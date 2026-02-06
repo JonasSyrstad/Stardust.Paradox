@@ -5,7 +5,6 @@ using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Stardust.Paradox.Data.Annotations;
 using Stardust.Paradox.Data.Internals;
-using Stardust.Paradox.Data.Tree;
 
 namespace Stardust.Paradox.Data
 {
@@ -13,7 +12,9 @@ namespace Stardust.Paradox.Data
     {
         public static Task<IEnumerable<T>> AsEnumerableAsync<T>(this ICollection<T> collection) where T : IVertex
         {
-            return collection is IEdgeCollection<T> c ? c.ToVerticesAsync() : Task.FromResult(collection.Select(i => i));
+            return collection is IEdgeCollection<T> c
+                ? c.ToVerticesAsync()
+                : Task.FromResult(collection.Select(i => i));
         }
 
         public static void Add<T>(this ICollection<IEdge<T>> collection, T item) where T : IVertex
@@ -25,39 +26,46 @@ namespace Stardust.Paradox.Data
 
         public static Task<IEnumerable<T>> ToVerticesAsync<T>(this ICollection<T> collection) where T : IVertex
         {
-            return collection is IEdgeCollection<T> c ? c.ToVerticesAsync() : Task.FromResult(collection.Select(i => i));
-        }
-        public static Task<IEnumerable<T>> ToVerticesAsync<T>(this IReadOnlyCollection<T> collection) where T : IVertex
-        {
-            return collection is IEdgeCollection<T> c ? c.ToVerticesAsync() : Task.FromResult(collection.Select(i => i));
+            return collection is IEdgeCollection<T> c
+                ? c.ToVerticesAsync()
+                : Task.FromResult(collection.Select(i => i));
         }
 
-        public static void AddRange<T>(this IEnumerable<T> inlineCollection, IEnumerable<T> range, bool throwException = false)
+        public static Task<IEnumerable<T>> ToVerticesAsync<T>(this IReadOnlyCollection<T> collection) where T : IVertex
+        {
+            return collection is IEdgeCollection<T> c
+                ? c.ToVerticesAsync()
+                : Task.FromResult(collection.Select(i => i));
+        }
+
+        public static void AddRange<T>(this IEnumerable<T> inlineCollection, IEnumerable<T> range,
+            bool throwException = false)
         {
             if (range == null) return;
             var c = inlineCollection as IInlineCollection<T>;
             var l = inlineCollection as ICollection<T>;
             if (c != null) c.AddRange(range);
             else if (l != null)
-            {
                 foreach (var item in range)
-                {
                     l.Add(item);
-                }
-            }
-            else if (throwException) throw new ArgumentException($"{inlineCollection?.GetType().FullName} does not support operation", nameof(inlineCollection));
+            else if (throwException)
+                throw new ArgumentException($"{inlineCollection?.GetType().FullName} does not support operation",
+                    nameof(inlineCollection));
         }
 
-		/// <summary>
-		/// Converts a string to a tuple, used with cosmosDb where the partitionKey property has the same value as the vertex id.
-		/// </summary>
-		/// <param name="id"></param>
-		/// <returns></returns>
-	    public static (string, string) ToTuple(this string id)
-	    {
-		    return (id, id);
-	    }
-        public static async Task<IVertexTreeRoot<T>> GetTreeAsync<T>(this IVertex vertex, Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex
+        /// <summary>
+        ///     Converts a string to a tuple, used with cosmosDb where the partitionKey property has the same value as the vertex
+        ///     id.
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static (string, string) ToTuple(this string id)
+        {
+            return (id, id);
+        }
+
+        public static async Task<IVertexTreeRoot<T>> GetTreeAsync<T>(this IVertex vertex,
+            Expression<Func<T, object>> byProperty, bool incommingEdge = false) where T : IVertex
         {
             var v = vertex as GraphDataEntity;
             return await v._context.GetTreeAsync(v._entityKey, byProperty).ConfigureAwait(false);
@@ -66,7 +74,7 @@ namespace Stardust.Paradox.Data
         public static T Create<T, TIn, TOut>(this IEdgeGraphSet<T> graphSet, TIn inV, TOut outV)
             where T : IEdge<TIn, TOut> where TIn : IVertex where TOut : IVertex
         {
-            var entity = graphSet.Create((IVertex) inV, (IVertex) outV);
+            var entity = graphSet.Create(inV, outV);
             return entity;
         }
     }

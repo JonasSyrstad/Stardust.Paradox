@@ -1,15 +1,15 @@
-﻿using Gremlin.Net.Driver;
-using Gremlin.Net.Driver.Exceptions;
-using Gremlin.Net.Structure.IO.GraphSON;
-using Newtonsoft.Json;
-using Stardust.Paradox.Data.Internals;
-using Stardust.Particles;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.WebSockets;
 using System.Threading.Tasks;
+using Gremlin.Net.Driver;
+using Gremlin.Net.Driver.Exceptions;
+using Gremlin.Net.Structure.IO.GraphSON;
+using Newtonsoft.Json;
+using Stardust.Paradox.Data.Internals;
+using Stardust.Particles;
 
 namespace Stardust.Paradox.Data.Providers.Gremlin
 {

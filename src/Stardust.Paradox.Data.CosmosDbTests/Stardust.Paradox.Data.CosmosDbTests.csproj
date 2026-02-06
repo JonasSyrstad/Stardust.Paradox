@@ -26,10 +26,12 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="XunitXml.TestLogger" Version="2.1.26" />
+
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Paradox.Data.Annotations\Stardust.Paradox.Data.Annotations.csproj" />
-    <ProjectReference Include="..\Stardust.Paradox.Data.Providers.Gremlin\Stardust.Paradox.Data.Providers.Gremlin.csproj" />
+    <ProjectReference
+      Include="..\Stardust.Paradox.Data.Providers.Gremlin\Stardust.Paradox.Data.Providers.Gremlin.csproj" />
     <ProjectReference Include="..\Stardust.Paradox.Data\Stardust.Paradox.Data.csproj" />
   </ItemGroup>
   <ItemGroup>

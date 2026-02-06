@@ -1,4 +1,4 @@
 ﻿namespace Stardust.Paradox.Data
 {
-	public delegate void DisposingDataContextHandler(GraphContextBase sender);
+    public delegate void DisposingDataContextHandler(GraphContextBase sender);
 }

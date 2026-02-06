@@ -1,6 +1,6 @@
 namespace Stardust.Paradox.Data.Annotations
 {
-    public interface IEdgeEntity: IGraphEntity
-    { 
+    public interface IEdgeEntity : IGraphEntity
+    {
     }
 }

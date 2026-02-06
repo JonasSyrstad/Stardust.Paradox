@@ -12,13 +12,16 @@
     <PackageIcon>logo_smal.png</PackageIcon>
     <RepositoryType>GIT</RepositoryType>
     <PackageTags>CosmosDB Gremlin EntityFramework</PackageTags>
-    <Description>[This package will be deprecated in V 3.0, consider moving to 'Stardust.Paradox.Data.Providers.Gremlin']
-Connector for CosmosDb using the document client</Description>
+    <Description>
+      [This package will be deprecated in V 3.0, consider moving to 'Stardust.Paradox.Data.Providers.Gremlin']
+      Connector for CosmosDb using the document client
+    </Description>
     <PackageProjectUrl>https://github.com/JonasSyrstad/Stardust.Paradox</PackageProjectUrl>
     <RepositoryUrl>https://github.com/JonasSyrstad/Stardust.Paradox</RepositoryUrl>
     <IncludeSource>True</IncludeSource>
     <IncludeSymbols>True</IncludeSymbols>
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ProjectGuid>EE625C0B-6424-4CE0-B3F2-3D518259F1AC</ProjectGuid>
   </PropertyGroup>
 
   <ItemGroup>

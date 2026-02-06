@@ -3,13 +3,14 @@ using System.Runtime.Serialization;
 
 namespace Stardust.Paradox.Data
 {
+    [Serializable]
     public class EntityDeletedException : Exception
     {
         public EntityDeletedException()
         {
         }
 
-        public EntityDeletedException(string message):base(message)
+        public EntityDeletedException(string message) : base(message)
         {
         }
 

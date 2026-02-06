@@ -2,7 +2,7 @@
 
 namespace Stardust.Paradox.Data.Annotations
 {
-    [AttributeUsage(AttributeTargets.Property|AttributeTargets.Interface)]
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Interface)]
     [Obsolete("Use InLabelAttribute for clarity", false)]
     public class EdgeLabelAttribute : VertexLabelAttribute
     {

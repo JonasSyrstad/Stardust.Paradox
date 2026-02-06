@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Stardust.Paradox.Data.Traversals.Helpers
+﻿namespace Stardust.Paradox.Data.Traversals.Helpers
 {
     public static class CompilationHelper
     {

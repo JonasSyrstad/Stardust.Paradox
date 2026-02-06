@@ -4,6 +4,6 @@
     {
         Base64,
         ClearText,
-		Compressed
+        Compressed
     }
 }

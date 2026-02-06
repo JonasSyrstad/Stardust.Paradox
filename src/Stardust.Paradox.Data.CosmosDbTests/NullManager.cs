@@ -5,6 +5,6 @@ namespace Stardust.Paradox.CosmosDbTest
 {
     public class NullManager : IConfigurationReader
     {
-        public NameValueCollection AppSettings { get { return new NameValueCollection(); } }
+        public NameValueCollection AppSettings => new NameValueCollection();
     }
 }

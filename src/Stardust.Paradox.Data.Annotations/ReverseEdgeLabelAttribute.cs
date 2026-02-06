@@ -3,13 +3,14 @@
 namespace Stardust.Paradox.Data.Annotations
 {
     [AttributeUsage(AttributeTargets.Property)]
-    [Obsolete("Use OutLabelAttribute for clarity",false)]
+    [Obsolete("Use OutLabelAttribute for clarity", false)]
     public class ReverseEdgeLabelAttribute : Attribute
     {
         public ReverseEdgeLabelAttribute(string label)
         {
             ReverseLabel = label;
         }
+
         public string ReverseLabel { get; set; }
     }
 

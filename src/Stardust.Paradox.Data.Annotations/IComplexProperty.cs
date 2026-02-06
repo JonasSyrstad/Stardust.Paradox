@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using System.Text;
 using Newtonsoft.Json;
 using Stardust.Paradox.Data.Annotations.Annotations;
 
@@ -11,8 +9,9 @@ namespace Stardust.Paradox.Data.Annotations
     public abstract class IComplexProperty : INotifyPropertyChanged
     {
         private bool _notify;
-        
-        [Obsolete("internal use only",false)]
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        [Obsolete("internal use only", false)]
         public void StartNotifications()
         {
             _notify = true;
@@ -23,7 +22,6 @@ namespace Stardust.Paradox.Data.Annotations
         {
             _notify = false;
         }
-        public event PropertyChangedEventHandler PropertyChanged;
 
         [NotifyPropertyChangedInvocator]
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)

@@ -18,7 +18,8 @@ namespace Stardust.Paradox.Data.Traversals
 
         private static IGremlinLanguageConnector Activate()
         {
-            return _factoryMethod?.Invoke() ?? _resolver.GetService(typeof(IGremlinLanguageConnector)) as IGremlinLanguageConnector;
+            return _factoryMethod?.Invoke() ??
+                   _resolver.GetService(typeof(IGremlinLanguageConnector)) as IGremlinLanguageConnector;
         }
 
         public static void SetActivatorFactory(Func<IGremlinLanguageConnector> factoryMetod)

@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Stardust.Paradox.Data.Annotations
 {
-    public interface IEdge:IGraphEntity
+    public interface IEdge : IGraphEntity
     {
     }
 
@@ -13,16 +13,15 @@ namespace Stardust.Paradox.Data.Annotations
 
         string EdgeType { get; }
 
-        IDictionary<string ,object> Properties { get; }
+        IDictionary<string, object> Properties { get; }
     }
 
-    public interface IEdge<TIn, TOut>:IEdgeEntity where TIn : IVertex where TOut : IVertex
+    public interface IEdge<TIn, TOut> : IEdgeEntity where TIn : IVertex where TOut : IVertex
     {
-        Task<TIn> InVAsync();
-
         string InVertexId { get; }
 
         string OutVertextId { get; }
+        Task<TIn> InVAsync();
 
         Task<TOut> OutVAsync();
     }

@@ -1,5 +1,11 @@
 # Stardust.Paradox
 Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=alert_status)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=security_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=ncloc)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox?ref=badge_shield)
 
 ---
 
@@ -137,12 +143,12 @@ public class MyEntityContext : Stardust.Paradox.Data.GraphContextBase
     {
         //Added some fluent configuration of the edges
         configuration.ConfigureCollection<IPerson>()
-                .AddInEdge(t => t.Parents, "parent").Out<IProfile>(t => t.Children)
+                .In(t => t.Parents, "parent").Out(t => t.Children)
             .ConfigureCollection<ICity>()
             .ConfigureCollection<ICountry>()
                 .AddEdge(t=>t.Cities).Reverse<ICountry>(t=>t.Country)
             .ConfigureCollection<ICompany>()
-                .AddOutEdge(t=>t.Employees, "employer").In<IProfile>(t=>t.Employers)
+                .Out(t=>t.Employees, "employer").In(t=>t.Employers)
                 .ConfigureCollection<IEmployment>();;
         return true;
     }
@@ -289,3 +295,7 @@ public class MyProp:IComplexProperty
         }
     }
 ```
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox?ref=badge_large)
