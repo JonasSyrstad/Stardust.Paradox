@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <!-- Avoid SourceLink/Git metadata targets failing in stripped CI environments -->
+    <ContinuousIntegrationBuild>false</ContinuousIntegrationBuild>
+    <EnableSourceLink>false</EnableSourceLink>
+    <PublishRepositoryUrl>false</PublishRepositoryUrl>
+    <Deterministic>false</Deterministic>
+    <EmbedUntrackedSources>false</EmbedUntrackedSources>
+  </PropertyGroup>
+</Project>
