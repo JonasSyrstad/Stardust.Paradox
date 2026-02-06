@@ -72,7 +72,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: GremlinStudio-win-x64
-        path: ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
+        path: .src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
 
     - name: Install Inno Setup
       run: |
