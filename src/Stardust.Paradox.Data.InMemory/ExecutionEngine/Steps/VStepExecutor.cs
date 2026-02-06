@@ -49,7 +49,24 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 {
                     // Resolve ParameterReference if present
                     var resolvedArg = ResolveParameter(arg, parameters);
-                    
+
+                    // NEW: if a parameter resolves to an enumerable of ids (e.g. string[]), expand it
+                    if (resolvedArg is System.Collections.IEnumerable enumerable &&
+                        resolvedArg is not string &&
+                        resolvedArg is not IDictionary<string, object>)
+                    {
+                        foreach (var item in enumerable)
+                        {
+                            var resolvedItem = ResolveParameter(item, parameters);
+                            var id = resolvedItem?.ToString();
+                            if (string.IsNullOrEmpty(id))
+                                continue;
+
+                            processedIds.Add(id.Trim().Trim('"', '\'', '[', ']'));
+                        }
+                        continue;
+                    }
+
                     // Check if this argument is already parsed as a list (from array syntax)
                     if (resolvedArg is List<object> list && list.Count >= 1)
                     {
@@ -112,13 +129,13 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                             if (parts.Length >= 2)
                             {
                                 // Extract the ID (second element), ignoring partition key (first element)
-                                var id = parts[1].Trim().Trim('"', '\'');
+                                var id = parts[1].Trim().Trim('"', '\'', '[', ']');
                                 processedIds.Add(id);
                             }
                             else if (parts.Length == 1)
                             {
                                 // Single element array, use it as ID
-                                var id = parts[0].Trim().Trim('"', '\'');
+                                var id = parts[0].Trim().Trim('"', '\'', '[', ']');
                                 processedIds.Add(id);
                             }
                         }

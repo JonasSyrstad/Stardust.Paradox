@@ -166,6 +166,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 return "null";
             }
 
+            // NEW: expand enumerable values (e.g. string[], int[]) to comma-separated literals
+            // Note: ignore strings (they are IEnumerable<char>)
+            if (value is System.Collections.IEnumerable enumerable && value is not string)
+            {
+                var items = new List<string>();
+                foreach (var item in enumerable)
+                {
+                    items.Add(ConvertToGremlinLiteral(item));
+                }
+
+                return string.Join(",", items);
+            }
+
             // Handle different types appropriately
             switch (value)
             {
@@ -1160,13 +1173,20 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 return new ParameterReference(arg);
             }
 
-            // Handle array syntax first: [value1, value2, ...]
+            // Handle array/map literal syntax first: [value1, value2, ...] or [(key): value, 'key': value]
             if (arg.StartsWith("[") && arg.EndsWith("]"))
             {
                 var arrayContent = arg.Substring(1, arg.Length - 2).Trim();
                 if (string.IsNullOrEmpty(arrayContent))
                 {
                     return new List<object>(); // Empty array
+                }
+
+                // Map literal detection: any top-level ':' indicates key/value pairs.
+                // Example: [(T.label): 'knows', (Direction.from): 'alice', (Direction.to): 'bob']
+                if (LooksLikeMapLiteral(arrayContent))
+                {
+                    return ParseMapLiteral(arrayContent);
                 }
 
                 // Parse array elements
@@ -1239,14 +1259,145 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 }
             }
 
+            // Handle TinkerPop tokens
+            if (arg.Equals("T.id", StringComparison.OrdinalIgnoreCase) || arg.Equals("T.label", StringComparison.OrdinalIgnoreCase))
+            {
+                return arg;
+            }
+
             // Return as string for everything else
             return arg;
         }
+
+        private bool LooksLikeMapLiteral(string content)
+        {
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var parenLevel = 0;
+            var bracketLevel = 0;
+
+            for (var i = 0; i < content.Length; i++)
+            {
+                var c = content[i];
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    continue;
+                }
+                if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    continue;
+                }
+
+                if (inQuotes)
+                {
+                    continue;
+                }
+
+                if (c == '(') parenLevel++;
+                else if (c == ')') parenLevel--;
+                else if (c == '[') bracketLevel++;
+                else if (c == ']') bracketLevel--;
+                else if (c == ':' && parenLevel == 0 && bracketLevel == 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Dictionary<string, object> ParseMapLiteral(string content)
+        {
+            var result = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+            var parts = SplitArguments(content);
+
+            foreach (var part in parts)
+            {
+                var colonIndex = IndexOfTopLevelColon(part);
+                if (colonIndex <= 0)
+                {
+                    continue;
+                }
+
+                var keyRaw = part.Substring(0, colonIndex).Trim();
+                var valueRaw = part.Substring(colonIndex + 1).Trim();
+
+                // Normalize key: strip parentheses and quotes
+                var key = keyRaw.Trim().TrimStart('(').TrimEnd(')');
+                key = key.Trim('"', '\'');
+
+                if (key.Equals("T.label", StringComparison.OrdinalIgnoreCase) || key.Equals("label", StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "label";
+                }
+                else if (key.Equals("T.id", StringComparison.OrdinalIgnoreCase) || key.Equals("id", StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "id";
+                }
+                else if (key.Equals("Direction.from", StringComparison.OrdinalIgnoreCase) || key.Equals("from", StringComparison.OrdinalIgnoreCase) || key.Equals("Direction.OUT", StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "from";
+                }
+                else if (key.Equals("Direction.to", StringComparison.OrdinalIgnoreCase) || key.Equals("to", StringComparison.OrdinalIgnoreCase) || key.Equals("Direction.IN", StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "to";
+                }
+
+                result[key] = ParseSingleArgument(valueRaw);
+            }
+
+            return result;
+        }
+
+        private int IndexOfTopLevelColon(string text)
+        {
+            var inQuotes = false;
+            var quoteChar = '\0';
+            var parenLevel = 0;
+            var bracketLevel = 0;
+
+            for (var i = 0; i < text.Length; i++)
+            {
+                var c = text[i];
+                if (!inQuotes && (c == '\'' || c == '"'))
+                {
+                    inQuotes = true;
+                    quoteChar = c;
+                    continue;
+                }
+                if (inQuotes && c == quoteChar)
+                {
+                    inQuotes = false;
+                    continue;
+                }
+
+                if (inQuotes)
+                {
+                    continue;
+                }
+
+                if (c == '(') parenLevel++;
+                else if (c == ')') parenLevel--;
+                else if (c == '[') bracketLevel++;
+                else if (c == ']') bracketLevel--;
+                else if (c == ':' && parenLevel == 0 && bracketLevel == 0)
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        #endregion
     }
 
     /// <summary>
     /// Marker class to indicate a parameter reference that should be resolved later
-    /// This needs to be accessible from HasStepExecutor for proper type-safe parameter resolution
+    /// This needs to be accessible from step executors for proper type-safe parameter resolution
     /// </summary>
     public class ParameterReference
     {
@@ -1262,6 +1413,4 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
             return ParameterName;
         }
     }
-
-        #endregion
-    }
+}

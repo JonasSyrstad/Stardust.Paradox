@@ -190,6 +190,12 @@ namespace Stardust.Paradox.Data.Providers.Gremlin
         }
 
         public bool CanParameterizeQueries => true;
+		public Features Features => new Features(
+			canParameterizeQueries: CanParameterizeQueries,
+			supportsServerSideProjection: true,
+			supportsDedup: true,
+			supportsOrdering: true,
+			supportsPaging: true);
         public double ConsumedRU { get; private set; }
 
         //protected virtual void Dispose(bool disposing)

@@ -34,7 +34,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        ((double)result.First()).Should().Be(93.0); // 30 + 28 + 35
+        ((long)result.First()).Should().Be(93L); // 30 + 28 + 35
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        ((double)result.First()).Should().Be(165000.0); // 75000 + 90000
+        ((long)result.First()).Should().Be(165000L); // 75000 + 90000
     }
 
     [Fact]
@@ -244,7 +244,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        ((double)result.First()).Should().Be(65000.0); // Only Bob in Sales
+        ((long)result.First()).Should().Be(65000L); // Only Bob in Sales
     }
 
     [Fact]
@@ -389,7 +389,7 @@ public class AggregationOperationTests
 
         // Assert
         result.Should().HaveCount(1);
-        ((double)result.First()).Should().BeApproximately(65.44, 0.01);
+        ((decimal)result.First()).Should().BeApproximately(65.44m, 0.01m);
     }
 
     [Fact]

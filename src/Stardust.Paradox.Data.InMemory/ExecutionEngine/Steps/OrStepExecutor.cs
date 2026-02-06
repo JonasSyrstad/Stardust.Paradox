@@ -1,4 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,9 +33,25 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         {
             if (!step.Arguments.Any())
             {
-                // or() with no arguments filters all out
                 context.Traversers.Clear();
                 return;
+            }
+
+            var executors = context.GetMetadata<Dictionary<string, IStepExecutor>>("stepExecutors");
+
+            bool EvaluateNestedStep(Traverser sourceTraverser, TinkerGraphStep nested)
+            {
+                if (executors == null)
+                    return false;
+
+                if (!executors.TryGetValue(nested.StepName, out var nestedExecutor))
+                    return false;
+
+                var nestedContext = context.Clone();
+                nestedContext.Traversers = new List<Traverser> { sourceTraverser.Split() };
+
+                nestedExecutor.Execute(nested, nestedContext);
+                return nestedContext.Traversers.Any();
             }
 
             var newTraversers = new List<Traverser>();
@@ -43,24 +60,31 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             {
                 bool anyConditionMet = false;
 
-                // Evaluate each condition
                 foreach (var arg in step.Arguments)
                 {
-                    var conditionStr = arg.ToString();
+                    if (arg is TinkerGraphStep nestedStep)
+                    {
+                        if (EvaluateNestedStep(traverser, nestedStep))
+                        {
+                            anyConditionMet = true;
+                            break;
+                        }
+                        continue;
+                    }
 
-                    // Parse and evaluate the condition using the base class helper
+                    var conditionStr = arg?.ToString() ?? string.Empty;
+                    if (conditionStr.StartsWith("__."))
+                        conditionStr = conditionStr.Substring(3);
+
                     if (EvaluateLogicalCondition(traverser, conditionStr))
                     {
                         anyConditionMet = true;
-                        break; // Short-circuit: at least one condition is true
+                        break;
                     }
                 }
 
-                // Only keep traversers where at least one condition is met
                 if (anyConditionMet)
-                {
                     newTraversers.Add(traverser);
-                }
             }
 
             context.Traversers = newTraversers;

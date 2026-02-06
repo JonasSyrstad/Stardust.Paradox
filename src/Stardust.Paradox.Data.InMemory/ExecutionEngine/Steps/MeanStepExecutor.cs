@@ -1,4 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
+using System;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
@@ -28,29 +29,46 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            double sum = 0.0;
             long count = 0;
+            double sumDouble = 0.0;
+            decimal sumDecimal = 0m;
+            bool hasDecimal = false;
 
             foreach (var traverser in context.Traversers)
             {
-                for (int i = 0; i < traverser.Bulk; i++)
+                var bulk = traverser.Bulk <= 0 ? 1 : traverser.Bulk;
+                var value = traverser.Value;
+
+                if (value is decimal dec)
                 {
-                    var value = traverser.Value;
-                    if (TryConvertToDouble(value, out double doubleValue))
-                    {
-                        sum += doubleValue;
-                        count++;
-                    }
+                    hasDecimal = true;
+                    sumDecimal += dec * bulk;
+                    count += bulk;
+                    continue;
+                }
+
+                double doubleValue;
+                if (TryConvertToDouble(value, out doubleValue))
+                {
+                    sumDouble += doubleValue * bulk;
+                    if (hasDecimal)
+                        sumDecimal += (decimal)doubleValue * bulk;
+                    count += bulk;
                 }
             }
 
             context.Clear();
 
-            // For mean, if no values were found, don't add a result (return empty)
-            if (count > 0)
+            if (count <= 0)
+                return;
+
+            if (hasDecimal)
             {
-                var mean = sum / count;
-                context.Traversers.Add(new Traverser(mean));
+                context.Traversers.Add(new Traverser(sumDecimal / count));
+            }
+            else
+            {
+                context.Traversers.Add(new Traverser(sumDouble / count));
             }
         }
     }

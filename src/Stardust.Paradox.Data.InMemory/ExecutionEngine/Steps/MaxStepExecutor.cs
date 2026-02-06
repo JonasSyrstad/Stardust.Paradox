@@ -1,4 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
+using System;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
@@ -28,30 +29,47 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            double? max = null;
+            double? maxDouble = null;
+            long? maxLong = null;
+            bool allIntegral = true;
 
             foreach (var traverser in context.Traversers)
             {
-                for (int i = 0; i < traverser.Bulk; i++)
+                var value = traverser.Value;
+
+                if (TryConvertToLong(value, out long longValue))
                 {
-                    var value = traverser.Value;
-                    if (TryConvertToDouble(value, out double doubleValue))
-                    {
-                        if (!max.HasValue || doubleValue > max.Value)
-                        {
-                            max = doubleValue;
-                        }
-                    }
+                    if (!maxLong.HasValue || longValue > maxLong.Value)
+                        maxLong = longValue;
+
+                    if (!maxDouble.HasValue || longValue > maxDouble.Value)
+                        maxDouble = longValue;
+
+                    continue;
                 }
+
+                if (TryConvertToDouble(value, out double doubleValue))
+                {
+                    allIntegral = false;
+                    if (!maxDouble.HasValue || doubleValue > maxDouble.Value)
+                        maxDouble = doubleValue;
+                    continue;
+                }
+
+                allIntegral = false;
             }
 
             context.Clear();
 
-            // For max, if no values were found, don't add a result (return empty)
-            if (max.HasValue)
+            if (allIntegral)
             {
-                context.Traversers.Add(new Traverser(max.Value));
+                if (maxLong.HasValue)
+                    context.Traversers.Add(new Traverser(maxLong.Value));
+                return;
             }
+
+            if (maxDouble.HasValue)
+                context.Traversers.Add(new Traverser(maxDouble.Value));
         }
     }
 }

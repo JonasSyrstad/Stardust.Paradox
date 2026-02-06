@@ -112,6 +112,65 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 return;
             }
 
+            // Handle where(__.has('key','value')) and where(has('key','value')) patterns
+            // Supports quoted and unquoted values (strings, numbers, booleans)
+            // Example: where(__.has('name', 'Bob')) / where(has('weight', 0.8))
+            var whereHasMatch = Regex.Match(
+                predicate,
+                @"^(?:__\.)?has\(\s*['""']?(\w+)['""']?\s*,\s*(.+?)\s*\)\s*$",
+                RegexOptions.IgnoreCase);
+
+            if (whereHasMatch.Success)
+            {
+                var propertyKey = whereHasMatch.Groups[1].Value;
+                var valueToken = whereHasMatch.Groups[2].Value.Trim();
+
+                // strip wrapping quotes if present
+                object expected;
+                if ((valueToken.StartsWith("'") && valueToken.EndsWith("'")) ||
+                    (valueToken.StartsWith("\"") && valueToken.EndsWith("\"")))
+                {
+                    expected = valueToken.Substring(1, valueToken.Length - 2);
+                }
+                else if (bool.TryParse(valueToken, out var b))
+                {
+                    expected = b;
+                }
+                else if (int.TryParse(valueToken, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var i))
+                {
+                    expected = i;
+                }
+                else if (long.TryParse(valueToken, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var l))
+                {
+                    expected = l;
+                }
+                else if (double.TryParse(valueToken, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var d))
+                {
+                    expected = d;
+                }
+                else
+                {
+                    expected = valueToken;
+                }
+
+                context.Filter(traverser =>
+                {
+                    var properties = ExtractProperties(traverser.Value);
+                    object actual = null;
+                    if (properties == null || !properties.TryGetValue(propertyKey, out actual))
+                        return false;
+
+                    // Prefer numeric comparison when both sides are numeric
+                    if (TryConvertToDouble(actual, out var actualNum) && TryConvertToDouble(expected, out var expectedNum))
+                        return actualNum.Equals(expectedNum);
+
+                    return Equals(actual, expected) ||
+                           string.Equals(actual?.ToString() ?? "", expected?.ToString() ?? "", System.StringComparison.OrdinalIgnoreCase);
+                });
+
+                return;
+            }
+
             // Handle select('label').not(has(...)) pattern
             var selectNotHasMatch = Regex.Match(predicate, @"select\(['""]?(\w+)['""]?\)\.not\(has\(['""]?(\w+)['""]?\s*,\s*['""]?([^'""]+)['""]?\)\)", RegexOptions.IgnoreCase);
             if (selectNotHasMatch.Success)

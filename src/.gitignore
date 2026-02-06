@@ -76,3 +76,7 @@ UpgradeLog*.htm
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Build artifacts
+dist/
+*.Setup.exe

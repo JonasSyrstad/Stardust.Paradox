@@ -666,6 +666,68 @@ namespace Stardust.Paradox.Data.InMemory.Core
 
         #endregion
 
+        #region Property Operations
+
+        /// <summary>
+        /// Remove a property from a vertex
+        /// </summary>
+        public bool RemoveVertexProperty(string vertexId, string propertyKey)
+        {
+            var vertex = GetVertex(vertexId);
+            if (vertex == null)
+                return false;
+
+            // Get the old value for index cleanup
+            if (vertex.Properties.TryGetValue(propertyKey, out var oldValue))
+            {
+                // Remove from property index
+                if (_vertexPropertyIndex.TryGetValue(propertyKey, out var valueIndex) &&
+                    valueIndex.TryGetValue(oldValue, out var vertexIds))
+                {
+                    vertexIds.Remove(vertexId);
+                    if (!vertexIds.Any())
+                    {
+                        valueIndex.TryRemove(oldValue, out _);
+                    }
+                }
+            }
+
+            // Remove from vertex properties
+            vertex.RemoveProperty(propertyKey);
+            return true;
+        }
+
+        /// <summary>
+        /// Remove a property from an edge
+        /// </summary>
+        public bool RemoveEdgeProperty(string edgeId, string propertyKey)
+        {
+            var edge = GetEdge(edgeId);
+            if (edge == null)
+                return false;
+
+            // Get the old value for index cleanup
+            if (edge.Properties.TryGetValue(propertyKey, out var oldValue))
+            {
+                // Remove from property index
+                if (_edgePropertyIndex.TryGetValue(propertyKey, out var valueIndex) &&
+                    valueIndex.TryGetValue(oldValue, out var edgeIds))
+                {
+                    edgeIds.Remove(edgeId);
+                    if (!edgeIds.Any())
+                    {
+                        valueIndex.TryRemove(oldValue, out _);
+                    }
+                }
+            }
+
+            // Remove from edge properties
+            edge.RemoveProperty(propertyKey);
+            return true;
+        }
+
+        #endregion
+
         #region Utility Operations
 
         /// <summary>

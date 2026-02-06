@@ -1,6 +1,23 @@
 # Stardust.Paradox
 Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb
 
+---
+
+## Stardust Gremlin Studio
+
+**A Modern Query Tool for Gremlin Graph Databases**
+
+| Download | Links |
+|----------|-------|
+| **Windows Installer** | [Download](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest) |
+| **Source Code** | [View](src/StardustGremlinStudio) |
+| **Docs** | [Read More](src/StardustGremlinStudio/README.md) |
+
+**Features:** Connect to Azure Cosmos DB and TinkerPop | Syntax highlighting | Graph visualization | Built-in playground | Scenario export
+
+---
+
+
 # Usage (asp.net core)
 
 ## Startup.cs

@@ -8,10 +8,6 @@ using Newtonsoft.Json;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
 {
-    /// <summary>
-    /// TinkerGraph-inspired query executor with optimized traversal strategies
-    /// Based on Apache TinkerPop's TinkerGraph execution model
-    /// </summary>
     public class TinkerGraphQueryExecutor
     {
         private static ConcurrentDictionary<string, Type> _StepExecutors = new ConcurrentDictionary<string, Type>(StringComparer.OrdinalIgnoreCase);
@@ -89,8 +85,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 context.SetMetadata("current_step_index", i);
                 context.SetMetadata("all_steps", traversal.Steps);
 
-                // Look ahead for .by() modulator steps when executing grouping operations
-                if (IsGroupingStep(step))
+                // Look ahead for .by() modulator steps when executing grouping/modulating operations
+                if (IsGroupingStep(step) || step.StepName.Equals("dedup", StringComparison.OrdinalIgnoreCase))
                 {
                     var byArguments = new List<List<object>>();
                     int nextIndex = i + 1;
@@ -150,7 +146,106 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                 }
             }
 
+            // Finalize deferred addE() so that any chained property() steps are included
+            // in the edge creation (and therefore properly indexed).
+            TryFinalizePendingAddE(context);
+
             return context.GetCurrentResults();
+        }
+
+        private static string TryExtractElementId(object value)
+        {
+            if (value == null)
+                return null;
+
+            if (value is string s)
+                return s;
+
+            try
+            {
+                var dyn = value as dynamic;
+                if (dyn == null)
+                    return null;
+
+                var idVal = dyn.id;
+                return idVal?.ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private void TryFinalizePendingAddE(TinkerTraversalContext context)
+        {
+            if (!context.HasMetadata("addE_pending"))
+            {
+                return;
+            }
+
+            var label = context.GetMetadata<string>("addE_label");
+            var fromVertexId = context.GetMetadata<string>("addE_from");
+            var toVertexId = context.GetMetadata<string>("addE_to");
+            var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
+
+            if (string.IsNullOrEmpty(label) || string.IsNullOrEmpty(toVertexId))
+            {
+                return;
+            }
+
+            string edgeId = context.GetMetadata<string>("addE_edgeId");
+            if (string.IsNullOrEmpty(edgeId) && properties.TryGetValue("id", out var idValue) && idValue != null)
+            {
+                edgeId = idValue.ToString();
+                properties.Remove("id");
+            }
+
+            var newTraversers = new List<Traverser>();
+
+            foreach (var traverser in context.Traversers)
+            {
+                var effectiveFromId = fromVertexId;
+                if (string.IsNullOrEmpty(effectiveFromId))
+                {
+                    effectiveFromId = TryExtractElementId(traverser.Value);
+                }
+
+                if (string.IsNullOrEmpty(effectiveFromId))
+                {
+                    continue;
+                }
+
+                var fromVertex = _database.GetVertex(effectiveFromId);
+                var toVertex = _database.GetVertex(toVertexId);
+                if (fromVertex == null || toVertex == null)
+                {
+                    continue;
+                }
+
+                var edge = _database.AddEdge(label, effectiveFromId, toVertexId, properties, edgeId);
+                if (edge == null)
+                {
+                    continue;
+                }
+
+                var newTraverser = traverser.Split();
+                newTraverser.Value = edge.ToGremlinResponse();
+                newTraversers.Add(newTraverser);
+            }
+
+            if (newTraversers.Any())
+            {
+                context.Traversers = newTraversers;
+            }
+
+            context.RemoveMetadata("addE_pending");
+            context.RemoveMetadata("addE_label");
+            context.RemoveMetadata("addE_from");
+            context.RemoveMetadata("addE_from_spec");
+            context.RemoveMetadata("addE_to");
+            context.RemoveMetadata("addE_to_spec");
+            context.RemoveMetadata("addE_properties");
+            context.RemoveMetadata("addE_edgeId");
         }
 
         /// <summary>
