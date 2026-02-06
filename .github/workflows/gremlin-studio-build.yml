@@ -80,7 +80,7 @@ jobs:
         
     - name: Build Installer
       run: |
-        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "StardustGremlinStudio\Installer\GremlinStudio.iss"
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "src/StardustGremlinStudio\Installer\GremlinStudio.iss"
 
     - name: Upload Installer Artifact
       uses: actions/upload-artifact@v4
@@ -95,6 +95,6 @@ jobs:
       with:
         files: |
           ./dist/GremlinStudio-*-Setup.exe
-          ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
+          .src//StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
