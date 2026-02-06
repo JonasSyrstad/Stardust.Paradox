@@ -1,0 +1,79 @@
+﻿using System.Windows;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Stardust.Paradox.GremlinStudio.Core;
+using Stardust.Paradox.GremlinStudio.Services;
+using Stardust.Paradox.GremlinStudio.ViewModels;
+
+namespace Stardust.Paradox.GremlinStudio;
+
+/// <summary>
+/// Interaction logic for App.xaml
+/// </summary>
+public partial class App : Application
+{
+    private IHost? _host;
+    private ThemeService? _themeService;
+
+    protected override async void OnStartup(StartupEventArgs e)
+    {
+        base.OnStartup(e);
+
+        // Show splash screen
+        var splash = new SplashScreen();
+        splash.Show();
+        splash.UpdateStatus("Initializing theme...");
+
+        // Initialize theme before building the host
+        _themeService = new ThemeService();
+        _themeService.Initialize();
+
+        splash.UpdateStatus("Building services...");
+
+        _host = Host.CreateDefaultBuilder()
+            .ConfigureLogging(logging =>
+            {
+                logging.ClearProviders();
+                logging.AddConsole();
+            })
+            .ConfigureServices(services =>
+            {
+                services.AddGremlinStudioCore();
+
+                // Register theme service
+                services.AddSingleton<IThemeService>(_themeService);
+
+                services.AddSingleton<MainViewModel>();
+                services.AddSingleton<MainWindow>();
+            })
+            .Build();
+
+        splash.UpdateStatus("Starting host...");
+        await _host.StartAsync().ConfigureAwait(false);
+
+        splash.UpdateStatus("Loading main window...");
+
+        // Small delay to show the splash screen
+        await Task.Delay(2000).ConfigureAwait(false);
+
+        await Dispatcher.InvokeAsync(() =>
+        {
+            var window = _host.Services.GetRequiredService<MainWindow>();
+            window.Show();
+            splash.Close();
+        });
+    }
+
+    protected override async void OnExit(ExitEventArgs e)
+    {
+        if (_host is not null)
+        {
+            await _host.StopAsync().ConfigureAwait(false);
+            _host.Dispose();
+        }
+
+        base.OnExit(e);
+    }
+}
+

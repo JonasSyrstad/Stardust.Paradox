@@ -1,0 +1,58 @@
+<Window x:Class="Stardust.Paradox.GremlinStudio.SplashScreen"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        ShowInTaskbar="False"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight">
+    
+    <Border CornerRadius="8" Background="#1E1E1E" BorderBrush="#3399FF" BorderThickness="2">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            
+            <!-- Splash Image -->
+            <Image x:Name="SplashImage"
+                   Grid.Row="0" 
+                   Source="/Resources/splash.png" 
+                   Stretch="Uniform"
+                   MaxWidth="600"
+                   MaxHeight="400" />
+            
+            <!-- App Title -->
+            <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,12,0,8">
+                <TextBlock Text="Gremlin Studio" 
+                           FontSize="24" 
+                           FontWeight="Bold" 
+                           Foreground="#F0F0F0"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Graph Database Query Tool for Stardust.Paradox" 
+                           FontSize="12" 
+                           Foreground="#B0B0B0"
+                           HorizontalAlignment="Center"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+            
+            <!-- Loading Progress -->
+            <StackPanel Grid.Row="2" Margin="20,8,20,20">
+                <ProgressBar x:Name="LoadingProgress" 
+                             Height="4" 
+                             IsIndeterminate="True"
+                             Background="#3C3C3C"
+                             Foreground="#3399FF" />
+                <TextBlock x:Name="LoadingText" 
+                           Text="Loading..." 
+                           FontSize="11" 
+                           Foreground="#B0B0B0"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
