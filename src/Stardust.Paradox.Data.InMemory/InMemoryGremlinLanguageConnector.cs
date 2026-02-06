@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Stardust.Paradox.Data;
 using Stardust.Paradox.Data.InMemory.ExecutionEngine;
 using Stardust.Paradox.Data.InMemory.Core;
+using Stardust.Paradox.Data.InMemory.CosmosDb;
 using System.IO;
 using Newtonsoft.Json;
 
@@ -69,6 +70,13 @@ namespace Stardust.Paradox.Data.InMemory
         /// Gets whether the connector can parameterize queries
         /// </summary>
         public bool CanParameterizeQueries => true;
+
+		public Features Features => new Features(
+			canParameterizeQueries: CanParameterizeQueries,
+			supportsServerSideProjection: true,
+			supportsDedup: true,
+			supportsOrdering: true,
+			supportsPaging: true);
 
         /// <summary>
         /// Get the total consumed Request Units
@@ -709,6 +717,84 @@ namespace Stardust.Paradox.Data.InMemory
             {
                 EnableDebugLogging = false,
                 // Add any optimization-specific options
+            };
+            return new InMemoryGremlinLanguageConnector(options);
+        }
+        
+        /// <summary>
+        /// Create a connector with Cosmos DB emulation mode enabled.
+        /// This mode restricts operations to Cosmos DB-supported features and
+        /// simulates Cosmos DB behavior including RU charges, rate limiting, and error messages.
+        /// </summary>
+        public static InMemoryGremlinLanguageConnector CreateCosmosDbEmulator()
+        {
+            var options = new InMemoryDatabaseOptions
+            {
+                CosmosDbEmulationMode = true,
+                ThrowOnUnsupportedStep = true,
+                SimulateRequestCharges = true,
+                MaxRequestUnitsPerSecond = 10000,
+                MaxItemsPerQuery = 1000,
+                MaxQueryExecutionTimeMs = 5000,
+                EnableRateLimiting = true
+            };
+            return new InMemoryGremlinLanguageConnector(options);
+        }
+        
+        /// <summary>
+        /// Create a connector with Cosmos DB emulation mode and custom configuration.
+        /// </summary>
+        /// <param name="configure">Action to configure the options</param>
+        public static InMemoryGremlinLanguageConnector CreateCosmosDbEmulator(Action<InMemoryDatabaseOptions> configure)
+        {
+            var options = new InMemoryDatabaseOptions
+            {
+                CosmosDbEmulationMode = true,
+                ThrowOnUnsupportedStep = true,
+                SimulateRequestCharges = true,
+                MaxRequestUnitsPerSecond = 10000,
+                MaxItemsPerQuery = 1000,
+                MaxQueryExecutionTimeMs = 5000,
+                EnableRateLimiting = true
+            };
+            configure?.Invoke(options);
+            return new InMemoryGremlinLanguageConnector(options);
+        }
+        
+        /// <summary>
+        /// Create a connector with Cosmos DB emulation mode and partition key support.
+        /// </summary>
+        /// <param name="partitionKeyPath">The partition key path (e.g., "/pk", "/tenantId")</param>
+        /// <param name="configure">Optional action to configure additional options</param>
+        public static InMemoryGremlinLanguageConnector CreateCosmosDbEmulator(
+            string partitionKeyPath, 
+            Action<InMemoryDatabaseOptions> configure = null)
+        {
+            var options = new InMemoryDatabaseOptions
+            {
+                CosmosDbEmulationMode = true,
+                ThrowOnUnsupportedStep = true,
+                SimulateRequestCharges = true,
+                MaxRequestUnitsPerSecond = 10000,
+                MaxItemsPerQuery = 1000,
+                MaxQueryExecutionTimeMs = 5000,
+                EnableRateLimiting = true,
+                PartitionKeyPath = partitionKeyPath,
+                EnforceCrossPartitionQueryRestrictions = true
+            };
+            configure?.Invoke(options);
+            return new InMemoryGremlinLanguageConnector(options);
+        }
+        
+        /// <summary>
+        /// Create a connector optimized for testing with strict TinkerPop 3.5.x compliance checking.
+        /// </summary>
+        public static InMemoryGremlinLanguageConnector CreateStrictCompliance()
+        {
+            var options = new InMemoryDatabaseOptions
+            {
+                StrictTinkerPopCompliance = true,
+                EnableDebugLogging = true
             };
             return new InMemoryGremlinLanguageConnector(options);
         }

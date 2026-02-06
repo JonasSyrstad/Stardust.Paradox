@@ -1,0 +1,100 @@
+name: Build Gremlin Studio
+
+on:
+  push:
+    branches: [ V2.5, main ]
+    paths:
+      - 'src/StardustGremlinStudio/**'
+      - '.github/workflows/gremlin-studio-build.yml'
+  pull_request:
+    branches: [ V2.5, main ]
+    paths:
+      - 'StardustGremlinStudio/**'
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.PROJECT_PATH }}
+
+    - name: Build
+      run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
+
+    - name: Publish (Self-contained)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish/win-x64 `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GremlinStudio-win-x64
+        path: ./publish/win-x64/
+        if-no-files-found: error
+
+  create-installer:
+    runs-on: windows-latest
+    needs: build
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Download Build Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: GremlinStudio-win-x64
+        path: ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
+
+    - name: Install Inno Setup
+      run: |
+        choco install innosetup -y
+        
+    - name: Build Installer
+      run: |
+        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "StardustGremlinStudio\Installer\GremlinStudio.iss"
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GremlinStudio-Installer
+        path: ./dist/GremlinStudio-*-Setup.exe
+        if-no-files-found: error
+
+    - name: Upload to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          ./dist/GremlinStudio-*-Setup.exe
+          ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

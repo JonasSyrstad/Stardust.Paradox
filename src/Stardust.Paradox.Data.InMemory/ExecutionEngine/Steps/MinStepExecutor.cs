@@ -1,4 +1,5 @@
 using Stardust.Paradox.Data.Annotations.Annotations;
+using System;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 {
@@ -28,28 +29,47 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
         public override void Execute(TinkerGraphStep step, TinkerTraversalContext context)
         {
-            double? min = null;
+            double? minDouble = null;
+            long? minLong = null;
+            bool allIntegral = true;
 
             foreach (var traverser in context.Traversers)
             {
-                for (int i = 0; i < traverser.Bulk; i++)
+                var value = traverser.Value;
+
+                if (TryConvertToLong(value, out long longValue))
                 {
-                    var value = traverser.Value;
-                    if (TryConvertToDouble(value, out double doubleValue))
-                    {
-                        if (!min.HasValue || doubleValue < min.Value)
-                        {
-                            min = doubleValue;
-                        }
-                    }
+                    if (!minLong.HasValue || longValue < minLong.Value)
+                        minLong = longValue;
+
+                    if (!minDouble.HasValue || longValue < minDouble.Value)
+                        minDouble = longValue;
+
+                    continue;
                 }
+
+                if (TryConvertToDouble(value, out double doubleValue))
+                {
+                    allIntegral = false;
+                    if (!minDouble.HasValue || doubleValue < minDouble.Value)
+                        minDouble = doubleValue;
+                    continue;
+                }
+
+                allIntegral = false;
             }
 
             context.Clear();
 
-            // For min, if no values were found, don't add a result (return empty)
-            if (min.HasValue)
-                context.Traversers.Add(new Traverser(min.Value));
+            if (allIntegral)
+            {
+                if (minLong.HasValue)
+                    context.Traversers.Add(new Traverser(minLong.Value));
+                return;
+            }
+
+            if (minDouble.HasValue)
+                context.Traversers.Add(new Traverser(minDouble.Value));
         }
     }
 }

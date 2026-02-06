@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Globalization;
 using Stardust.Paradox.Data.InMemory.Core;
 
 namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
@@ -437,46 +438,48 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
         /// </summary>
         private object NormalizePropertyValue(object value)
         {
-  if (value == null)
-           return null;
+            if (value == null)
+                return null;
+
+            // Preserve numeric primitives as-is (important for tests expecting int/string/etc.)
+            // and for type fidelity with Gremlin.Net-style results.
+            if (value is int || value is long || value is short || value is byte ||
+                value is uint || value is ulong || value is ushort || value is sbyte)
+            {
+                return value;
+            }
+
+            if (value is double || value is float || value is decimal)
+            {
+                return value;
+            }
 
             // Handle string representations of numbers (common in JSON)
             if (value is string strValue)
             {
- // Try to parse as different numeric types
-    if (int.TryParse(strValue, out int intVal))
-          return intVal;
-     if (long.TryParse(strValue, out long longVal))
-  return longVal;
-       if (double.TryParse(strValue, out double doubleVal))
-        return doubleVal;
-      if (bool.TryParse(strValue, out bool boolVal))
-        return boolVal;
-      
-return strValue;
+                if (int.TryParse(strValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int intVal))
+                    return intVal;
+                if (long.TryParse(strValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out long longVal))
+                    return longVal;
+                if (double.TryParse(strValue, NumberStyles.Any, CultureInfo.InvariantCulture, out double doubleVal))
+                    return doubleVal;
+                if (bool.TryParse(strValue, out bool boolVal))
+                    return boolVal;
+
+                return strValue;
             }
 
-       // Handle numeric types - preserve decimal type for better precision
-            if (value is decimal)
-                return value; // Keep decimal as decimal
-     
-            if (value is int || value is long || value is short || value is byte)
-     return Convert.ToInt64(value);
-     
-  if (value is float || value is double)
-   return Convert.ToDouble(value);
-     
             // Handle boolean
-        if (value is bool)
-        return value;
-    
-  // Handle DateTime/DateTimeOffset
+            if (value is bool)
+                return value;
+
+            // Handle DateTime/DateTimeOffset
             if (value is DateTime || value is DateTimeOffset)
-           return value;
-         
-     // Return as-is for other types
+                return value;
+
+            // Return as-is for other types
             return value;
-      }
+        }
 
         /// <summary>
         /// Helper method to convert various numeric types to double
@@ -486,17 +489,17 @@ return strValue;
             result = 0.0;
            
             if (value == null)
-        return false;
+                return false;
     
-      if (value is double d)
-         {
-        result = d;
-       return true;
-       }
+            if (value is double d)
+            {
+                result = d;
+                return true;
+            }
   
             if (value is float f)
-    {
-          result = f;
+            {
+                result = f;
                 return true;
   }
             
@@ -518,7 +521,7 @@ return strValue;
                 return true;
             }
             
-      if (value is string str && double.TryParse(str, out double parsed))
+      if (value is string str && double.TryParse(str, NumberStyles.Any, CultureInfo.InvariantCulture, out double parsed))
 {
          result = parsed;
      return true;
@@ -526,14 +529,15 @@ return strValue;
  
     // Try to convert as a last resort
             try
-          {
+            {
+                // Strings are handled above with invariant parsing; for other types use default conversion
                 result = Convert.ToDouble(value);
-  return true;
-    }
-      catch
-        {
-      return false;
-    }
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
@@ -560,23 +564,36 @@ return strValue;
             
             if (value is double d)
             {
-                result = (long)d;
-                return true;
+                if (d == Math.Floor(d) && d >= long.MinValue && d <= long.MaxValue)
+                {
+                    result = (long)d;
+                    return true;
+                }
+                return false;
             }
             
             if (value is float f)
             {
-                result = (long)f;
-                return true;
+                if (f == Math.Floor(f) && f >= long.MinValue && f <= long.MaxValue)
+                {
+                    result = (long)f;
+                    return true;
+                }
+                return false;
             }
             
             if (value is decimal dec)
             {
-                result = (long)dec;
-                return true;
+                // Only convert to long if the decimal is integral; avoid truncation of fractional values
+                if (dec == decimal.Truncate(dec) && dec >= long.MinValue && dec <= long.MaxValue)
+                {
+                    result = (long)dec;
+                    return true;
+                }
+                return false;
             }
             
-            if (value is string str && long.TryParse(str, out long parsed))
+            if (value is string str && long.TryParse(str, NumberStyles.Integer, CultureInfo.InvariantCulture, out long parsed))
             {
                 result = parsed;
                 return true;
@@ -628,36 +645,40 @@ return strValue;
 
         /// <summary>
         /// Evaluate a logical condition string (like "has('age', gt(25))" or nested "and(has(...), has(...))")
- /// Enhanced to support nested logical operators (and/or) within conditions
+ /// Enhanced to support nested and/or conditions
     /// </summary>
      protected bool EvaluateLogicalCondition(Traverser traverser, string conditionStr)
         {
-     if (string.IsNullOrWhiteSpace(conditionStr))
+            if (string.IsNullOrWhiteSpace(conditionStr))
                 return false;
 
-      // Parse the condition string
+            // Parse the condition string
             conditionStr = conditionStr.Trim();
 
-     // Handle nested and() conditions
-     if (conditionStr.StartsWith("and("))
+            // Nested traversals are frequently stringified as "__.has(...)" etc.
+            if (conditionStr.StartsWith("__."))
+                conditionStr = conditionStr.Substring(3).TrimStart();
+
+            // Handle nested and() conditions
+            if (conditionStr.StartsWith("and("))
             {
                 return EvaluateAndCondition(traverser, conditionStr);
             }
 
-      // Handle nested or() conditions
-     if (conditionStr.StartsWith("or("))
-        {
-       return EvaluateOrCondition(traverser, conditionStr);
- }
-
-        // Handle has() conditions
-         if (conditionStr.StartsWith("has("))
-{
-         return EvaluateHasCondition(traverser, conditionStr);
+            // Handle nested or() conditions
+            if (conditionStr.StartsWith("or("))
+            {
+                return EvaluateOrCondition(traverser, conditionStr);
             }
 
-   return false;
-      }
+            // Handle has() conditions
+            if (conditionStr.StartsWith("has("))
+            {
+                return EvaluateHasCondition(traverser, conditionStr);
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// Evaluate an and() condition with nested sub-conditions
@@ -715,49 +736,68 @@ return strValue;
  /// Evaluate a has() condition
         /// </summary>
         private bool EvaluateHasCondition(Traverser traverser, string conditionStr)
-    {
-   // Extract content between has( and )
- var content = ExtractBetweenParentheses(conditionStr, "has");
-         if (string.IsNullOrEmpty(content))
-   return false;
+        {
+            // Extract content between has( and )
+            var content = ExtractBetweenParentheses(conditionStr, "has");
+            if (string.IsNullOrEmpty(content))
+                return false;
 
-       var parts = SplitConditionArguments(content);
-       if (parts.Count == 0)
-       return false;
+            var parts = SplitConditionArguments(content);
+            if (parts.Count == 0)
+                return false;
 
-            var propertyKey = parts[0].Trim().Trim('\'', '"');
-
-   if (parts.Count == 1)
-       {
-                // has('property') - check if property exists
-         var properties = ExtractProperties(traverser.Value);
-      return properties != null && properties.ContainsKey(propertyKey);
-     }
-            else if (parts.Count == 2)
+            // has(key)
+            if (parts.Count == 1)
             {
-    // has('property', value) or has('property', predicate)
-                var valueOrPredicate = parts[1].Trim();
-        var properties = ExtractProperties(traverser.Value);
-    
- if (properties == null || !properties.ContainsKey(propertyKey))
-     return false;
+                var propertyKey1 = parts[0].Trim().Trim('\'', '"');
+                var properties1 = ExtractProperties(traverser.Value);
+                return properties1 != null && properties1.ContainsKey(propertyKey1);
+            }
 
-      var actualValue = properties[propertyKey];
+            // has(key,valueOrPredicate)
+            if (parts.Count == 2)
+            {
+                var propertyKey2 = parts[0].Trim().Trim('\'', '"');
+                var valueOrPredicate2 = parts[1].Trim();
+                var properties2 = ExtractProperties(traverser.Value);
 
-         // Check if it's a predicate
-    if (IsPredicate(valueOrPredicate))
-    {
-        return EvaluatePredicate(actualValue, valueOrPredicate);
-                }
-      else
-   {
-           // Direct value comparison
-       var expectedValue = valueOrPredicate.Trim('\'', '"');
-            return CompareValues(actualValue, expectedValue);
-       }
-      }
+                if (properties2 == null || !properties2.ContainsKey(propertyKey2))
+                    return false;
 
-    return false;
+                var actualValue2 = properties2[propertyKey2];
+
+                if (IsPredicate(valueOrPredicate2))
+                    return EvaluatePredicate(actualValue2, valueOrPredicate2);
+
+                var expectedValue2 = valueOrPredicate2.Trim('\'', '"');
+                return CompareValues(actualValue2, expectedValue2);
+            }
+
+            // has(label,key,valueOrPredicate)
+            if (parts.Count >= 3)
+            {
+                var label = parts[0].Trim().Trim('\'', '"');
+                var actualLabel = ExtractLabel(traverser.Value);
+                if (string.IsNullOrEmpty(actualLabel) || !label.Equals(actualLabel, StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                var propertyKey3 = parts[1].Trim().Trim('\'', '"');
+                var valueOrPredicate3 = parts[2].Trim();
+
+                var properties3 = ExtractProperties(traverser.Value);
+                if (properties3 == null || !properties3.ContainsKey(propertyKey3))
+                    return false;
+
+                var actualValue3 = properties3[propertyKey3];
+
+                if (IsPredicate(valueOrPredicate3))
+                    return EvaluatePredicate(actualValue3, valueOrPredicate3);
+
+                var expectedValue3 = valueOrPredicate3.Trim('\'', '"');
+                return CompareValues(actualValue3, expectedValue3);
+            }
+
+            return false;
         }
 
      /// <summary>
@@ -771,7 +811,9 @@ value.StartsWith("eq(") || value.StartsWith("neq(") ||
        value.StartsWith("within(") || value.StartsWith("without(") ||
     value.StartsWith("containing(") || value.StartsWith("notContaining(") ||
        value.StartsWith("startingWith(") || value.StartsWith("notStartingWith(") ||
-        value.StartsWith("endingWith(") || value.StartsWith("notEndingWith(");
+        value.StartsWith("endingWith(") || value.StartsWith("notEndingWith(") ||
+        value.StartsWith("inside(") || value.StartsWith("outside(") ||
+        value.StartsWith("between(");
      }
 
         /// <summary>
@@ -824,7 +866,47 @@ var values = ExtractWithinValues(predicate, "within");
     var values = ExtractWithinValues(predicate, "without");
      return !values.Any(v => CompareValues(actualValue, v));
   }
-         // Handle string predicates
+         // Handle range predicates
+            else if (predicate.StartsWith("inside("))
+            {
+                // inside(low, high) - exclusive range: low < value < high
+                var bounds = ExtractRangeBounds(predicate, "inside");
+                if (bounds.HasValue)
+                {
+                    if (TryConvertToDouble(actualValue, out double actualNum))
+                    {
+                        return actualNum > bounds.Value.low && actualNum < bounds.Value.high;
+                    }
+                }
+                return false;
+            }
+            else if (predicate.StartsWith("outside("))
+            {
+                // outside(low, high) - value < low OR value > high
+                var bounds = ExtractRangeBounds(predicate, "outside");
+                if (bounds.HasValue)
+                {
+                    if (TryConvertToDouble(actualValue, out double actualNum))
+                    {
+                        return actualNum < bounds.Value.low || actualNum > bounds.Value.high;
+                    }
+                }
+                return false;
+            }
+            else if (predicate.StartsWith("between("))
+            {
+                // between(low, high) - inclusive start, exclusive end: low <= value < high
+                var bounds = ExtractRangeBounds(predicate, "between");
+                if (bounds.HasValue)
+                {
+                    if (TryConvertToDouble(actualValue, out double actualNum))
+                    {
+                        return actualNum >= bounds.Value.low && actualNum < bounds.Value.high;
+                    }
+                }
+                return false;
+            }
+            // Handle string predicates
       else if (predicate.StartsWith("containing("))
       {
        var searchValue = ExtractPredicateValue(predicate, "containing");
@@ -1005,9 +1087,34 @@ return actual.Equals(expected);
         }
 
         /// <summary>
+        /// Extract range bounds from predicates like inside(10, 20), outside(10, 20), between(10, 20)
+        /// </summary>
+        private (double low, double high)? ExtractRangeBounds(string predicate, string predicateName)
+        {
+            var content = ExtractBetweenParentheses(predicate, predicateName);
+            if (string.IsNullOrEmpty(content))
+                return null;
+
+            var parts = content.Split(',');
+            if (parts.Length != 2)
+                return null;
+
+            var lowStr = parts[0].Trim().Trim('\'', '"');
+            var highStr = parts[1].Trim().Trim('\'', '"');
+
+            if (double.TryParse(lowStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double low) &&
+                double.TryParse(highStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double high))
+            {
+                return (low, high);
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Extract value from a predicate like "gt(25)"
-    /// </summary>
-    private string ExtractPredicateValue(string predicate, string predicateName)
+        /// </summary>
+        private string ExtractPredicateValue(string predicate, string predicateName)
    {
             var content = ExtractBetweenParentheses(predicate, predicateName);
             return content?.Trim().Trim('\'', '"') ?? "";

@@ -1,0 +1,346 @@
+<Window x:Class="Stardust.Paradox.GremlinStudio.Dialogs.NewConnectionDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:Stardust.Paradox.GremlinStudio.Converters"
+        mc:Ignorable="d"
+        Title="New Connection" 
+        Height="540" Width="550"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="{DynamicResource PrimaryBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryForegroundBrush}"
+        ResizeMode="NoResize">
+    
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="36" 
+                      ResizeBorderThickness="0"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+    
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        
+        <!-- Modern RadioButton Style with proper contrast -->
+        <Style x:Key="ModernRadioButtonStyle" TargetType="RadioButton">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+            <Setter Property="Padding" Value="8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="border" 
+                                Background="{DynamicResource SecondaryBackgroundBrush}" 
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="12">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <!-- Radio circle -->
+                                <Grid Grid.Column="0" Width="20" Height="20" VerticalAlignment="Top" Margin="0,2,12,0">
+                                    <Ellipse x:Name="outerCircle" 
+                                             Stroke="{DynamicResource BorderBrush}" 
+                                             StrokeThickness="2" 
+                                             Fill="Transparent"/>
+                                    <Ellipse x:Name="innerCircle" 
+                                             Width="10" Height="10" 
+                                             Fill="{DynamicResource AccentBrush}"
+                                             Visibility="Collapsed"/>
+                                </Grid>
+                                
+                                <!-- Content -->
+                                <ContentPresenter Grid.Column="1" 
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="True"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="innerCircle" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="outerCircle" Property="Stroke" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TertiaryBackgroundBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{DynamicResource TertiaryBackgroundBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Window Caption Button Style -->
+        <Style x:Key="DialogCaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#F1707A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    
+    <Border Background="{DynamicResource PrimaryBackgroundBrush}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Custom Title Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource SecondaryBackgroundBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Icon and Title -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE703;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                   VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock Text="New Connection" FontWeight="SemiBold" FontSize="12" 
+                                   VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    </StackPanel>
+                    
+                    <!-- Draggable Area -->
+                    <Border Grid.Column="1" Background="Transparent"/>
+                    
+                    <!-- Close Button -->
+                    <Button Grid.Column="2" Content="&#xE106;" 
+                            Style="{StaticResource DialogCaptionButtonStyle}" 
+                            Click="CloseButton_Click" 
+                            ToolTip="Close"/>
+                </Grid>
+            </Border>
+            
+            <!-- Main Content -->
+            <Grid Grid.Row="1" Margin="24,20,24,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                    <TextBlock Text="Create New Connection" FontSize="20" FontWeight="SemiBold" 
+                               Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <TextBlock Text="{Binding StepDescription}" 
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,4,0,0"/>
+                </StackPanel>
+                
+                <!-- Content Area -->
+                <Grid Grid.Row="1">
+                    <!-- Step 1: Choose Connection Type -->
+                    <StackPanel Visibility="{Binding IsStep1, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Select Connection Type:" FontWeight="SemiBold" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        
+                        <RadioButton x:Name="CosmosDbRadio" 
+                                     IsChecked="{Binding IsCosmosDb}" 
+                                     GroupName="ConnectionType"
+                                     Style="{StaticResource ModernRadioButtonStyle}"
+                                     Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Azure Cosmos DB (Gremlin API)" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="Connect using a Cosmos DB connection string. Databases and graphs will be auto-discovered." 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+                        
+                        <RadioButton IsChecked="{Binding IsGenericGremlin}" 
+                                     GroupName="ConnectionType"
+                                     Style="{StaticResource ModernRadioButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Generic Gremlin Server" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="Connect to any Gremlin-compatible server (TinkerPop, JanusGraph, etc.)" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                    
+                    <!-- Step 2a: Cosmos DB Connection String -->
+                    <StackPanel Visibility="{Binding IsStep2CosmosDb, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Cosmos DB Connection String:" FontWeight="SemiBold" Margin="0,0,0,8"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <TextBlock Text="Paste your Cosmos DB connection string from the Azure Portal (Keys section):" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        
+                        <TextBox Text="{Binding ConnectionString, UpdateSourceTrigger=PropertyChanged}" 
+                                 Height="80" 
+                                 TextWrapping="Wrap"
+                                 AcceptsReturn="True"
+                                 VerticalScrollBarVisibility="Auto"
+                                 Background="{DynamicResource TertiaryBackgroundBrush}" 
+                                 Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                                 BorderBrush="{DynamicResource BorderBrush}"
+                                 FontFamily="Consolas"
+                                 FontSize="11"/>
+                        
+                        <TextBlock Text="Example: AccountEndpoint=https://your-account.documents.azure.com:443/;AccountKey=your-key==;ApiKind=Gremlin;" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="10" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                        
+                        <!-- Discovery Button -->
+                        <Button Content="Discover Graphs" 
+                                Command="{Binding DiscoverDatabasesCommand}"
+                                Margin="0,16,0,0" 
+                                Padding="12,6"
+                                HorizontalAlignment="Left"/>
+                        
+                        <!-- Loading indicator -->
+                        <TextBlock Text="Discovering graphs..." 
+                                   Visibility="{Binding IsDiscovering, Converter={StaticResource BoolToVisibilityConverter}}"
+                                   Foreground="{DynamicResource AccentBrush}" FontStyle="Italic" Margin="0,8,0,0"/>
+                        
+                        <!-- Error message -->
+                        <TextBlock Text="{Binding ErrorMessage}" 
+                                   Foreground="#E81123" 
+                                   TextWrapping="Wrap"
+                                   Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}"
+                                   Margin="0,8,0,0"/>
+                        
+                        <!-- Database/Graph Selection -->
+                        <StackPanel Visibility="{Binding HasDatabases, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,16,0,0">
+                            <TextBlock Text="Select Database:" FontWeight="SemiBold" Margin="0,0,0,4"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <ComboBox ItemsSource="{Binding AvailableDatabases}" 
+                                      SelectedItem="{Binding SelectedDatabase}"
+                                      Margin="0,0,0,12"/>
+                            
+                            <TextBlock Text="Select Graph:" FontWeight="SemiBold" Margin="0,0,0,4"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <ComboBox ItemsSource="{Binding AvailableGraphs}" 
+                                      SelectedItem="{Binding SelectedGraph}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Step 2b: Generic Gremlin Settings -->
+                    <StackPanel Visibility="{Binding IsStep2Generic, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Gremlin Server Settings:" FontWeight="SemiBold" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Host:" Margin="0,0,8,8" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Port:" Margin="0,0,8,8" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Username:" Margin="0,0,8,8" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Password:" Margin="0,0,8,8" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <PasswordBox Grid.Row="3" Grid.Column="1" x:Name="PasswordBox" Margin="0,0,0,8"
+                                         Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                            
+                            <CheckBox Grid.Row="4" Grid.Column="1" Content="Use SSL" IsChecked="{Binding UseSsl}" Margin="0,4,0,0"
+                                      Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </Grid>
+                    </StackPanel>
+                    
+                    <!-- Step 3: Connection Name -->
+                    <StackPanel Visibility="{Binding IsStep3, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Connection Details:" FontWeight="SemiBold" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="100"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Name:" Margin="0,0,8,8" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ConnectionName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
+                        </Grid>
+                        
+                        <!-- Summary -->
+                        <Border Background="{DynamicResource TertiaryBackgroundBrush}" 
+                                BorderBrush="{DynamicResource BorderBrush}" 
+                                BorderThickness="1" 
+                                Padding="12" 
+                                Margin="0,16,0,0"
+                                CornerRadius="6">
+                            <StackPanel>
+                                <TextBlock Text="Connection Summary:" FontWeight="SemiBold" Margin="0,0,0,8"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="{Binding SummaryText}" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+                
+                <!-- Footer Buttons -->
+                <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,20,0,0">
+                    <Button Content="Back" Command="{Binding BackCommand}" Width="80" Margin="0,0,8,0"
+                            Visibility="{Binding CanGoBack, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <Button Content="{Binding NextButtonText}" Command="{Binding NextCommand}" Width="100" Margin="0,0,8,0"/>
+                    <Button Content="Cancel" IsCancel="True" Width="80" Click="CloseButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

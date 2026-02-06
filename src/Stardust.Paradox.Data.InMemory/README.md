@@ -70,6 +70,169 @@ var friends = await connector.ExecuteAsync("g.V('john').out('knows')", new Dicti
 var mutualFriends = await connector.ExecuteAsync("g.V('john').out('knows').where(in('knows').hasId('jane'))", new Dictionary<string, object>());
 ```
 
+## 🧪 Real-world testing setup (recommended)
+
+In most real test projects you typically want:
+
+1. A single place that sets up DI (service collection)
+2. A fresh in-memory graph per test (or per test class)
+3. A small, deterministic dataset seeded through the public API
+4. Tests that interact with your system under test the same way production code does
+
+The snippets below show a pragmatic pattern used in typical API/service tests.
+
+> Important: The entity names, properties, and relationships in the examples below are 100% fictional.
+
+### 1) Define a fictional domain model (interfaces)
+
+```csharp
+using Stardust.Paradox.Data.Annotations;
+
+[VertexLabel("spaceStation")]
+public interface ISpaceStation : IVertex
+{
+    string Id { get; }
+    string Name { get; set; }
+
+    // Outgoing relationships
+    [OutLabel("assignedTo")]
+    IEdgeCollection<IEngineer> Engineers { get; }
+}
+
+[VertexLabel("engineer")]
+public interface IEngineer : IVertex
+{
+    string Id { get; }
+    string DisplayName { get; set; }
+    bool IsOnCall { get; set; }
+
+    // Incoming relationship (inverse navigation)
+    [InLabel("assignedTo")]
+    IEdgeCollection<ISpaceStation> Stations { get; }
+}
+
+[EdgeLabel("assignment")]
+public interface IAssignment : IEdge<IEngineer, ISpaceStation>
+{
+    string Id { get; }
+    string RoleCode { get; set; }
+}
+```
+
+### 2) Implement a `GraphContextBase` for tests
+
+```csharp
+using Microsoft.Extensions.DependencyInjection;
+using Stardust.Paradox.Data;
+
+public sealed class GalacticTestContext : GraphContextBase
+{
+    static GalacticTestContext()
+    {
+        // Common to set in tests because Cosmos DB Gremlin API often relies on a partition key.
+        PartitionKeyName = "pk";
+    }
+
+    public GalacticTestContext(IGremlinLanguageConnector connector)
+        : base(connector, CreateServiceProvider())
+    {
+    }
+
+    public IGraphSet<IEngineer> Engineers => GraphSet<IEngineer>();
+    public IGraphSet<ISpaceStation> Stations => GraphSet<ISpaceStation>();
+    public IEdgeGraphSet<IAssignment> Assignments => EdgeGraphSet<IAssignment>();
+
+    protected override bool InitializeModel(IGraphConfiguration configuration)
+    {
+        configuration
+            .ConfigureCollection<ISpaceStation>()
+                .Out(s => s.Engineers, "assignedTo").In<IEngineer>(e => e.Stations)
+            .ConfigureCollection<IAssignment>();
+        return true;
+    }
+
+    private static IServiceProvider CreateServiceProvider()
+    {
+        var services = new ServiceCollection();
+
+        // Register generated entity implementations
+        services.AddEntityBinding((entity, implementation) =>
+        {
+            services.AddTransient(entity, implementation);
+        });
+
+        return services.BuildServiceProvider();
+    }
+}
+```
+
+### 3) Create a small test fixture that seeds deterministic data
+
+```csharp
+using Stardust.Paradox.Data.InMemory;
+
+public sealed class InMemoryGraphFixture
+{
+    public InMemoryGremlinLanguageConnector Connector { get; }
+    public GalacticTestContext Context { get; }
+
+    public InMemoryGraphFixture()
+    {
+        Connector = new InMemoryGremlinLanguageConnector();
+        Context = new GalacticTestContext(Connector);
+        Seed();
+    }
+
+    private void Seed()
+    {
+        var station = Context.CreateEntity<ISpaceStation>("station-1");
+        station.Name = "Aurora";
+
+        var engineer = Context.CreateEntity<IEngineer>("engineer-1");
+        engineer.DisplayName = "Quinn Vega";
+        engineer.IsOnCall = true;
+
+        Context.Assignments.Create(engineer, station).RoleCode = "OPS";
+
+        // In most tests you want the seed to be persisted before assertions.
+        Context.SaveChangesAsync().GetAwaiter().GetResult();
+    }
+}
+```
+
+### 4) Write xUnit tests against your application logic
+
+```csharp
+using FluentAssertions;
+using System.Linq;
+using System.Threading.Tasks;
+using Xunit;
+
+public class OnCallQueryTests
+{
+    [Fact]
+    public async Task WhenEngineerIsOnCall_ThenQueryReturnsEngineer()
+    {
+        // Arrange
+        var fixture = new InMemoryGraphFixture();
+
+        // Act
+        var onCall = await fixture.Context.Engineers
+            .Where(e => e.IsOnCall)
+            .ToListAsync();
+
+        // Assert
+        onCall.Should().ContainSingle(e => e.Id == "engineer-1");
+    }
+}
+```
+
+### Notes on test isolation
+
+- Prefer one fixture instance per test (fresh database), unless you have strong reasons to share.
+- Seed only what you need for the test to keep intent clear.
+- Use `GraphContextBase.Clear()` if you need to validate behavior across multiple loads within the same test.
+
 ## 🏗️ Testing with GraphContextBase (Entity Framework Style)
 
 The **GraphContextBase** is the core of the Stardust.Paradox.Data framework, providing an Entity Framework-like experience for graph databases. The InMemory connector seamlessly integrates with GraphContextBase applications, making it perfect for testing your existing Paradox-based applications.

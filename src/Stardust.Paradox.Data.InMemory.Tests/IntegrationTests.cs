@@ -208,7 +208,8 @@ public class IntegrationTests
 
         // Calculate total revenue
         var totalRevenue = await connector.ExecuteAsync("g.V().hasLabel('order').has('status', 'completed').values('total').sum()", new Dictionary<string, object>());
-        ((double)totalRevenue.First()).Should().Be(1029.98);
+        decimal revenue = Convert.ToDecimal(totalRevenue.First());
+        revenue.Should().BeApproximately(1029.98m, 0.01m);
 
         // Find products viewed but not purchased
         var viewedNotPurchased = await connector.ExecuteAsync("g.V('cust1').out('viewed')", new Dictionary<string, object>());

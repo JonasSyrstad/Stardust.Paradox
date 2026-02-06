@@ -73,7 +73,7 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                     });
                 }
             }
-            else if (resolvedArguments.Count >= 2)
+            else if (resolvedArguments.Count == 2)
             {
                 // has(key, value) - check property value with TYPE-SAFE MATCHING
                 var expectedValue = resolvedArguments[1];
@@ -131,6 +131,8 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") ||
                         valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
                         valueStr.StartsWith("within(") || valueStr.StartsWith("without(") ||
+                        valueStr.StartsWith("inside(") || valueStr.StartsWith("outside(") ||
+                        valueStr.StartsWith("between(") ||
                         valueStr.StartsWith("containing(") || valueStr.StartsWith("notContaining(") ||
                         valueStr.StartsWith("startingWith(") || valueStr.StartsWith("notStartingWith(") ||
                         valueStr.StartsWith("endingWith(") || valueStr.StartsWith("notEndingWith("))
@@ -236,6 +238,52 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                         });
                     }
                 }
+            }
+            else if (resolvedArguments.Count >= 3)
+            {
+                // has(label, key, valueOrPredicate)
+                var label = key;
+                var propertyKey = resolvedArguments[1]?.ToString();
+                var expectedValue = resolvedArguments[2];
+
+                context.Filter(traverser =>
+                {
+                    var actualLabel = ExtractLabel(traverser.Value);
+                    if (string.IsNullOrEmpty(actualLabel) || !label.Equals(actualLabel, StringComparison.OrdinalIgnoreCase))
+                        return false;
+
+                    if (string.IsNullOrEmpty(propertyKey))
+                        return false;
+
+                    var properties = ExtractProperties(traverser.Value);
+                    if (properties == null || !properties.ContainsKey(propertyKey))
+                        return false;
+
+                    var actualValue = properties[propertyKey];
+
+                    var valueStr = expectedValue?.ToString() ?? "";
+                    if (valueStr.StartsWith("gt(") || valueStr.StartsWith("gte(") ||
+                        valueStr.StartsWith("lt(") || valueStr.StartsWith("lte(") ||
+                        valueStr.StartsWith("neq(") || valueStr.StartsWith("eq(") ||
+                        valueStr.StartsWith("within(") || valueStr.StartsWith("without(") ||
+                        valueStr.StartsWith("inside(") || valueStr.StartsWith("outside(") ||
+                        valueStr.StartsWith("between(") ||
+                        valueStr.StartsWith("containing(") || valueStr.StartsWith("notContaining(") ||
+                        valueStr.StartsWith("startingWith(") || valueStr.StartsWith("notStartingWith(") ||
+                        valueStr.StartsWith("endingWith(") || valueStr.StartsWith("notEndingWith("))
+                    {
+                        var resolvedPredicate = ResolveParameterReferencesInPredicateString(valueStr, parameters);
+                        return EvaluatePredicate(actualValue, resolvedPredicate);
+                    }
+
+                    if (expectedValue is string expStr && actualValue is string actStr)
+                        return expStr.Equals(actStr, StringComparison.Ordinal);
+
+                    if (expectedValue is bool expectedBool)
+                        return actualValue is bool actualBool && expectedBool == actualBool;
+
+                    return Equals(actualValue, expectedValue);
+                });
             }
         }
 

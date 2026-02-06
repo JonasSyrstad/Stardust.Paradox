@@ -36,9 +36,38 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
                 var key = step.Arguments[0].ToString();
                 var value = step.Arguments[1];
 
+                // Normalize numeric literals to preserve precision for aggregations
+                if (value is double d)
+                {
+                    if (d % 1 != 0)
+                        value = (decimal)d;
+                }
+                else if (value is float f)
+                {
+                    if (f % 1 != 0)
+                        value = (decimal)f;
+                }
+
+                // TinkerPop token support (e.g. T.id, T.label)
+                if (key.Equals("T.id", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "id";
+                }
+                else if (key.Equals("T.label", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    key = "label";
+                }
+
                 // Check if this is a property step for a pending addE operation
                 if (context.HasMetadata("addE_pending"))
                 {
+                    // Special case: edge id for addE()
+                    if (key.Equals("id", System.StringComparison.OrdinalIgnoreCase) && value != null)
+                    {
+                        context.SetMetadata("addE_edgeId", value.ToString());
+                        return;
+                    }
+
                     // Add property to the pending addE operation
                     var existingProperties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
                     existingProperties[key] = value;

@@ -51,6 +51,12 @@ namespace Stardust.Paradox.CosmosDbTest
         }
 
 	    public bool CanParameterizeQueries => false;
+		public Features Features => new Features(
+			canParameterizeQueries: CanParameterizeQueries,
+			supportsServerSideProjection: true,
+			supportsDedup: true,
+			supportsOrdering: true,
+			supportsPaging: true);
 	    public double ConsumedRU { get; }
 
 	    private async Task<DocumentCollection> DocumentCollection()

@@ -34,13 +34,12 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             // 'to' step is a modulator for addE step - it specifies the target vertex for edge creation
             var argument = step.GetFirstStringArgument();
 
-            // Store the raw to specification in the context for immediate resolution
+            // Always store raw spec; it may be a label like 'a'/'b' (from .as())
             context.SetMetadata("addE_to_spec", argument);
 
-            // Try to resolve the vertex ID now
+            // Only set addE_to when it is clearly a direct V('id') or direct id
             string toVertexId = ResolveVertexId(argument, context);
-            
-            if (!string.IsNullOrEmpty(toVertexId))
+            if (!string.IsNullOrEmpty(toVertexId) && Database.GetVertex(toVertexId) != null)
             {
                 context.SetMetadata("addE_to", toVertexId);
             }
@@ -49,58 +48,19 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             TryExecutePendingAddE(context);
         }
 
-        private string ResolveVertexId(string specification, TinkerTraversalContext context)
-        {
-            if (string.IsNullOrEmpty(specification))
-                return null;
-
-            // Handle V('id') pattern
-            if (specification.StartsWith("V(") && specification.EndsWith(")"))
-            {
-                // Extract the ID from V('id')
-                var idPart = specification.Substring(2, specification.Length - 3).Trim();
-                // Remove quotes if present
-                if ((idPart.StartsWith("'") && idPart.EndsWith("'")) ||
-                    (idPart.StartsWith("\"") && idPart.EndsWith("\"")))
-                {
-                    return idPart.Substring(1, idPart.Length - 2);
-                }
-                return idPart;
-            }
-
-            // Try to resolve from labeled vertices in all traversers
-            foreach (var traverser in context.Traversers)
-            {
-                var tagged = traverser.GetTagged<dynamic>(specification);
-                if (tagged != null)
-                {
-                    var vertexId = ExtractId(tagged);
-                    if (!string.IsNullOrEmpty(vertexId))
-                    {
-                        return vertexId;
-                    }
-                }
-            }
-
-            // If we can't resolve it, assume it's a direct vertex ID
-            return specification;
-        }
-
         private void TryExecutePendingAddE(TinkerTraversalContext context)
         {
-            // Only execute if we have a pending addE and both from and to specifications
-            // For addE().from().to() pattern, we need both
             if (!context.HasMetadata("addE_pending"))
             {
                 return;
             }
 
-            // We need either both from and to, or just to (where from is implicit from current traverser)
-            string fromVertexId = context.GetMetadata<string>("addE_from");
-            string toVertexId = context.GetMetadata<string>("addE_to");
+            // Prefer raw specs (labels) when present
+            var fromSpec = context.GetMetadata<string>("addE_from_spec");
+            var toSpec = context.GetMetadata<string>("addE_to_spec");
 
-            // If we don't have to yet, we can't execute
-            if (string.IsNullOrEmpty(toVertexId))
+            // If we don't even have a to-spec we can't execute
+            if (string.IsNullOrEmpty(toSpec) && string.IsNullOrEmpty(context.GetMetadata<string>("addE_to")))
             {
                 return;
             }
@@ -109,11 +69,10 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             var properties = context.GetMetadata<Dictionary<string, object>>("addE_properties") ?? new Dictionary<string, object>();
 
             // Extract the 'id' property if present - it should be used as the edge ID
-            string edgeId = null;
-            if (properties.ContainsKey("id"))
+            string edgeId = context.GetMetadata<string>("addE_edgeId");
+            if (string.IsNullOrEmpty(edgeId) && properties.ContainsKey("id"))
             {
                 edgeId = properties["id"]?.ToString();
-                // Remove from properties dictionary since it's used as the ID, not a property
                 properties.Remove("id");
             }
 
@@ -121,10 +80,41 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
             foreach (var traverser in context.Traversers)
             {
-                // If from is not specified, use current traverser as source
-                if (string.IsNullOrEmpty(fromVertexId))
+                var fromVertexId = context.GetMetadata<string>("addE_from");
+                var toVertexId = context.GetMetadata<string>("addE_to");
+
+                // Resolve FROM
+                if (!string.IsNullOrEmpty(fromSpec))
+                {
+                    // Try label first
+                    var taggedFrom = traverser.GetTagged<dynamic>(fromSpec);
+                    if (taggedFrom != null)
+                        fromVertexId = ExtractId(taggedFrom);
+                    else
+                    {
+                        // fall back to parsing V('id')/id
+                        var parsed = ResolveVertexId(fromSpec, context);
+                        if (!string.IsNullOrEmpty(parsed))
+                            fromVertexId = parsed;
+                    }
+                }
+                else if (string.IsNullOrEmpty(fromVertexId))
                 {
                     fromVertexId = ExtractId(traverser.Value);
+                }
+
+                // Resolve TO
+                if (!string.IsNullOrEmpty(toSpec))
+                {
+                    var taggedTo = traverser.GetTagged<dynamic>(toSpec);
+                    if (taggedTo != null)
+                        toVertexId = ExtractId(taggedTo);
+                    else
+                    {
+                        var parsed = ResolveVertexId(toSpec, context);
+                        if (!string.IsNullOrEmpty(parsed))
+                            toVertexId = parsed;
+                    }
                 }
 
                 // Verify both vertices exist
@@ -133,7 +123,6 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
 
                 if (fromVertex != null && toVertex != null)
                 {
-                    // Use the properties overload to ensure indices are updated
                     var edge = Database.AddEdge(label, fromVertexId, toVertexId, properties, edgeId);
                     if (edge != null)
                     {
@@ -157,6 +146,40 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine.Steps
             context.RemoveMetadata("addE_to");
             context.RemoveMetadata("addE_to_spec");
             context.RemoveMetadata("addE_properties");
+            context.RemoveMetadata("addE_edgeId");
+        }
+
+        private string ResolveVertexId(string specification, TinkerTraversalContext context)
+        {
+            if (string.IsNullOrEmpty(specification))
+                return null;
+
+            // Handle V('id') pattern
+            if (specification.StartsWith("V(") && specification.EndsWith(")"))
+            {
+                var idPart = specification.Substring(2, specification.Length - 3).Trim();
+                if ((idPart.StartsWith("'") && idPart.EndsWith("'")) ||
+                    (idPart.StartsWith("\"") && idPart.EndsWith("\"")))
+                {
+                    return idPart.Substring(1, idPart.Length - 2);
+                }
+                return idPart;
+            }
+
+            // If we can resolve from labeled vertices in traversers, do so
+            foreach (var traverser in context.Traversers)
+            {
+                var tagged = traverser.GetTagged<dynamic>(specification);
+                if (tagged != null)
+                {
+                    var vertexId = ExtractId(tagged);
+                    if (!string.IsNullOrEmpty(vertexId))
+                        return vertexId;
+                }
+            }
+
+            // Otherwise treat as direct id/label spec
+            return specification;
         }
     }
 }

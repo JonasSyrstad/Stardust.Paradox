@@ -287,7 +287,7 @@ namespace Stardust.Paradox.Data.Linq.Tests
             result.Should().BeInDescendingOrder(p => p.Score);
         }
 
-        [Fact(Skip = "this is an issue with the inmemory db, and will not be fixed yet")]
+        [Fact()]
         public void Where_WithCityFilter_CaseMatters()
         {
             // Arrange
