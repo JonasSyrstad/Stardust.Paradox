@@ -10,6 +10,7 @@ using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
+using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Dialogs;
 using Stardust.Paradox.GremlinStudio.Services;
 
@@ -48,6 +49,7 @@ public partial class MainViewModel : ObservableObject
         IScenarioExportService scenarioExportService,
         IThemeService themeService,
         ICosmosDbDiscoveryService discoveryService,
+        IUpdateService updateService,
         ILogger<MainViewModel> logger)
     {
         _connectionStore = connectionStore;
@@ -60,6 +62,7 @@ public partial class MainViewModel : ObservableObject
         _scenarioExportService = scenarioExportService;
         _themeService = themeService;
         _discoveryService = discoveryService;
+        _updateService = updateService;
         _logger = logger;
 
         // Reset tab counter for fresh start
@@ -76,6 +79,9 @@ public partial class MainViewModel : ObservableObject
 
         // Subscribe to theme changes
         _themeService.ThemeChanged += (_, mode) => SelectedThemeMode = mode;
+        
+        // Subscribe to update service changes
+        _updateService.StateChanged += OnUpdateStateChanged;
 
 
         // Default values
@@ -90,6 +96,9 @@ public partial class MainViewModel : ObservableObject
         // Load connections and query history on startup
         _ = LoadConnectionsAsync();
         _ = LoadQueryHistoryAsync();
+        
+        // Check for updates in background on startup
+        _ = CheckForUpdatesOnStartupAsync();
 
         // Create initial tab
         CreateNewTab();
@@ -238,6 +247,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPlaygroundRunning;
 
+
     [ObservableProperty]
     private string? _loadedScenarioName;
 
@@ -248,6 +258,46 @@ public partial class MainViewModel : ObservableObject
     /// Used for visual differentiation in the results DataGrid.
     /// </summary>
     public Dictionary<string, bool> ColumnIsProperty { get; } = new();
+
+    #region Updates
+
+    /// <summary>
+    /// Gets the update service for checking and applying updates.
+    /// </summary>
+    public Core.Updates.IUpdateService UpdateService => _updateService;
+    private readonly Core.Updates.IUpdateService _updateService;
+
+    /// <summary>
+    /// Gets whether an update is available.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
+    /// <summary>
+    /// Gets the available update version string.
+    /// </summary>
+    [ObservableProperty]
+    private string? _updateVersion;
+
+    /// <summary>
+    /// Gets whether an update check is in progress.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+
+    /// <summary>
+    /// Gets whether an update download is in progress.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDownloadingUpdate;
+
+    /// <summary>
+    /// Gets the current update download progress (0-100).
+    /// </summary>
+    [ObservableProperty]
+    private int _updateDownloadProgress;
+
+    #endregion
 
     #endregion
 
@@ -971,6 +1021,88 @@ public partial class MainViewModel : ObservableObject
     {
         IsPlaygroundRunning = state.IsRunning;
         LoadedScenarioName = state.LoadedScenarioName;
+    }
+
+    #endregion
+
+    #region Update Commands
+
+    /// <summary>
+    /// Checks for available updates.
+    /// </summary>
+    [RelayCommand]
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var updateAvailable = await _updateService.CheckForUpdatesAsync().ConfigureAwait(true);
+            if (!updateAvailable)
+            {
+                StatusText = "You are running the latest version.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to check for updates");
+            StatusText = "Failed to check for updates.";
+        }
+    }
+
+    /// <summary>
+    /// Downloads and applies the available update.
+    /// </summary>
+    [RelayCommand]
+    private async Task DownloadAndApplyUpdateAsync()
+    {
+        try
+        {
+            StatusText = "Downloading update...";
+            var progress = new Progress<int>(p => UpdateDownloadProgress = p);
+            await _updateService.DownloadAndApplyUpdateAsync(progress).ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to download and apply update");
+            StatusText = "Failed to apply update.";
+        }
+    }
+
+    /// <summary>
+    /// Dismisses the update notification.
+    /// </summary>
+    [RelayCommand]
+    private void DismissUpdate()
+    {
+        IsUpdateAvailable = false;
+    }
+
+    private async Task CheckForUpdatesOnStartupAsync()
+    {
+        try
+        {
+            // Wait a bit before checking to avoid slowing startup
+            await Task.Delay(5000).ConfigureAwait(false);
+            await _updateService.CheckForUpdatesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Startup update check failed (non-critical)");
+        }
+    }
+
+    private void OnUpdateStateChanged(object? sender, EventArgs e)
+    {
+        // Update UI properties from the service state
+        IsUpdateAvailable = _updateService.IsUpdateAvailable;
+        UpdateVersion = _updateService.AvailableUpdate?.Version;
+        IsCheckingForUpdates = _updateService.IsChecking;
+        IsDownloadingUpdate = _updateService.IsDownloading;
+        UpdateDownloadProgress = _updateService.DownloadProgress;
+
+        if (IsUpdateAvailable && UpdateVersion != null)
+        {
+            StatusText = $"Update available: v{UpdateVersion}";
+        }
     }
 
     #endregion

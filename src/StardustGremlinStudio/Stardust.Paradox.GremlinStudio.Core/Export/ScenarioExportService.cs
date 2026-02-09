@@ -380,13 +380,16 @@ public class ScenarioExportService : IScenarioExportService
     {
         var sb = new StringBuilder();
         var className = SanitizeClassName(data.Name);
+        var namespaceName = string.IsNullOrWhiteSpace(data.Namespace) 
+            ? "Stardust.Paradox.InMemory.Scenarios" 
+            : data.Namespace;
 
         sb.AppendLine("using System;");
         sb.AppendLine("using System.Collections.Generic;");
         sb.AppendLine("using Stardust.Paradox.Data.InMemory.Core;");
         sb.AppendLine("using Stardust.Paradox.Data.InMemory.Scenarios;");
         sb.AppendLine();
-        sb.AppendLine("namespace GeneratedScenarios");
+        sb.AppendLine($"namespace {namespaceName}");
         sb.AppendLine("{");
         sb.AppendLine("    /// <summary>");
         sb.AppendLine($"    /// {EscapeXmlComment(data.Description)}");

@@ -386,6 +386,9 @@ public partial class QueryTabViewModel : ObservableObject
     private string _exportScenarioDescription = "";
 
     [ObservableProperty]
+    private string _exportNamespace = "Stardust.Paradox.InMemory.Scenarios";
+
+    [ObservableProperty]
     private ScenarioExportFormat _selectedExportFormat = ScenarioExportFormat.Json;
 
     public List<ScenarioExportFormat> ExportFormats { get; }
@@ -404,6 +407,47 @@ public partial class QueryTabViewModel : ObservableObject
 
     [ObservableProperty]
     private string _exportStepName = "";
+
+    /// <summary>
+    /// Cached scenario data to avoid re-fetching edges when only format changes.
+    /// </summary>
+    private ScenarioData? _cachedScenarioData;
+
+    /// <summary>
+    /// The ResultJson that was used to generate the cached scenario data.
+    /// </summary>
+    private string? _cachedResultJson;
+
+    /// <summary>
+    /// Re-exports the cached scenario data when format changes.
+    /// </summary>
+    partial void OnSelectedExportFormatChanged(ScenarioExportFormat value)
+    {
+        // If we have cached data, re-export with the new format immediately
+        if (_cachedScenarioData != null && _scenarioExportService != null)
+        {
+            try
+            {
+                // Update metadata in case it changed
+                _cachedScenarioData.Name = ExportScenarioName;
+                _cachedScenarioData.Description = ExportScenarioDescription;
+                _cachedScenarioData.Namespace = ExportNamespace;
+                
+                ExportPreview = _scenarioExportService.Export(_cachedScenarioData, value);
+                ExportStatusText = $"Format: {value} ({_cachedScenarioData.Vertices.Count} vertices, {_cachedScenarioData.Edges.Count} edges)";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to re-export with new format");
+                ExportStatusText = $"Error changing format: {ex.Message}";
+            }
+        }
+        else if (!string.IsNullOrEmpty(ExportPreview) && ExportPreview != "// No query results to export. Run a query first.")
+        {
+            // Prompt user to regenerate
+            ExportStatusText = "Click 'Generate Preview' to export with the new format";
+        }
+    }
 
     #endregion
 
@@ -430,6 +474,9 @@ public partial class QueryTabViewModel : ObservableObject
             IsExecuting = true;
             _queryCts = new CancellationTokenSource();
             StatusText = "Executing query...";
+
+            // Clear export data when running a new query
+            ClearExportData();
 
             var result = await _queryExecutor.ExecuteAsync(
                 connector,
@@ -474,6 +521,19 @@ public partial class QueryTabViewModel : ObservableObject
             _queryCts?.Dispose();
             _queryCts = null;
         }
+    }
+
+    /// <summary>
+    /// Clears all export data, settings, and preview.
+    /// </summary>
+    private void ClearExportData()
+    {
+        _cachedScenarioData = null;
+        _cachedResultJson = null;
+        ExportPreview = "";
+        HasExportData = false;
+        ExportStatusText = "";
+        ExportStepName = "";
     }
 
     private bool CanRunQuery() => !IsExecuting;
@@ -606,6 +666,8 @@ public partial class QueryTabViewModel : ObservableObject
         {
             ExportPreview = "// No query results to export. Run a query first.";
             HasExportData = false;
+            _cachedScenarioData = null;
+            _cachedResultJson = null;
             return;
         }
 
@@ -622,31 +684,58 @@ public partial class QueryTabViewModel : ObservableObject
             _exportCts = new CancellationTokenSource();
             IsExporting = true;
 
-            ExportStepName = "Initializing";
-            ExportStatusText = "Preparing export...";
-            await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
+            ScenarioData scenarioData;
 
-            _exportCts.Token.ThrowIfCancellationRequested();
-
-            ExportStepName = "Parsing Data";
-            ExportStatusText = "Parsing vertices from query results...";
-
-            var scenarioData = _scenarioExportService.ParseQueryResults(
-                ResultJson,
-                ExportScenarioName,
-                ExportScenarioDescription,
-                ConnectionSettings?.Metadata.Name,
-                QueryText);
-
-            _exportCts.Token.ThrowIfCancellationRequested();
-
-            if (scenarioData.Vertices.Count > 0)
+            // Check if we can use cached data (same result JSON)
+            if (_cachedScenarioData != null && _cachedResultJson == ResultJson)
             {
-                ExportStepName = "Fetching Edges";
-                ExportStatusText = $"Fetching edges between {scenarioData.Vertices.Count} vertices...";
+                ExportStepName = "Generating Output";
+                ExportStatusText = "Using cached data, generating output...";
+                await Task.Delay(100, _exportCts.Token).ConfigureAwait(true);
+                
+                // Update metadata from UI
+                _cachedScenarioData.Name = ExportScenarioName;
+                _cachedScenarioData.Description = ExportScenarioDescription;
+                _cachedScenarioData.Namespace = ExportNamespace;
+                
+                scenarioData = _cachedScenarioData;
+            }
+            else
+            {
+                // Need to re-parse and fetch edges
+                ExportStepName = "Initializing";
+                ExportStatusText = "Preparing export...";
+                await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
 
-                var progress = new Progress<string>(message => ExportStatusText = message);
-                scenarioData = await _scenarioExportService.FetchEdgesAsync(scenarioData, connector, progress, _exportCts.Token);
+                _exportCts.Token.ThrowIfCancellationRequested();
+
+                ExportStepName = "Parsing Data";
+                ExportStatusText = "Parsing vertices from query results...";
+
+                scenarioData = _scenarioExportService.ParseQueryResults(
+                    ResultJson,
+                    ExportScenarioName,
+                    ExportScenarioDescription,
+                    ConnectionSettings?.Metadata.Name,
+                    QueryText);
+
+                // Set the namespace for C# export
+                scenarioData.Namespace = ExportNamespace;
+
+                _exportCts.Token.ThrowIfCancellationRequested();
+
+                if (scenarioData.Vertices.Count > 0)
+                {
+                    ExportStepName = "Fetching Edges";
+                    ExportStatusText = $"Fetching edges between {scenarioData.Vertices.Count} vertices...";
+
+                    var progress = new Progress<string>(message => ExportStatusText = message);
+                    scenarioData = await _scenarioExportService.FetchEdgesAsync(scenarioData, connector, progress, _exportCts.Token);
+                }
+
+                // Cache the scenario data
+                _cachedScenarioData = scenarioData;
+                _cachedResultJson = ResultJson;
             }
 
             _exportCts.Token.ThrowIfCancellationRequested();
@@ -659,13 +748,15 @@ public partial class QueryTabViewModel : ObservableObject
 
             ExportStepName = "Finishing up";
             ExportStatusText = "Finalizing export preview...";
-            await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
+            await Task.Delay(200, _exportCts.Token).ConfigureAwait(true);
 
             if (!HasExportData)
             {
                 ExportPreview = "// No vertices found in query results.\n// Make sure your query returns graph elements.";
                 ExportStepName = "";
                 ExportStatusText = "No data found";
+                _cachedScenarioData = null;
+                _cachedResultJson = null;
             }
             else
             {

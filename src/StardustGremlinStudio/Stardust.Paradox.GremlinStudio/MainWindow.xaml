@@ -11,9 +11,11 @@ mc:Ignorable="d"
 Title="Stardust Gremlin Studio" Height="720" Width="1200"
 Icon="/Resources/icon.png"
 WindowStyle="None"
-AllowsTransparency="False"
-Background="{DynamicResource PrimaryBackgroundBrush}"
-Foreground="{DynamicResource PrimaryForegroundBrush}">
+AllowsTransparency="True"
+Background="Transparent"
+Foreground="{DynamicResource PrimaryForegroundBrush}"
+MaxHeight="{Binding Source={x:Static SystemParameters.MaximizedPrimaryScreenHeight}}"
+MaxWidth="{Binding Source={x:Static SystemParameters.MaximizedPrimaryScreenWidth}}">
     
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="40" 
@@ -42,6 +44,9 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:BoolToLabelBackgroundConverter x:Key="BoolToLabelBackgroundConverter"/>
 <converters:BoolToPinTooltipConverter x:Key="BoolToPinTooltipConverter"/>
 <converters:EqualityConverter x:Key="EqualityConverter"/>
+<converters:ExportFormatToSyntaxModeConverter x:Key="ExportFormatToSyntaxModeConverter"/>
+
+
 
 <!-- Modern Window Caption Button Style -->
 <Style x:Key="CaptionButtonStyle" TargetType="Button">
@@ -403,7 +408,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
 </Window.Resources>
     
-<Border Background="{DynamicResource PrimaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+<Border x:Name="WindowBorder" Background="{DynamicResource PrimaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+    <Border.Style>
+        <Style TargetType="Border">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                    <Setter Property="CornerRadius" Value="0"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Border.Style>
 <Grid>
     <Grid.RowDefinitions>
         <RowDefinition Height="40"/>
@@ -412,6 +426,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
     
     <!-- Modern Custom Title Bar -->
     <Border Grid.Row="0" Background="{DynamicResource SecondaryBackgroundBrush}">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="CornerRadius" Value="8,8,0,0"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                        <Setter Property="CornerRadius" Value="0"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
@@ -430,6 +454,27 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
             
             <!-- Window Control Buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <!-- Update Available Indicator -->
+                <Button Style="{StaticResource CaptionButtonStyle}" 
+                        Command="{Binding DownloadAndApplyUpdateCommand}"
+                        ToolTip="{Binding UpdateVersion, StringFormat='Update to v{0} available - Click to install'}"
+                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Grid>
+                        <TextBlock Text="&#xE777;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                   Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <!-- Pulsing dot indicator -->
+                        <Ellipse Width="8" Height="8" Fill="#FF5722" Margin="12,-12,0,0" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+                    </Grid>
+                </Button>
+                <!-- Update Download Progress -->
+                <Border Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Background="Transparent" VerticalAlignment="Center" Margin="8,0" Width="100">
+                    <Grid>
+                        <ProgressBar Value="{Binding UpdateDownloadProgress}" Minimum="0" Maximum="100" Height="4" 
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" 
+                                     Foreground="{DynamicResource AccentBrush}"/>
+                    </Grid>
+                </Border>
                 <Button x:Name="MinimizeButton" Content="&#xE949;" Style="{StaticResource CaptionButtonStyle}" Click="MinimizeButton_Click" ToolTip="Minimize"/>
                 <Button x:Name="MaximizeButton" Content="&#xE739;" Style="{StaticResource CaptionButtonStyle}" Click="MaximizeButton_Click" ToolTip="Maximize"/>
                 <Button x:Name="CloseButton" Content="&#xE106;" Style="{StaticResource CloseButtonStyle}" Click="CloseButton_Click" ToolTip="Close"/>
@@ -442,6 +487,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <DockPanel>
     <!-- Modern Status Bar -->
     <Border DockPanel.Dock="Bottom" Background="{DynamicResource StatusBarBackgroundBrush}" Padding="12,8">
+        <Border.Style>
+            <Style TargetType="Border">
+                <Setter Property="CornerRadius" Value="0,0,8,8"/>
+                <Style.Triggers>
+                    <DataTrigger Binding="{Binding WindowState, RelativeSource={RelativeSource AncestorType=Window}}" Value="Maximized">
+                        <Setter Property="CornerRadius" Value="0"/>
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Border.Style>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -1152,9 +1207,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                             
                                             <TextBlock Text="Export Format:" FontWeight="SemiBold" Margin="0,0,0,4"/>
                                             <ComboBox ItemsSource="{Binding ExportFormats}" 
-                                                      SelectedItem="{Binding SelectedExportFormat}"
+                                                      SelectedItem="{Binding SelectedExportFormat, Mode=TwoWay}"
                                                       Margin="0,0,0,12"/>
                                             
+                                            <TextBlock Text="Namespace (C# only):" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                            <TextBox Text="{Binding ExportNamespace, UpdateSourceTrigger=PropertyChanged}"
+                                                     Background="{DynamicResource EditorBackgroundBrush}"
+                                                     Foreground="{DynamicResource EditorForegroundBrush}"
+                                                     BorderBrush="{DynamicResource BorderBrush}" 
+                                                     Margin="0,0,0,12"
+                                                     ToolTip="The namespace for the generated C# class"/>
                                             
                                             <Separator Margin="0,4,0,16" Background="{DynamicResource BorderBrush}"/>
                                             
@@ -1215,17 +1277,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                         <TextBlock Text="Preview" FontWeight="SemiBold"/>
                                     </Border>
                                     
-                                    <!-- Preview TextBox -->
-                                    <TextBox Grid.Row="1"
-                                             Text="{Binding ExportPreview, Mode=OneWay}"
+                                    <!-- Preview with Syntax Highlighting -->
+                                    <avalonedit:TextEditor Grid.Row="1"
                                              FontFamily="Consolas"
                                              FontSize="12"
                                              IsReadOnly="True"
-                                             TextWrapping="NoWrap"
-                                             AcceptsReturn="True"
+                                             ShowLineNumbers="True"
                                              Background="{DynamicResource EditorBackgroundBrush}"
                                              Foreground="{DynamicResource EditorForegroundBrush}"
-                                             BorderBrush="{DynamicResource BorderBrush}"
+                                             controls:TextEditorHelper.BoundText="{Binding ExportPreview}"
+                                             controls:TextEditorHelper.SyntaxMode="{Binding SelectedExportFormat, Converter={StaticResource ExportFormatToSyntaxModeConverter}, Mode=OneWay}"
                                              VerticalScrollBarVisibility="Auto"
                                              HorizontalScrollBarVisibility="Auto"/>
                                     

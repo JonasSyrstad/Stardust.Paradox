@@ -2,8 +2,8 @@
 ; https://jrsoftware.org/isinfo.php
 
 #define MyAppName "Stardust Gremlin Studio"
-#define MyAppVersion "1.1.0"
-#define MyAppPublisher "Jonas Syrstad"
+#define MyAppVersion "1.1.1"
+#define MyAppPublisher "Stardust & Veracity by DNV"
 #define MyAppURL "https://github.com/JonasSyrstad/Stardust.Paradox"
 #define MyAppExeName "GremlinStudio.exe"
 #define MyAppIcon "..\Stardust.Paradox.GremlinStudio\Resources\icon.ico"

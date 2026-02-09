@@ -46,11 +46,21 @@ public static class TextEditorHelper
             typeof(TextEditorHelper),
             new PropertyMetadata(null));
 
+    public static readonly DependencyProperty SyntaxModeProperty =
+        DependencyProperty.RegisterAttached(
+            "SyntaxMode",
+            typeof(string),
+            typeof(TextEditorHelper),
+            new PropertyMetadata(null, OnSyntaxModeChanged));
+
     public static string GetBoundText(DependencyObject obj) => (string)obj.GetValue(BoundTextProperty);
     public static void SetBoundText(DependencyObject obj, string value) => obj.SetValue(BoundTextProperty, value);
 
     public static bool GetEnableGremlinFeatures(DependencyObject obj) => (bool)obj.GetValue(EnableGremlinFeaturesProperty);
     public static void SetEnableGremlinFeatures(DependencyObject obj, bool value) => obj.SetValue(EnableGremlinFeaturesProperty, value);
+
+    public static string GetSyntaxMode(DependencyObject obj) => (string)obj.GetValue(SyntaxModeProperty);
+    public static void SetSyntaxMode(DependencyObject obj, string value) => obj.SetValue(SyntaxModeProperty, value);
 
     private static bool GetIsUpdating(DependencyObject obj) => (bool)obj.GetValue(IsUpdatingProperty);
     private static void SetIsUpdating(DependencyObject obj, bool value) => obj.SetValue(IsUpdatingProperty, value);
@@ -257,6 +267,24 @@ public static class TextEditorHelper
 
         _validationTimer.Stop();
         _validationTimer.Start();
+    }
+
+    private static void OnSyntaxModeChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not TextEditor editor)
+        {
+            return;
+        }
+
+        var mode = e.NewValue as string;
+        
+        editor.SyntaxHighlighting = mode?.ToLowerInvariant() switch
+        {
+            "json" => ExportSyntaxHighlighting.JsonDefinition,
+            "csharp" or "c#" => ExportSyntaxHighlighting.CSharpDefinition,
+            "gremlin" => GremlinSyntaxHighlighting.Definition,
+            _ => null
+        };
     }
 }
 

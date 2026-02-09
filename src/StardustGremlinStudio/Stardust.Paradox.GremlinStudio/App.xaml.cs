@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core;
+using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Services;
 using Stardust.Paradox.GremlinStudio.ViewModels;
+using Velopack;
 
 namespace Stardust.Paradox.GremlinStudio;
 
@@ -19,6 +21,9 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        
+        // Initialize Velopack as early as possible
+        VelopackApp.Build().Run();
 
         // Show splash screen
         var splash = new SplashScreen();
@@ -43,6 +48,9 @@ public partial class App : Application
 
                 // Register theme service
                 services.AddSingleton<IThemeService>(_themeService);
+                
+                // Register update service
+                services.AddSingleton<IUpdateService, UpdateService>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
