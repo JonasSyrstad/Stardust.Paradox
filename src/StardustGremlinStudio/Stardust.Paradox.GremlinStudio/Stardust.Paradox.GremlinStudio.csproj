@@ -33,6 +33,7 @@
     <UseWindowsForms>false</UseWindowsForms>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     
+    
     <!-- Application Metadata -->
     <AssemblyName>GremlinStudio</AssemblyName>
     <Product>Stardust Gremlin Studio</Product>
@@ -40,9 +41,9 @@
     <Authors>Jonas Syrstad</Authors>
     <Description>A modern, feature-rich query tool for Gremlin-based graph databases including Azure Cosmos DB and Apache TinkerPop.</Description>
     <Copyright>Copyright © 2024 Jonas Syrstad. All rights reserved.</Copyright>
-    <Version>1.1.0</Version>
-    <FileVersion>1.1.0.0</FileVersion>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <Version>1.2.0</Version>
+    <FileVersion>1.2.0.0</FileVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
     
     <!-- Application Icon -->
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
