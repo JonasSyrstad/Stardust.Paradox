@@ -13,9 +13,7 @@ Icon="/Resources/icon.png"
 WindowStyle="None"
 AllowsTransparency="True"
 Background="Transparent"
-Foreground="{DynamicResource PrimaryForegroundBrush}"
-MaxHeight="{Binding Source={x:Static SystemParameters.MaximizedPrimaryScreenHeight}}"
-MaxWidth="{Binding Source={x:Static SystemParameters.MaximizedPrimaryScreenWidth}}">
+Foreground="{DynamicResource PrimaryForegroundBrush}">
     
     <WindowChrome.WindowChrome>
         <WindowChrome CaptionHeight="40" 

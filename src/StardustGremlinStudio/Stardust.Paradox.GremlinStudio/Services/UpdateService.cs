@@ -21,6 +21,10 @@ public sealed class UpdateService : IUpdateService
     private int _downloadProgress;
 
     private const string GitHubRepoUrl = "https://github.com/JonasSyrstad/Stardust.Paradox";
+    
+    // TODO: Set to false before release - enables fake update for testing UI
+    private const bool SimulateUpdateAvailable = false;
+    private const string SimulatedVersion = "99.0.0";
 
     public UpdateService(ILogger<UpdateService> logger)
     {
@@ -67,6 +71,21 @@ public sealed class UpdateService : IUpdateService
             OnStateChanged();
 
             _logger.LogInformation("Checking for updates...");
+
+            // For testing: simulate an update being available
+            if (SimulateUpdateAvailable)
+            {
+                await Task.Delay(1500, cancellationToken).ConfigureAwait(false); // Simulate network delay
+                _availableUpdate = new AppUpdateInfo(
+                    Version: SimulatedVersion,
+                    ReleaseNotes: "This is a simulated update for testing the auto-update UI.",
+                    PublishedDate: DateTimeOffset.Now,
+                    SizeBytes: 150_000_000);
+                
+                _logger.LogInformation("SIMULATED update available: {Version}", _availableUpdate.Version);
+                OnStateChanged();
+                return true;
+            }
 
             var updateInfo = await _updateManager.CheckForUpdatesAsync().ConfigureAwait(false);
             
@@ -115,6 +134,36 @@ public sealed class UpdateService : IUpdateService
             OnStateChanged();
 
             _logger.LogInformation("Downloading update {Version}...", _availableUpdate.Version);
+
+            // For testing: simulate download progress
+            if (SimulateUpdateAvailable)
+            {
+                for (int i = 0; i <= 100; i += 5)
+                {
+                    await Task.Delay(200, cancellationToken).ConfigureAwait(false);
+                    _downloadProgress = i;
+                    progress?.Report(i);
+                    OnStateChanged();
+                }
+                
+                _logger.LogInformation("SIMULATED download complete. In real scenario, app would restart.");
+                
+                // Show a message instead of actually restarting
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    System.Windows.MessageBox.Show(
+                        $"Simulated update to v{_availableUpdate.Version} complete!\n\n" +
+                        "In a real scenario, the application would restart now.\n\n" +
+                        "Set SimulateUpdateAvailable = false in UpdateService.cs to disable this test mode.",
+                        "Update Simulation",
+                        System.Windows.MessageBoxButton.OK,
+                        System.Windows.MessageBoxImage.Information);
+                });
+                
+                _availableUpdate = null;
+                OnStateChanged();
+                return;
+            }
 
             var updateInfo = await _updateManager.CheckForUpdatesAsync().ConfigureAwait(false);
             if (updateInfo is null)

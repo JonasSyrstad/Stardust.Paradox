@@ -1,6 +1,8 @@
-﻿using System.Windows;
+﻿using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using Stardust.Paradox.GremlinStudio.ViewModels;
 
@@ -40,12 +42,171 @@ public partial class MainWindow : Window
         _viewModel = viewModel;
         DataContext = viewModel;
         
-        // Update maximize button icon when window state changes
-        StateChanged += (s, e) => UpdateMaximizeRestoreButton();
+        // Update maximize button icon and handle maximize bounds
+        StateChanged += OnWindowStateChanged;
         
         // Subscribe to settings panel toggle event
         _viewModel.ToggleSettingsPanelRequested += (s, e) => ToggleSettingsPanel();
+        
+        // Hook into window messages for proper multi-monitor maximize support
+        SourceInitialized += OnSourceInitialized;
     }
+    
+    private void OnWindowStateChanged(object? sender, EventArgs e)
+    {
+        UpdateMaximizeRestoreButton();
+        
+        // When maximizing, adjust bounds to the current screen's work area
+        if (WindowState == WindowState.Maximized)
+        {
+            AdjustMaximizedBounds();
+        }
+    }
+    
+    private void AdjustMaximizedBounds()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        var monitor = MonitorFromWindow(handle, MONITOR_DEFAULTTONEAREST);
+        
+        if (monitor != nint.Zero)
+        {
+            var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(monitor, ref monitorInfo))
+            {
+                var workArea = monitorInfo.rcWork;
+                
+                // Get DPI scale for this window
+                var source = PresentationSource.FromVisual(this);
+                double dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
+                double dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
+                
+                // Convert screen pixels to WPF device-independent units
+                double width = (workArea.right - workArea.left) / dpiX;
+                double height = (workArea.bottom - workArea.top) / dpiY;
+                double left = workArea.left / dpiX;
+                double top = workArea.top / dpiY;
+                
+                // Set MaxWidth/MaxHeight to constrain the window
+                MaxWidth = width;
+                MaxHeight = height;
+            }
+        }
+    }
+
+
+    #region Multi-Monitor Maximize Support
+    
+    private void OnSourceInitialized(object? sender, EventArgs e)
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        var source = HwndSource.FromHwnd(handle);
+        source?.AddHook(WindowProc);
+    }
+
+    private nint WindowProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
+    {
+        if (msg == WM_GETMINMAXINFO)
+        {
+            WmGetMinMaxInfo(hwnd, lParam);
+            handled = true;
+        }
+        return nint.Zero;
+    }
+
+    private static void WmGetMinMaxInfo(nint hwnd, nint lParam)
+    {
+        var mmi = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+
+        // Get the monitor that the window is currently on
+        var monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        if (monitor != nint.Zero)
+        {
+            var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+            if (GetMonitorInfo(monitor, ref monitorInfo))
+            {
+                // Get DPI for the window to properly scale values
+                uint dpi = GetDpiForWindow(hwnd);
+                double dpiScale = dpi / 96.0;
+                
+                // rcWork is the work area (excludes taskbar)
+                // rcMonitor is the full monitor area
+                var rcWorkArea = monitorInfo.rcWork;
+                var rcMonitorArea = monitorInfo.rcMonitor;
+
+                // Calculate work area dimensions
+                int workWidth = rcWorkArea.right - rcWorkArea.left;
+                int workHeight = rcWorkArea.bottom - rcWorkArea.top;
+                
+                // Set the maximized position relative to the monitor's work area
+                mmi.ptMaxPosition.x = rcWorkArea.left - rcMonitorArea.left;
+                mmi.ptMaxPosition.y = rcWorkArea.top - rcMonitorArea.top;
+                
+                // Set the maximized size to the work area size
+                mmi.ptMaxSize.x = workWidth;
+                mmi.ptMaxSize.y = workHeight;
+                
+                // Also set track size to prevent issues with resizing
+                mmi.ptMaxTrackSize.x = workWidth;
+                mmi.ptMaxTrackSize.y = workHeight;
+            }
+        }
+
+        Marshal.StructureToPtr(mmi, lParam, true);
+    }
+
+    #region Win32 Interop
+    
+    private const int WM_GETMINMAXINFO = 0x0024;
+    private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromWindow(nint hwnd, uint dwFlags);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
+    
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(nint hwnd);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int x;
+        public int y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int left;
+        public int top;
+        public int right;
+        public int bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MONITORINFO
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+    
+    #endregion
+    
+    
+    #endregion
 
     /// <summary>
     /// Toggles the left settings panel between collapsed and expanded states.

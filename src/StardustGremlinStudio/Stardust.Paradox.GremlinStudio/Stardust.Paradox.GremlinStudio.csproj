@@ -20,7 +20,7 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
-    <PackageReference Include="Velopack" Version="0.0.1103" />
+    <PackageReference Include="Velopack" Version="0.0.1298" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -41,9 +41,9 @@
     <Authors>Jonas Syrstad</Authors>
     <Description>A modern, feature-rich query tool for Gremlin-based graph databases including Azure Cosmos DB and Apache TinkerPop.</Description>
     <Copyright>Copyright © 2024 Jonas Syrstad. All rights reserved.</Copyright>
-    <Version>1.2.0</Version>
-    <FileVersion>1.2.0.0</FileVersion>
-    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <Version>1.2.1</Version>
+    <FileVersion>1.2.1.0</FileVersion>
+    <AssemblyVersion>1.2.1.0</AssemblyVersion>
     
     <!-- Application Icon -->
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
@@ -70,3 +70,4 @@
   </ItemGroup>
 
 </Project>
+
