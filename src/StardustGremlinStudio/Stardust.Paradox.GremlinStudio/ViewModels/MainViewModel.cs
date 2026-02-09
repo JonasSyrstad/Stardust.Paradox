@@ -62,6 +62,9 @@ public partial class MainViewModel : ObservableObject
         _discoveryService = discoveryService;
         _logger = logger;
 
+        // Reset tab counter for fresh start
+        QueryTabViewModel.ResetTabCounter();
+
         // Initialize collections
         Connections = new ObservableCollection<GremlinConnectionMetadata>();
         QueryTabs = new ObservableCollection<QueryTabViewModel>();
@@ -675,6 +678,7 @@ public partial class MainViewModel : ObservableObject
         StatusText = "Cancelling...";
     }
 
+
     [RelayCommand]
     private void ZoomIn()
     {
@@ -688,6 +692,8 @@ public partial class MainViewModel : ObservableObject
         if (SelectedTab != null)
             SelectedTab.ZoomOutCommand.Execute(null);
     }
+
+
 
 
     [RelayCommand]
@@ -704,15 +710,51 @@ public partial class MainViewModel : ObservableObject
         SelectedTab?.SelectGraphNodeCommand.Execute(node);
     }
 
+
     [RelayCommand]
     private void SelectGraphEdge(GraphEdgeViewModel? edge)
     {
         SelectedTab?.SelectGraphEdgeCommand.Execute(edge);
     }
 
+    /// <summary>
+    /// Event raised when the settings panel should be toggled.
+    /// The MainWindow handles the actual collapse/expand logic.
+    /// </summary>
+    public event EventHandler? ToggleSettingsPanelRequested;
+
+    [RelayCommand]
+    private void ToggleSettingsPanel()
+    {
+        ToggleSettingsPanelRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ShowKeyboardShortcuts()
+    {
+        try
+        {
+            var mainWindow = System.Windows.Application.Current.MainWindow;
+            var dialog = new Dialogs.KeyboardShortcutsDialog();
+            
+            if (mainWindow != null && mainWindow.IsLoaded)
+            {
+                dialog.Owner = mainWindow;
+            }
+            
+            dialog.ShowDialog();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to show keyboard shortcuts dialog");
+        }
+    }
+
     #endregion
 
     #region Query History Commands
+
+
 
     [RelayCommand]
     private void TogglePinQuery(QueryHistoryItem? item)

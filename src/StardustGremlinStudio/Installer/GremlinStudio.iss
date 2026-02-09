@@ -2,11 +2,12 @@
 ; https://jrsoftware.org/isinfo.php
 
 #define MyAppName "Stardust Gremlin Studio"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.1.0"
 #define MyAppPublisher "Jonas Syrstad"
 #define MyAppURL "https://github.com/JonasSyrstad/Stardust.Paradox"
 #define MyAppExeName "GremlinStudio.exe"
 #define MyAppIcon "..\Stardust.Paradox.GremlinStudio\Resources\icon.ico"
+#define Te
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application.
@@ -31,8 +32,15 @@ SolidCompression=yes
 WizardStyle=modern
 ; Installer icon and images
 SetupIconFile={#MyAppIcon}
+
+WizardBackImageFile=..\Stardust.Paradox.GremlinStudio\Resources\installer.png
+WizardBackImageOpacity=85
 WizardImageFile=..\Stardust.Paradox.GremlinStudio\Resources\installer.png
 WizardSmallImageFile=..\Stardust.Paradox.GremlinStudio\Resources\icon.png
+; Image display settings for text readability
+WizardImageStretch=yes
+WizardImageBackColor=$1E1E1E
+; Note: WizardBackImageFile removed - not supported in modern wizard style
 ; Privileges
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog

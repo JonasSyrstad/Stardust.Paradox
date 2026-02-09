@@ -5,6 +5,7 @@ namespace Stardust.Paradox.GremlinStudio.Core.History;
 
 /// <summary>
 /// File-based implementation of query history service.
+/// Thread-safe implementation using ReaderWriterLockSlim.
 /// </summary>
 public class FileQueryHistoryService : IQueryHistoryService
 {
@@ -12,6 +13,7 @@ public class FileQueryHistoryService : IQueryHistoryService
     private readonly string _historyFilePath;
     private readonly List<QueryHistoryItem> _history = new();
     private readonly int _maxHistoryCount;
+    private readonly ReaderWriterLockSlim _lock = new(LockRecursionPolicy.SupportsRecursion);
 
     public FileQueryHistoryService(ILogger<FileQueryHistoryService> logger, int maxHistoryCount = 50)
     {
@@ -27,10 +29,18 @@ public class FileQueryHistoryService : IQueryHistoryService
 
     public IReadOnlyList<QueryHistoryItem> GetHistory()
     {
-        return _history
-            .OrderByDescending(h => h.IsPinned)
-            .ThenByDescending(h => h.LastExecuted)
-            .ToList();
+        _lock.EnterReadLock();
+        try
+        {
+            return _history
+                .OrderByDescending(h => h.IsPinned)
+                .ThenByDescending(h => h.LastExecuted)
+                .ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
     }
 
     public void AddQuery(string query)
@@ -40,29 +50,38 @@ public class FileQueryHistoryService : IQueryHistoryService
 
         var normalizedQuery = query.Trim();
         
-        // Check if query already exists
-        var existing = _history.FirstOrDefault(h => 
-            string.Equals(h.Query, normalizedQuery, StringComparison.OrdinalIgnoreCase));
-        
-        if (existing != null)
+        _lock.EnterWriteLock();
+        try
         {
-            existing.LastExecuted = DateTime.UtcNow;
-        }
-        else
-        {
-            _history.Add(new QueryHistoryItem
+            // Check if query already exists
+            var existing = _history.FirstOrDefault(h => 
+                string.Equals(h.Query, normalizedQuery, StringComparison.OrdinalIgnoreCase));
+            
+            if (existing != null)
             {
-                Query = normalizedQuery,
-                LastExecuted = DateTime.UtcNow
-            });
+                existing.LastExecuted = DateTime.UtcNow;
+            }
+            else
+            {
+                _history.Add(new QueryHistoryItem
+                {
+                    Query = normalizedQuery,
+                    LastExecuted = DateTime.UtcNow
+                });
 
-            // Remove oldest non-pinned entries if over limit
-            TrimHistory();
+                // Remove oldest non-pinned entries if over limit
+                TrimHistoryUnsafe();
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
     }
 
-    private void TrimHistory()
+    private void TrimHistoryUnsafe()
     {
+        // Called under write lock - no additional locking needed
         var unpinnedCount = _history.Count(h => !h.IsPinned);
         if (unpinnedCount <= _maxHistoryCount)
             return;
@@ -81,36 +100,71 @@ public class FileQueryHistoryService : IQueryHistoryService
 
     public void SetPinned(string id, bool isPinned)
     {
-        var item = _history.FirstOrDefault(h => h.Id == id);
-        if (item != null)
+        _lock.EnterWriteLock();
+        try
         {
-            item.IsPinned = isPinned;
+            var item = _history.FirstOrDefault(h => h.Id == id);
+            if (item != null)
+            {
+                item.IsPinned = isPinned;
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
     }
 
     public void RemoveQuery(string id)
     {
-        var item = _history.FirstOrDefault(h => h.Id == id);
-        if (item != null)
+        _lock.EnterWriteLock();
+        try
         {
-            _history.Remove(item);
+            var item = _history.FirstOrDefault(h => h.Id == id);
+            if (item != null)
+            {
+                _history.Remove(item);
+            }
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
         }
     }
 
     public void ClearUnpinned()
     {
-        _history.RemoveAll(h => !h.IsPinned);
+        _lock.EnterWriteLock();
+        try
+        {
+            _history.RemoveAll(h => !h.IsPinned);
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
     }
 
     public async Task SaveAsync()
     {
+        List<QueryHistoryItem> snapshot;
+        _lock.EnterReadLock();
         try
         {
-            var json = JsonSerializer.Serialize(_history, new JsonSerializerOptions 
+            snapshot = _history.ToList();
+        }
+        finally
+        {
+            _lock.ExitReadLock();
+        }
+
+        try
+        {
+            var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions 
             { 
                 WriteIndented = true 
             });
-            await File.WriteAllTextAsync(_historyFilePath, json);
+            await File.WriteAllTextAsync(_historyFilePath, json).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -125,13 +179,21 @@ public class FileQueryHistoryService : IQueryHistoryService
             if (!File.Exists(_historyFilePath))
                 return;
 
-            var json = await File.ReadAllTextAsync(_historyFilePath);
+            var json = await File.ReadAllTextAsync(_historyFilePath).ConfigureAwait(false);
             var items = JsonSerializer.Deserialize<List<QueryHistoryItem>>(json);
             
             if (items != null)
             {
-                _history.Clear();
-                _history.AddRange(items);
+                _lock.EnterWriteLock();
+                try
+                {
+                    _history.Clear();
+                    _history.AddRange(items);
+                }
+                finally
+                {
+                    _lock.ExitWriteLock();
+                }
             }
         }
         catch (Exception ex)

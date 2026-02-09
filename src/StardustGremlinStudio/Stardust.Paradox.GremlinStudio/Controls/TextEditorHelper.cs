@@ -141,11 +141,15 @@ public static class TextEditorHelper
             return;
         }
 
-        // Ctrl+Space for completion
-        if (e.Key == Key.Space && Keyboard.Modifiers == ModifierKeys.Control)
+        // Tab for completion (when no completion window is open)
+        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None)
         {
-            e.Handled = true;
-            ShowCompletion(textArea.GetService(typeof(TextEditor)) as TextEditor);
+            var editor = textArea.GetService(typeof(TextEditor)) as TextEditor;
+            if (editor != null && GetCompletionWindow(editor) == null)
+            {
+                e.Handled = true;
+                ShowCompletion(editor);
+            }
         }
     }
 

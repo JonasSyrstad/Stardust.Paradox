@@ -28,7 +28,13 @@ public partial class QueryTabViewModel : ObservableObject
     private CancellationTokenSource? _queryCts;
     private CancellationTokenSource? _exportCts;
 
+
     private static int _tabCounter;
+
+    /// <summary>
+    /// Resets the tab counter. Call when application restarts or all tabs are closed.
+    /// </summary>
+    public static void ResetTabCounter() => Interlocked.Exchange(ref _tabCounter, 0);
 
     public QueryTabViewModel(
         IGremlinQueryExecutor queryExecutor,
@@ -48,9 +54,9 @@ public partial class QueryTabViewModel : ObservableObject
         _updateMainStatus = updateMainStatus;
         _refreshMainHistory = refreshMainHistory;
 
-        // Set tab name
-        _tabCounter++;
-        TabName = $"Query {_tabCounter}";
+        // Set tab name with thread-safe counter increment
+        var tabNumber = Interlocked.Increment(ref _tabCounter);
+        TabName = $"Query {tabNumber}";
         Id = Guid.NewGuid().ToString();
 
         // Initialize collections
@@ -472,11 +478,72 @@ public partial class QueryTabViewModel : ObservableObject
 
     private bool CanRunQuery() => !IsExecuting;
 
+
     [RelayCommand]
     private void Cancel()
     {
         _queryCts?.Cancel();
         StatusText = "Cancelling...";
+    }
+
+    [RelayCommand]
+    private void ExportTableToCsv()
+    {
+        if (ResultTable == null || ResultTable.Count == 0)
+        {
+            StatusText = "No data to export";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                DefaultExt = ".csv",
+                FileName = $"query-results-{DateTime.Now:yyyyMMdd-HHmmss}.csv"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var csv = new System.Text.StringBuilder();
+                var table = ResultTable.Table;
+                
+                if (table == null)
+                {
+                    StatusText = "No table data available";
+                    return;
+                }
+                
+                // Headers
+                var headers = table.Columns.Cast<System.Data.DataColumn>().Select(c => EscapeCsvField(c.ColumnName));
+                csv.AppendLine(string.Join(",", headers));
+                
+                // Rows from the DataView
+                foreach (System.Data.DataRowView rowView in ResultTable)
+                {
+                    var values = rowView.Row.ItemArray.Select(v => EscapeCsvField(v?.ToString() ?? ""));
+                    csv.AppendLine(string.Join(",", values));
+                }
+                
+                System.IO.File.WriteAllText(dialog.FileName, csv.ToString(), System.Text.Encoding.UTF8);
+                StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export to CSV");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    private static string EscapeCsvField(string field)
+    {
+        if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+        {
+            return $"\"{field.Replace("\"", "\"\"")}\"";
+        }
+        return field;
     }
 
     [RelayCommand]

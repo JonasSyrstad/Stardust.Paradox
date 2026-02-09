@@ -14,9 +14,25 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
     
     /// <summary>
-    /// Gets the GraphCanvasBorder element from XAML.
+    /// Cached reference to the GraphCanvasBorder element.
     /// </summary>
-    private Border GraphCanvasBorder => (Border)FindName("GraphCanvasBorder");
+    private Border? _graphCanvasBorder;
+
+    /// <summary>
+    /// Gets the GraphCanvasBorder element, searching the visual tree if not cached.
+    /// </summary>
+    private Border? GraphCanvasBorder
+    {
+        get
+        {
+            if (_graphCanvasBorder != null)
+                return _graphCanvasBorder;
+            
+            // Search the visual tree for the named element
+            _graphCanvasBorder = FindVisualChild<Border>(this, "GraphCanvasBorder");
+            return _graphCanvasBorder;
+        }
+    }
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -26,6 +42,47 @@ public partial class MainWindow : Window
         
         // Update maximize button icon when window state changes
         StateChanged += (s, e) => UpdateMaximizeRestoreButton();
+        
+        // Subscribe to settings panel toggle event
+        _viewModel.ToggleSettingsPanelRequested += (s, e) => ToggleSettingsPanel();
+    }
+
+    /// <summary>
+    /// Toggles the left settings panel between collapsed and expanded states.
+    /// </summary>
+    private void ToggleSettingsPanel()
+    {
+        var leftPanel = FindName("LeftPanel") as FrameworkElement;
+        if (leftPanel == null) return;
+        
+        if (leftPanel.Visibility == Visibility.Visible)
+        {
+            CollapseButton_Click(this, new RoutedEventArgs());
+        }
+        else
+        {
+            ExpandButton_Click(this, new RoutedEventArgs());
+        }
+    }
+
+    /// <summary>
+    /// Finds a child element in the visual tree by name.
+    /// </summary>
+    private static T? FindVisualChild<T>(DependencyObject parent, string name) where T : FrameworkElement
+    {
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            
+            if (child is T element && element.Name == name)
+                return element;
+            
+            var found = FindVisualChild<T>(child, name);
+            if (found != null)
+                return found;
+        }
+        return null;
     }
 
     #region Window Chrome Buttons
@@ -162,11 +219,14 @@ public partial class MainWindow : Window
             var vm = DataContext as ViewModels.MainViewModel;
             if (vm == null) return;
 
+            var border = GraphCanvasBorder;
+            if (border == null) return;
+
             // Select the node
             vm.SelectGraphNodeCommand.Execute(node);
 
             // Start dragging
-            var startPoint = e.GetPosition(GraphCanvasBorder);
+            var startPoint = e.GetPosition(border);
             StartNodeDrag(node, startPoint);
             
             e.Handled = true;
@@ -259,10 +319,13 @@ public partial class MainWindow : Window
         var vm = DataContext as ViewModels.MainViewModel;
         if (vm == null) return;
 
+        var border = GraphCanvasBorder;
+        if (border == null) return;
+
         _isDraggingNode = true;
         vm.StartNodeDrag(node, startPoint.X, startPoint.Y);
-        GraphCanvasBorder.CaptureMouse();
-        GraphCanvasBorder.Cursor = Cursors.SizeAll;
+        border.CaptureMouse();
+        border.Cursor = Cursors.SizeAll;
     }
 
     #endregion

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Stardust.Paradox.Data;
@@ -7,6 +8,7 @@ namespace Stardust.Paradox.GremlinStudio.Core.Execution;
 
 /// <summary>
 /// Executes Gremlin queries and maintains an execution log.
+/// Includes retry logic for transient failures.
 /// </summary>
 public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
 {
@@ -14,6 +16,8 @@ public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
     private readonly List<QueryLogEntry> _executionLog = new();
     private readonly object _logLock = new();
     private const int MaxLogEntries = 1000;
+    private const int MaxRetryAttempts = 3;
+    private static readonly TimeSpan[] RetryDelays = { TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(500), TimeSpan.FromSeconds(1) };
 
     public GremlinQueryExecutor(ILogger<GremlinQueryExecutor> logger)
     {
@@ -37,79 +41,132 @@ public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
 
         var stopwatch = Stopwatch.StartNew();
         string connectionName = "Unknown";
+        Exception? lastException = null;
 
-        try
+        for (int attempt = 0; attempt <= MaxRetryAttempts; attempt++)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
 
-            var results = await connector.ExecuteAsync(query, queryParams).ConfigureAwait(false);
-            stopwatch.Stop();
+                if (attempt > 0)
+                {
+                    _logger.LogInformation("Retry attempt {Attempt} of {MaxAttempts} for query", attempt, MaxRetryAttempts);
+                    await Task.Delay(RetryDelays[Math.Min(attempt - 1, RetryDelays.Length - 1)], cancellationToken).ConfigureAwait(false);
+                }
 
-            var resultList = results?.ToList() ?? new List<dynamic>();
-            var resultJson = JsonConvert.SerializeObject(resultList, Formatting.Indented);
+                var results = await connector.ExecuteAsync(query, queryParams).ConfigureAwait(false);
+                stopwatch.Stop();
 
-            var executionResult = QueryExecutionResult.Success(
-                resultList,
-                resultJson,
-                stopwatch.Elapsed,
-                query,
-                connector.ConsumedRU > 0 ? connector.ConsumedRU : null);
+                var resultList = results?.ToList() ?? new List<dynamic>();
+                var resultJson = JsonConvert.SerializeObject(resultList, Formatting.Indented);
 
-            AddLogEntry(new QueryLogEntry(
-                DateTimeOffset.UtcNow,
-                connectionName,
-                query,
-                stopwatch.Elapsed,
-                resultList.Count,
-                true));
+                var executionResult = QueryExecutionResult.Success(
+                    resultList,
+                    resultJson,
+                    stopwatch.Elapsed,
+                    query,
+                    connector.ConsumedRU > 0 ? connector.ConsumedRU : null);
 
-            _logger.LogInformation(
-                "Query executed successfully in {Elapsed}ms, returned {Count} results",
-                stopwatch.ElapsedMilliseconds,
-                resultList.Count);
+                AddLogEntry(new QueryLogEntry(
+                    DateTimeOffset.UtcNow,
+                    connectionName,
+                    query,
+                    stopwatch.Elapsed,
+                    resultList.Count,
+                    true,
+                    attempt > 0 ? $"Succeeded after {attempt} retries" : null));
 
-            return executionResult;
+                _logger.LogInformation(
+                    "Query executed successfully in {Elapsed}ms, returned {Count} results{RetryInfo}",
+                    stopwatch.ElapsedMilliseconds,
+                    resultList.Count,
+                    attempt > 0 ? $" (after {attempt} retries)" : "");
+
+                return executionResult;
+            }
+            catch (OperationCanceledException)
+            {
+                stopwatch.Stop();
+                _logger.LogWarning("Query execution cancelled");
+
+                AddLogEntry(new QueryLogEntry(
+                    DateTimeOffset.UtcNow,
+                    connectionName,
+                    query,
+                    stopwatch.Elapsed,
+                    0,
+                    false,
+                    "Cancelled"));
+
+                return QueryExecutionResult.Failure(
+                    "Query execution was cancelled",
+                    null,
+                    stopwatch.Elapsed,
+                    query);
+            }
+            catch (Exception ex) when (IsTransientException(ex) && attempt < MaxRetryAttempts)
+            {
+                lastException = ex;
+                _logger.LogWarning(ex, "Transient error on attempt {Attempt}, will retry", attempt + 1);
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                _logger.LogError(ex, "Query execution failed");
+
+                AddLogEntry(new QueryLogEntry(
+                    DateTimeOffset.UtcNow,
+                    connectionName,
+                    query,
+                    stopwatch.Elapsed,
+                    0,
+                    false,
+                    ex.Message));
+
+                return QueryExecutionResult.Failure(
+                    ex.Message,
+                    ex.ToString(),
+                    stopwatch.Elapsed,
+                    query);
+            }
         }
-        catch (OperationCanceledException)
-        {
-            stopwatch.Stop();
-            _logger.LogWarning("Query execution cancelled");
 
-            AddLogEntry(new QueryLogEntry(
-                DateTimeOffset.UtcNow,
-                connectionName,
-                query,
-                stopwatch.Elapsed,
-                0,
-                false,
-                "Cancelled"));
+        // All retries exhausted
+        stopwatch.Stop();
+        var finalMessage = $"Query failed after {MaxRetryAttempts} retries: {lastException?.Message}";
+        _logger.LogError(lastException, finalMessage);
 
-            return QueryExecutionResult.Failure(
-                "Query execution was cancelled",
-                null,
-                stopwatch.Elapsed,
-                query);
-        }
-        catch (Exception ex)
-        {
-            stopwatch.Stop();
-            _logger.LogError(ex, "Query execution failed");
+        AddLogEntry(new QueryLogEntry(
+            DateTimeOffset.UtcNow,
+            connectionName,
+            query,
+            stopwatch.Elapsed,
+            0,
+            false,
+            finalMessage));
 
-            AddLogEntry(new QueryLogEntry(
-                DateTimeOffset.UtcNow,
-                connectionName,
-                query,
-                stopwatch.Elapsed,
-                0,
-                false,
-                ex.Message));
+        return QueryExecutionResult.Failure(
+            finalMessage,
+            lastException?.ToString(),
+            stopwatch.Elapsed,
+            query);
+    }
 
-            return QueryExecutionResult.Failure(
-                ex.Message,
-                ex.ToString(),
-                stopwatch.Elapsed,
-                query);
-        }
+    /// <summary>
+    /// Determines if an exception is transient and can be retried.
+    /// </summary>
+    private static bool IsTransientException(Exception ex)
+    {
+        // Socket errors, timeouts, and specific Gremlin server errors
+        return ex is SocketException
+            || ex is TimeoutException
+            || ex is IOException
+            || ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("429", StringComparison.Ordinal) // Rate limiting
+            || ex.Message.Contains("503", StringComparison.Ordinal) // Service unavailable
+            || (ex.InnerException != null && IsTransientException(ex.InnerException));
     }
 
     public IReadOnlyList<QueryLogEntry> GetExecutionLog()

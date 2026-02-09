@@ -23,10 +23,13 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                       UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
     
+    
     <Window.InputBindings>
         <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding RunQueryCommand}" />
         <KeyBinding Key="F5" Command="{Binding RunQueryCommand}" />
         <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
+        <KeyBinding Key="F1" Command="{Binding ShowKeyboardShortcutsCommand}" />
+        <KeyBinding Key="B" Modifiers="Ctrl" Command="{Binding ToggleSettingsPanelCommand}" />
     </Window.InputBindings>
     
 <Window.Resources>
@@ -654,36 +657,65 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="3*" />
+                                        <RowDefinition Height="1*" MinHeight="100" />
                                         <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="2*" />
+                                        <RowDefinition Height="2*" MinHeight="150" />
                                     </Grid.RowDefinitions>
 
                 <!-- Query Toolbar -->
                 <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
                     <Button Command="{Binding RunQueryCommand}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="▶" Foreground="Green" FontWeight="Bold" Margin="0,0,6,0"/>
-                            <TextBlock Text="Run (Ctrl+Enter)"/>
+                            <TextBlock Text="▶" Foreground="#22CC22" FontWeight="Bold" Margin="0,0,6,0"/>
+                            <TextBlock Text="Run (Ctrl+Enter)" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
                     <Button Command="{Binding CancelCommand}" ToolTip="Cancel Query (Esc)" Padding="8,4">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="■" Foreground="Red" FontWeight="Bold" Margin="0,0,6,0"/>
-                            <TextBlock Text="Cancel"/>
+                            <TextBlock Text="■" Foreground="#FF4444" FontWeight="Bold" Margin="0,0,6,0"/>
+                            <TextBlock Text="Cancel" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
                     <Separator />
-                    <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0"/>
+                    
+                    <!-- Query History Dropdown -->
+                    <TextBlock Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <ComboBox Width="280" 
+                              ItemsSource="{Binding DataContext.QueryHistory, RelativeSource={RelativeSource AncestorType=Window}}" 
+                              SelectedItem="{Binding DataContext.SelectedHistoryItem, RelativeSource={RelativeSource AncestorType=Window}}"
+                              ToolTip="Select a previous query from history">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid MaxWidth="350">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="📌" Margin="0,0,4,0" FontSize="10"
+                                               Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Query}" TextTrimming="CharacterEllipsis" 
+                                               FontFamily="Consolas" FontSize="11" ToolTip="{Binding Query}"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <Button Command="{Binding DataContext.ClearQueryHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                            ToolTip="Clear unpinned history" Padding="6,4">
+                        <TextBlock Text="✕" FontSize="12" Foreground="#FF6B6B" FontWeight="Bold"/>
+                    </Button>
+                    
+                    <Separator />
+                    <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     <TextBlock Text="{Binding ConnectionDisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <Separator/>
-                    <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0"/>
-                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"/>
+                    <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0" 
+                               Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                 </ToolBar>
 
                 <!-- Query Editor -->
-                <GroupBox Header="Query (Ctrl+Space for autocomplete)" Grid.Row="1" Margin="0,0,0,6" BorderBrush="{DynamicResource BorderBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}">
+                <GroupBox Header="Query (Tab for autocomplete)" Grid.Row="1" Margin="0,0,0,6" BorderBrush="{DynamicResource BorderBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <avalonedit:TextEditor
                         x:Name="QueryEditor"
                         FontFamily="Consolas"
@@ -721,27 +753,38 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         
                         <!-- Table/List View -->
                         <TabItem Header="Table">
-                            <DataGrid 
-                                x:Name="ResultDataGrid"
-                                ItemsSource="{Binding ResultTable}"
-                                AutoGenerateColumns="True"
-                                AutoGeneratingColumn="ResultDataGrid_AutoGeneratingColumn"
-                                IsReadOnly="True"
-                                CanUserAddRows="False"
-                                CanUserDeleteRows="False"
-                                GridLinesVisibility="All"
-                                RowBackground="{DynamicResource PrimaryBackgroundBrush}"
-                                Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
-                                Background="{DynamicResource EditorBackgroundBrush}"
-                                BorderBrush="{DynamicResource BorderBrush}"
-                                HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
-                                VerticalGridLinesBrush="{DynamicResource BorderBrush}"
-                                ColumnHeaderStyle="{StaticResource DataGridColumnHeaderStyle}"
-                                FontFamily="Consolas"
-                                FontSize="11"
-                                VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Auto"/>
+                            <DockPanel>
+                                <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
+                                    <Button Command="{Binding ExportTableToCsvCommand}" 
+                                            ToolTip="Export table data to CSV file" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⬇" FontSize="12" Margin="0,0,6,0" Foreground="#4EC9B0" FontWeight="Bold"/>
+                                            <TextBlock Text="Export to CSV" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </ToolBar>
+                                <DataGrid 
+                                    x:Name="ResultDataGrid"
+                                    ItemsSource="{Binding ResultTable}"
+                                    AutoGenerateColumns="True"
+                                    AutoGeneratingColumn="ResultDataGrid_AutoGeneratingColumn"
+                                    IsReadOnly="True"
+                                    CanUserAddRows="False"
+                                    CanUserDeleteRows="False"
+                                    GridLinesVisibility="All"
+                                    RowBackground="{DynamicResource PrimaryBackgroundBrush}"
+                                    Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                    AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
+                                    Background="{DynamicResource EditorBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                                    VerticalGridLinesBrush="{DynamicResource BorderBrush}"
+                                    ColumnHeaderStyle="{StaticResource DataGridColumnHeaderStyle}"
+                                    FontFamily="Consolas"
+                                    FontSize="11"
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Auto"/>
+                            </DockPanel>
                         </TabItem>
                         
                         <!-- Tree View -->
