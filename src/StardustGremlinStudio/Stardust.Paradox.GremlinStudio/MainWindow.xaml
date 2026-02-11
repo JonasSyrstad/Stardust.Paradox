@@ -788,20 +788,31 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 <!-- Results with Multiple Views -->
                 <GroupBox Header="Results" Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <TabControl SelectedIndex="{Binding SelectedResultViewIndex}" Background="{DynamicResource SecondaryBackgroundBrush}">
-                        <!-- Raw JSON View -->
+                        <!-- Raw JSON View with Syntax Highlighting -->
                         <TabItem Header="JSON">
-                            <TextBox
-                                FontFamily="Consolas"
-                                FontSize="12"
-                                Text="{Binding ResultJson, Mode=OneWay}"
-                                IsReadOnly="True"
-                                TextWrapping="NoWrap"
-                                AcceptsReturn="True"
-                                Background="{DynamicResource EditorBackgroundBrush}"
-                                Foreground="{DynamicResource EditorForegroundBrush}"
-                                BorderBrush="{DynamicResource BorderBrush}"
-                                VerticalScrollBarVisibility="Auto"
-                                HorizontalScrollBarVisibility="Auto" />
+                            <DockPanel>
+                                <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
+                                    <Button Command="{Binding CopyJsonToClipboardCommand}" 
+                                            ToolTip="Copy JSON to clipboard" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                            <TextBlock Text="Copy All" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </ToolBar>
+                                <avalonedit:TextEditor
+                                    FontFamily="Consolas"
+                                    FontSize="12"
+                                    IsReadOnly="True"
+                                    ShowLineNumbers="True"
+                                    Background="{DynamicResource EditorBackgroundBrush}"
+                                    Foreground="{DynamicResource EditorForegroundBrush}"
+                                    controls:TextEditorHelper.BoundText="{Binding ResultJson, Mode=OneWay}"
+                                    controls:TextEditorHelper.SyntaxMode="Json"
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Auto" />
+                            </DockPanel>
                         </TabItem>
                         
                         <!-- Table/List View -->
@@ -951,8 +962,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     <ToolBar Grid.Row="0" Background="{DynamicResource ToolBarBackgroundBrush}">
                                         <TextBlock Text="Graph" FontWeight="SemiBold" VerticalAlignment="Center" Margin="4,0,12,0"/>
                                         <Separator/>
-                                        <Button Content="+" Command="{Binding ZoomInCommand}" ToolTip="Zoom In" Width="28" FontWeight="Bold"/>
-                                        <Button Content="-" Command="{Binding ZoomOutCommand}" ToolTip="Zoom Out" Width="28" FontWeight="Bold"/>
+                                        <Button Content="+" Command="{Binding ZoomInCommand}" ToolTip="Zoom In (Ctrl+Scroll Up)" Width="28" FontWeight="Bold"/>
+                                        <Button Content="-" Command="{Binding ZoomOutCommand}" ToolTip="Zoom Out (Ctrl+Scroll Down)" Width="28" FontWeight="Bold"/>
                                         <Button Content="Reset" Command="{Binding ResetGraphCommand}" Padding="8,2" ToolTip="Reset zoom and pan"/>
                                     </ToolBar>
                                     
@@ -960,7 +971,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     <Border x:Name="GraphCanvasBorder" Grid.Row="1" 
                                             Background="#2D2D30" ClipToBounds="True"
                                             MouseDown="GraphCanvas_MouseDown" MouseMove="GraphCanvas_MouseMove" 
-                                            MouseUp="GraphCanvas_MouseUp" MouseLeave="GraphCanvas_MouseLeave">
+                                            MouseUp="GraphCanvas_MouseUp" MouseLeave="GraphCanvas_MouseLeave"
+                                            MouseWheel="GraphCanvas_MouseWheel">
                                         <Canvas x:Name="GraphCanvas">
                                             <Canvas.RenderTransform>
                                                 <TransformGroup>

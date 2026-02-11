@@ -472,6 +472,53 @@ public partial class MainWindow : Window
         // Don't stop dragging on leave - mouse is captured
     }
 
+    private void GraphCanvas_MouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        var vm = DataContext as ViewModels.MainViewModel;
+        if (vm?.SelectedTab == null) return;
+
+        const double panSpeed = 30.0;
+        
+        if (Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            // Ctrl+Scroll = Zoom
+            if (e.Delta > 0)
+            {
+                vm.SelectedTab.ZoomInCommand.Execute(null);
+            }
+            else if (e.Delta < 0)
+            {
+                vm.SelectedTab.ZoomOutCommand.Execute(null);
+            }
+        }
+        else if (Keyboard.Modifiers == ModifierKeys.Shift)
+        {
+            // Shift+Scroll = Pan left/right
+            if (e.Delta > 0)
+            {
+                vm.SelectedTab.GraphPanX += panSpeed;
+            }
+            else if (e.Delta < 0)
+            {
+                vm.SelectedTab.GraphPanX -= panSpeed;
+            }
+        }
+        else
+        {
+            // Scroll (no modifier) = Pan up/down
+            if (e.Delta > 0)
+            {
+                vm.SelectedTab.GraphPanY += panSpeed;
+            }
+            else if (e.Delta < 0)
+            {
+                vm.SelectedTab.GraphPanY -= panSpeed;
+            }
+        }
+
+        e.Handled = true;
+    }
+
     /// <summary>
     /// Handles node drag start from the node template.
     /// </summary>

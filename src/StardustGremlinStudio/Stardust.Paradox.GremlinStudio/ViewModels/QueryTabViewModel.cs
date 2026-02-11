@@ -547,6 +547,26 @@ public partial class QueryTabViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void CopyJsonToClipboard()
+    {
+        if (string.IsNullOrWhiteSpace(ResultJson))
+        {
+            StatusText = "No JSON to copy";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(ResultJson);
+            StatusText = "JSON copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private void ExportTableToCsv()
     {
         if (ResultTable == null || ResultTable.Count == 0)
