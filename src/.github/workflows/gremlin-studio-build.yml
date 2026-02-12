@@ -117,7 +117,7 @@ jobs:
         path: ./releases/velopack/
         if-no-files-found: error
 
-  create-installer:
+  package-velopack:
     runs-on: windows-latest
     needs: build
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'

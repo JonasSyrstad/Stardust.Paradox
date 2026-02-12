@@ -20,7 +20,8 @@ public sealed class UpdateService : IUpdateService
     private bool _isDownloading;
     private int _downloadProgress;
 
-    private const string GitHubRepoUrl = "https://github.com/JonasSyrstad/Stardust.Paradox";
+    private const string GitHubRepoId = "JonasSyrstad/Stardust.Paradox";
+    private const string VelopackChannel = "win";
     
     // TODO: Set to false before release - enables fake update for testing UI
     private const bool SimulateUpdateAvailable = false;
@@ -31,8 +32,8 @@ public sealed class UpdateService : IUpdateService
         _logger = logger;
         
         // Configure Velopack with GitHub releases as the update source
-        var source = new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false);
-        _updateManager = new UpdateManager(source);
+        var source = new GithubSource(GitHubRepoId, accessToken: null, prerelease: false);
+        _updateManager = new UpdateManager(source, new UpdateOptions { ExplicitChannel = VelopackChannel });
     }
 
     /// <inheritdoc />
