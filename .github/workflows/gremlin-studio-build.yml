@@ -79,7 +79,7 @@ jobs:
           --mainExe GremlinStudio.exe `
           --outputDir ./releases/velopack `
           --channel win `
-          --icon StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
+          --icon src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
 
     - name: Validate Velopack output (build verification)
       run: |
@@ -166,7 +166,7 @@ jobs:
           --mainExe GremlinStudio.exe `
           --outputDir ./releases/velopack `
           --channel win `
-          --icon StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
+          --icon src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
 
     - name: Validate Velopack output
       run: |
