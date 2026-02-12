@@ -38,11 +38,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{2BB2D88F-16C5-414D-9436-BE72F216E481}"
 	ProjectSection(SolutionItems) = preProject
 		.github\copilot-instructions.md = .github\copilot-instructions.md
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{F9D389E6-8316-444D-A0EC-50628D7E5BB5}"
-	ProjectSection(SolutionItems) = preProject
-		.github\workflows\gremlin-studio-build.yml = .github\workflows\gremlin-studio-build.yml
+		..\.github\workflows\gremlin-studio-build.yml = ..\.github\workflows\gremlin-studio-build.yml
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installer", "Installer", "{418E7173-AAD3-4CC4-912A-8906001F24B6}"
@@ -250,7 +246,6 @@ Global
 		{93DEDFA2-4427-460D-A7FD-A1CE1A8C9AFF} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 		{E7FFABCD-AE11-4010-8088-E662A0FEC05B} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 		{FFD21832-CFEF-4CA6-953F-9B4956E3493D} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
-		{F9D389E6-8316-444D-A0EC-50628D7E5BB5} = {2BB2D88F-16C5-414D-9436-BE72F216E481}
 		{418E7173-AAD3-4CC4-912A-8906001F24B6} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
