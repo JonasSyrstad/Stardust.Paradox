@@ -486,6 +486,14 @@ public partial class QueryTabViewModel : ObservableObject
             // Clear export data when running a new query
             ClearExportData();
 
+            // Reset schema discovery when running a new query (schema is tied to the current results)
+            IsDiscoveringSchema = false;
+            SchemaProgressPercent = 0;
+            SchemaDiscoveryStatus = string.Empty;
+            DiscoveredSchema = null;
+            SchemaTreeItems.Clear();
+            SchemaCodePreview = string.Empty;
+
             var result = await _queryExecutor.ExecuteAsync(
                 connector,
                 QueryText,
@@ -509,6 +517,12 @@ public partial class QueryTabViewModel : ObservableObject
 
             PopulateResultViews(result.ResultJson);
             IsDirty = false;
+
+            // If user is currently viewing schema mode, run a fresh discovery for the new results
+            if (IsSchemaExplorerMode && result.IsSuccess)
+            {
+                _ = BuildSchemaFromResultsAsync();
+            }
         }
         catch (OperationCanceledException)
         {
