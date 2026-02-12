@@ -4,19 +4,19 @@ on:
   push:
     branches: [ V2.6, main ]
     paths:
-      - 'StardustGremlinStudio/**'
+      - 'src/StardustGremlinStudio/**'
       - '.github/workflows/gremlin-studio-build.yml'
   pull_request:
     branches: [ V2.6, main ]
     paths:
-      - 'StardustGremlinStudio/**'
+      - 'src/StardustGremlinStudio/**'
   release:
     types: [ published ]
   workflow_dispatch:
 
 env:
   DOTNET_VERSION: '8.0.x'
-  PROJECT_PATH: 'StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj'
+  PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj'
   APP_ID: 'GremlinStudio'
 
 jobs:
@@ -135,7 +135,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: GremlinStudio-win-x64
-        path: ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
+        path: ./src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
 
     - name: Download Velopack Artifact
       uses: actions/download-artifact@v4
@@ -212,6 +212,6 @@ jobs:
           ./releases/velopack/*.json
           ./releases/velopack/*-Setup.exe
           ./releases/velopack/*-Portable.zip
-          ./StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
+          ./src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
