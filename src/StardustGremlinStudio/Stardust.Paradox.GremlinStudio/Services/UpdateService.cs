@@ -14,13 +14,13 @@ using AppUpdateInfo = Stardust.Paradox.GremlinStudio.Core.Updates.UpdateInfo;
 public sealed class UpdateService : IUpdateService
 {
     private readonly ILogger<UpdateService> _logger;
-    private readonly UpdateManager _updateManager;
+    private readonly UpdateManager? _updateManager;
     private AppUpdateInfo? _availableUpdate;
     private bool _isChecking;
     private bool _isDownloading;
     private int _downloadProgress;
 
-    private const string GitHubRepoId = "JonasSyrstad/Stardust.Paradox";
+    private const string GitHubRepoUrl = "https://github.com/JonasSyrstad/Stardust.Paradox";
     private const string VelopackChannel = "win";
     
     // TODO: Set to false before release - enables fake update for testing UI
@@ -31,13 +31,22 @@ public sealed class UpdateService : IUpdateService
     {
         _logger = logger;
         
-        // Configure Velopack with GitHub releases as the update source
-        var source = new GithubSource(GitHubRepoId, accessToken: null, prerelease: false);
-        _updateManager = new UpdateManager(source, new UpdateOptions { ExplicitChannel = VelopackChannel });
+        try
+        {
+            // Configure Velopack with GitHub releases as the update source
+            var source = new GithubSource(GitHubRepoUrl, accessToken: null, prerelease: false);
+            _updateManager = new UpdateManager(source, new UpdateOptions { ExplicitChannel = VelopackChannel });
+        }
+        catch (Exception ex)
+        {
+            // Never crash app startup due to update configuration issues
+            _logger.LogError(ex, "Failed to initialize auto-update (Velopack). Updates will be disabled.");
+            _updateManager = null;
+        }
     }
 
     /// <inheritdoc />
-    public string CurrentVersion => _updateManager.CurrentVersion?.ToString() ?? "Development";
+    public string CurrentVersion => _updateManager?.CurrentVersion?.ToString() ?? "Development";
 
     /// <inheritdoc />
     public bool IsUpdateAvailable => _availableUpdate is not null;
@@ -63,6 +72,9 @@ public sealed class UpdateService : IUpdateService
     /// <inheritdoc />
     public async Task<bool> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
     {
+        if (_updateManager is null)
+            return false;
+
         if (_isChecking || _isDownloading)
             return false;
 
@@ -125,6 +137,9 @@ public sealed class UpdateService : IUpdateService
     /// <inheritdoc />
     public async Task DownloadAndApplyUpdateAsync(IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
+        if (_updateManager is null)
+            return;
+
         if (_availableUpdate is null || _isDownloading)
             return;
 
