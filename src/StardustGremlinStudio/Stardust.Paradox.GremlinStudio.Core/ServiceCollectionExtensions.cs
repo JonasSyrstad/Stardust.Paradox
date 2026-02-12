@@ -4,6 +4,7 @@ using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
+using Stardust.Paradox.GremlinStudio.Core.Schema;
 
 namespace Stardust.Paradox.GremlinStudio.Core;
 
@@ -32,7 +33,6 @@ public static class ServiceCollectionExtensions
         // Query execution
         services.AddSingleton<IGremlinQueryExecutor, GremlinQueryExecutor>();
 
-
         // Playground
         services.AddSingleton<IPlaygroundService, PlaygroundService>();
 
@@ -41,6 +41,10 @@ public static class ServiceCollectionExtensions
 
         // Scenario export
         services.AddSingleton<IScenarioExportService, ScenarioExportService>();
+
+        // Schema discovery and export
+        services.AddSingleton<ISchemaDiscoveryService, SchemaDiscoveryService>();
+        services.AddSingleton<ISchemaExportService, SchemaExportService>();
 
         return services;
     }

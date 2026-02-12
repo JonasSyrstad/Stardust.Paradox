@@ -191,3 +191,27 @@ public class EqualityConverter : IMultiValueConverter
         throw new NotImplementedException();
     }
 }
+
+/// <summary>
+/// Converts a progress value (0-100) to a width based on a maximum width parameter.
+/// </summary>
+public class ProgressToWidthConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is int progress && parameter is string maxWidthStr && double.TryParse(maxWidthStr, out var maxWidth))
+        {
+            return progress / 100.0 * maxWidth;
+        }
+        if (value is int p)
+        {
+            return p; // Return progress directly as width if no parameter
+        }
+        return 0.0;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}

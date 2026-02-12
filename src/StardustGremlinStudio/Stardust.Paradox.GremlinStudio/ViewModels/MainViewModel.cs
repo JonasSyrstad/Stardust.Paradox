@@ -10,6 +10,7 @@ using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
+using Stardust.Paradox.GremlinStudio.Core.Schema;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Dialogs;
 using Stardust.Paradox.GremlinStudio.Services;
@@ -29,6 +30,8 @@ public partial class MainViewModel : ObservableObject
     private readonly IPlaygroundService _playgroundService;
     private readonly IQueryHistoryService _queryHistoryService;
     private readonly IScenarioExportService _scenarioExportService;
+    private readonly ISchemaDiscoveryService _schemaDiscoveryService;
+    private readonly ISchemaExportService _schemaExportService;
     private readonly IThemeService _themeService;
     private readonly ICosmosDbDiscoveryService _discoveryService;
     private readonly ILogger<MainViewModel> _logger;
@@ -47,6 +50,8 @@ public partial class MainViewModel : ObservableObject
         IPlaygroundService playgroundService,
         IQueryHistoryService queryHistoryService,
         IScenarioExportService scenarioExportService,
+        ISchemaDiscoveryService schemaDiscoveryService,
+        ISchemaExportService schemaExportService,
         IThemeService themeService,
         ICosmosDbDiscoveryService discoveryService,
         IUpdateService updateService,
@@ -60,6 +65,8 @@ public partial class MainViewModel : ObservableObject
         _playgroundService = playgroundService;
         _queryHistoryService = queryHistoryService;
         _scenarioExportService = scenarioExportService;
+        _schemaDiscoveryService = schemaDiscoveryService;
+        _schemaExportService = schemaExportService;
         _themeService = themeService;
         _discoveryService = discoveryService;
         _updateService = updateService;
@@ -358,6 +365,8 @@ public partial class MainViewModel : ObservableObject
             _queryHistoryService,
             _scenarioExportService,
             _connectorFactory,
+            _schemaDiscoveryService,
+            _schemaExportService,
             _logger,
             status => StatusText = status,
             RefreshQueryHistory,

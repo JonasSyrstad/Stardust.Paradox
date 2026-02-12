@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <None Remove="Resources\analyzer.png" />
     <None Remove="Resources\progress.png" />
     <None Remove="Resources\splash2.png" />
     <None Remove="Resources\splash3.png" />
@@ -41,9 +42,9 @@
     <Authors>Jonas Syrstad</Authors>
     <Description>A modern, feature-rich query tool for Gremlin-based graph databases including Azure Cosmos DB and Apache TinkerPop.</Description>
     <Copyright>Copyright © 2024 Jonas Syrstad. All rights reserved.</Copyright>
-    <Version>1.2.2</Version>
-    <FileVersion>1.2.2.0</FileVersion>
-    <AssemblyVersion>1.2.2.0</AssemblyVersion>
+    <Version>1.2.3</Version>
+    <FileVersion>1.2.3.0</FileVersion>
+    <AssemblyVersion>1.2.3.0</AssemblyVersion>
     
     <!-- Application Icon -->
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
@@ -57,6 +58,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="Resources\analyzer.png" />
     <Resource Include="Resources\icon.png" />
     <Resource Include="Resources\progress.png" />
     <Resource Include="Resources\splash.png" />

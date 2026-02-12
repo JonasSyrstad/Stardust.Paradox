@@ -8,6 +8,7 @@ using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
+using Stardust.Paradox.GremlinStudio.Core.Schema;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
 
@@ -20,6 +21,8 @@ public partial class QueryTabViewModel : ObservableObject
     private readonly IQueryHistoryService _queryHistoryService;
     private readonly IScenarioExportService _scenarioExportService;
     private readonly IGremlinConnectorFactory _connectorFactory;
+    private readonly ISchemaDiscoveryService _schemaDiscoveryService;
+    private readonly ISchemaExportService _schemaExportService;
     private readonly ILogger _logger;
     private readonly Action<string> _updateMainStatus;
     private readonly Action _refreshMainHistory;
@@ -27,6 +30,7 @@ public partial class QueryTabViewModel : ObservableObject
     private IGremlinLanguageConnector? _activeConnector;
     private CancellationTokenSource? _queryCts;
     private CancellationTokenSource? _exportCts;
+    private CancellationTokenSource? _schemaCts;
 
 
     private static int _tabCounter;
@@ -41,6 +45,8 @@ public partial class QueryTabViewModel : ObservableObject
         IQueryHistoryService queryHistoryService,
         IScenarioExportService scenarioExportService,
         IGremlinConnectorFactory connectorFactory,
+        ISchemaDiscoveryService schemaDiscoveryService,
+        ISchemaExportService schemaExportService,
         ILogger logger,
         Action<string> updateMainStatus,
         Action refreshMainHistory,
@@ -50,6 +56,8 @@ public partial class QueryTabViewModel : ObservableObject
         _queryHistoryService = queryHistoryService;
         _scenarioExportService = scenarioExportService;
         _connectorFactory = connectorFactory;
+        _schemaDiscoveryService = schemaDiscoveryService;
+        _schemaExportService = schemaExportService;
         _logger = logger;
         _updateMainStatus = updateMainStatus;
         _refreshMainHistory = refreshMainHistory;
@@ -1497,6 +1505,993 @@ public partial class QueryTabViewModel : ObservableObject
             return obj.ToString(Newtonsoft.Json.Formatting.None);
         }
         return token?.ToString();
+    }
+
+    #endregion
+
+    #region Schema Explorer
+
+    /// <summary>
+    /// Whether the tree view is showing schema or data.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSchemaExplorerMode;
+
+    /// <summary>
+    /// The discovered graph schema.
+    /// </summary>
+    [ObservableProperty]
+    private GraphSchema? _discoveredSchema;
+
+    /// <summary>
+    /// Tree items for schema display.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<TreeNodeViewModel> _schemaTreeItems = new();
+
+    /// <summary>
+    /// Whether schema discovery is in progress.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDiscoveringSchema;
+
+    /// <summary>
+    /// Schema discovery progress percentage.
+    /// </summary>
+    [ObservableProperty]
+    private int _schemaProgressPercent;
+
+    /// <summary>
+    /// Schema discovery status message.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaDiscoveryStatus = string.Empty;
+
+    /// <summary>
+    /// Whether schema has been discovered.
+    /// </summary>
+    public bool HasDiscoveredSchema => DiscoveredSchema != null;
+
+    /// <summary>
+    /// The generated schema code preview.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaCodePreview = string.Empty;
+
+    /// <summary>
+    /// Namespace for schema export.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaExportNamespace = "MyApp.Graph.Entities";
+
+    /// <summary>
+    /// Context class name for schema export.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaContextClassName = "MyGraphContext";
+
+    partial void OnIsSchemaExplorerModeChanged(bool value)
+    {
+        // Switch between schema and data tree views
+        if (value)
+        {
+            if (DiscoveredSchema != null)
+            {
+                // Already have schema, just refresh view
+                BuildSchemaTreeView();
+            }
+            else if (!string.IsNullOrWhiteSpace(ResultJson) && ResultJson != "No results")
+            {
+                // Build schema from current query results (async with edge fetching)
+                _ = BuildSchemaFromResultsAsync();
+            }
+        }
+    }
+
+    partial void OnDiscoveredSchemaChanged(GraphSchema? value)
+    {
+        OnPropertyChanged(nameof(HasDiscoveredSchema));
+        if (value != null && IsSchemaExplorerMode)
+        {
+            BuildSchemaTreeView();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleSchemaExplorerMode()
+    {
+        IsSchemaExplorerMode = !IsSchemaExplorerMode;
+    }
+
+    /// <summary>
+    /// Builds a schema from the current query results, fetching related edges from the database.
+    /// Uses the same approach as the export feature.
+    /// </summary>
+    private async Task BuildSchemaFromResultsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ResultJson) || ResultJson == "No results")
+        {
+            StatusText = "No query results. Run a query that returns vertices/edges first.";
+            SchemaDiscoveryStatus = "No data available";
+            return;
+        }
+
+        var connector = GetActiveConnector();
+
+        try
+        {
+            _schemaCts = new CancellationTokenSource();
+            IsDiscoveringSchema = true;
+            SchemaDiscoveryStatus = "Analyzing query results...";
+            SchemaProgressPercent = 0;
+
+            var results = Newtonsoft.Json.JsonConvert.DeserializeObject<List<object>>(ResultJson);
+            if (results == null || results.Count == 0)
+            {
+                StatusText = "No parseable results found";
+                SchemaDiscoveryStatus = "No data";
+                return;
+            }
+
+            var schema = new GraphSchema
+            {
+                DiscoveredAt = DateTime.UtcNow,
+                SourceConnection = ConnectionDisplayName
+            };
+
+            var vertexLabels = new Dictionary<string, SchemaVertexLabel>();
+            var edgeLabels = new Dictionary<string, SchemaEdgeLabel>();
+            var vertexIds = new List<string>();
+            // Map vertex ID to label for edge processing
+            var vertexIdToLabel = new Dictionary<string, string>();
+            // Track edge connections: edgeLabel -> (sourceLabel, targetLabel)
+            var edgeConnections = new Dictionary<string, List<(string Source, string Target)>>();
+            var seenEdgeIds = new HashSet<string>();
+
+            // Phase 1: Parse vertices and edges from current results
+            SchemaDiscoveryStatus = "Parsing query results...";
+            int processed = 0;
+            int total = results.Count;
+
+            foreach (var item in results)
+            {
+                processed++;
+                SchemaProgressPercent = (int)((processed * 30.0) / total); // First 30% for parsing
+
+                if (item is not Newtonsoft.Json.Linq.JObject jObj)
+                    continue;
+
+                var type = jObj["type"]?.ToString();
+                var label = jObj["label"]?.ToString();
+                var id = jObj["id"]?.ToString();
+
+                if (string.IsNullOrEmpty(label))
+                    continue;
+
+                if (type == "edge")
+                {
+                    var edgeId = id;
+                    if (!string.IsNullOrEmpty(edgeId) && !seenEdgeIds.Contains(edgeId))
+                    {
+                        seenEdgeIds.Add(edgeId);
+                        ProcessEdgeForSchema(jObj, label, edgeLabels, edgeConnections, schema, vertexIdToLabel);
+                    }
+                }
+                else
+                {
+                    // Process vertex
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        if (!vertexIds.Contains(id))
+                        {
+                            vertexIds.Add(id);
+                        }
+                        // Map vertex ID to label for edge lookups
+                        vertexIdToLabel[id] = label;
+                    }
+
+                    if (!vertexLabels.TryGetValue(label, out var vertexLabel))
+                    {
+                        vertexLabel = new SchemaVertexLabel { Label = label };
+                        vertexLabels[label] = vertexLabel;
+                    }
+
+                    vertexLabel.Count++;
+                    schema.VertexSampleCount++;
+
+                    // Extract vertex properties
+                    if (jObj["properties"] is Newtonsoft.Json.Linq.JObject props)
+                    {
+                        ExtractPropertiesFromVertexFormat(props, vertexLabel.Properties);
+                    }
+                }
+            }
+
+            // Phase 2: Fetch edges for vertices if we have a connection and vertices
+            if (connector != null && vertexIds.Count > 0)
+            {
+                SchemaDiscoveryStatus = $"Fetching edges for {vertexIds.Count} vertices...";
+                
+                const int batchSize = 100; // Same as export service
+                var totalVertices = vertexIds.Count;
+                var processedVertices = 0;
+
+                for (int batchStart = 0; batchStart < totalVertices; batchStart += batchSize)
+                {
+                    _schemaCts.Token.ThrowIfCancellationRequested();
+
+                    var batchEnd = Math.Min(batchStart + batchSize, totalVertices);
+                    var batchVertexIds = vertexIds.Skip(batchStart).Take(batchSize).ToList();
+
+                    SchemaDiscoveryStatus = $"Fetching edges for vertices {batchStart + 1}-{batchEnd} of {totalVertices}...";
+
+                    foreach (var vertexId in batchVertexIds)
+                    {
+                        _schemaCts.Token.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            var escapedId = EscapeGremlinString(vertexId);
+                            var edgeQuery = $"g.V('{escapedId}').bothE()";
+
+                            // Use _queryExecutor to get proper JSON results (same as main query execution)
+                            var edgeQueryResult = await _queryExecutor.ExecuteAsync(connector, edgeQuery, cancellationToken: _schemaCts.Token).ConfigureAwait(true);
+                            
+                            if (edgeQueryResult.IsSuccess && !string.IsNullOrEmpty(edgeQueryResult.ResultJson))
+                            {
+                                // Parse JSON results - this is reliable since it works for main queries
+                                var edgeItems = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Newtonsoft.Json.Linq.JObject>>(edgeQueryResult.ResultJson);
+                                
+                                if (edgeItems != null)
+                                {
+                                    foreach (var edgeJObj in edgeItems)
+                                    {
+                                        var edgeId = edgeJObj["id"]?.ToString();
+                                        var edgeLabel = edgeJObj["label"]?.ToString();
+                                        var outV = edgeJObj["outV"]?.ToString();
+                                        var inV = edgeJObj["inV"]?.ToString();
+                                        var outVLabelFromEdge = edgeJObj["outVLabel"]?.ToString();
+                                        var inVLabelFromEdge = edgeJObj["inVLabel"]?.ToString();
+                                        
+                                        if (string.IsNullOrEmpty(edgeId) || string.IsNullOrEmpty(edgeLabel))
+                                            continue;
+                                            
+                                        if (seenEdgeIds.Contains(edgeId))
+                                            continue;
+                                            
+                                        seenEdgeIds.Add(edgeId);
+                                        
+                                        // Get vertex labels from edge or from our map
+                                        string? outVLabel = outVLabelFromEdge;
+                                        string? inVLabel = inVLabelFromEdge;
+                                        
+                                        // If labels not in edge, look them up from our vertex map
+                                        if (string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(outV))
+                                        {
+                                            vertexIdToLabel.TryGetValue(outV, out outVLabel);
+                                        }
+                                        if (string.IsNullOrEmpty(inVLabel) && !string.IsNullOrEmpty(inV))
+                                        {
+                                            vertexIdToLabel.TryGetValue(inV, out inVLabel);
+                                        }
+                                        
+                                        // If we still don't have labels, try fetching the vertices
+                                        if (string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(outV))
+                                        {
+                                            outVLabel = await FetchVertexLabelAsync(connector, outV, vertexIdToLabel, vertexLabels, schema).ConfigureAwait(true);
+                                        }
+                                        if (string.IsNullOrEmpty(inVLabel) && !string.IsNullOrEmpty(inV))
+                                        {
+                                            inVLabel = await FetchVertexLabelAsync(connector, inV, vertexIdToLabel, vertexLabels, schema).ConfigureAwait(true);
+                                        }
+                                        
+                                        // ALWAYS process the edge to capture the edge label
+                                        ProcessEdgeForSchemaWithLabels(
+                                            edgeLabel, 
+                                            outVLabel, 
+                                            inVLabel, 
+                                            edgeJObj,
+                                            edgeLabels, 
+                                            edgeConnections, 
+                                            schema);
+                                    }
+                                }
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch edges for vertex {VertexId}", vertexId);
+                        }
+
+                        processedVertices++;
+                        SchemaProgressPercent = 30 + (int)((processedVertices * 60.0) / totalVertices); // 30-90%
+                    }
+                }
+            }
+
+            // Phase 3: Build edge connections on vertex labels
+            SchemaDiscoveryStatus = "Building schema relationships...";
+            SchemaProgressPercent = 90;
+            foreach (var kvp in edgeConnections)
+            {
+                var edgeLabelName = kvp.Key;
+                foreach (var (sourceLabel, targetLabel) in kvp.Value)
+                {
+                    // Add outgoing edge to source vertex
+                    if (vertexLabels.TryGetValue(sourceLabel, out var sourceVertex))
+                    {
+                        if (!sourceVertex.OutgoingEdges.Any(e => e.EdgeLabel == edgeLabelName && e.VertexLabel == targetLabel))
+                        {
+                            sourceVertex.OutgoingEdges.Add(new SchemaEdgeConnection
+                            {
+                                EdgeLabel = edgeLabelName,
+                                VertexLabel = targetLabel
+                            });
+                        }
+                    }
+
+                    // Add incoming edge to target vertex
+                    if (vertexLabels.TryGetValue(targetLabel, out var targetVertex))
+                    {
+                        if (!targetVertex.IncomingEdges.Any(e => e.EdgeLabel == edgeLabelName && e.VertexLabel == sourceLabel))
+                        {
+                            targetVertex.IncomingEdges.Add(new SchemaEdgeConnection
+                            {
+                                EdgeLabel = edgeLabelName,
+                                VertexLabel = sourceLabel
+                            });
+                        }
+                    }
+                }
+            }
+
+            schema.VertexLabels.AddRange(vertexLabels.Values.OrderBy(v => v.Label));
+            schema.EdgeLabels.AddRange(edgeLabels.Values.OrderBy(e => e.Label));
+
+            DiscoveredSchema = schema;
+            SchemaProgressPercent = 100;
+            SchemaDiscoveryStatus = "Complete";
+
+            StatusText = $"Schema built: {schema.VertexLabels.Count} vertex types, {schema.EdgeLabels.Count} edge types";
+            _updateMainStatus(StatusText);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Schema discovery cancelled";
+            SchemaDiscoveryStatus = "Cancelled";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build schema from results");
+            StatusText = $"Schema analysis failed: {ex.Message}";
+            SchemaDiscoveryStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsDiscoveringSchema = false;
+            _schemaCts?.Dispose();
+            _schemaCts = null;
+        }
+    }
+
+    /// <summary>
+    /// Fetches a vertex label by ID and adds it to the vertex labels dictionary if found.
+    /// </summary>
+    private async Task<string?> FetchVertexLabelAsync(
+        IGremlinLanguageConnector connector,
+        string vertexId,
+        Dictionary<string, string> vertexIdToLabel,
+        Dictionary<string, SchemaVertexLabel> vertexLabels,
+        GraphSchema schema)
+    {
+        // Already cached
+        if (vertexIdToLabel.TryGetValue(vertexId, out var cachedLabel))
+            return cachedLabel;
+
+        try
+        {
+            var escapedId = EscapeGremlinString(vertexId);
+            var query = $"g.V('{escapedId}')";
+            
+            // Use _queryExecutor for reliable JSON parsing
+            var result = await _queryExecutor.ExecuteAsync(connector, query).ConfigureAwait(true);
+            
+            if (result.IsSuccess && !string.IsNullOrEmpty(result.ResultJson))
+            {
+                var vertices = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Newtonsoft.Json.Linq.JObject>>(result.ResultJson);
+                
+                if (vertices != null && vertices.Count > 0)
+                {
+                    var jObj = vertices[0];
+                    var label = jObj["label"]?.ToString();
+                    var propsObj = jObj["properties"] as Newtonsoft.Json.Linq.JObject;
+
+                    if (!string.IsNullOrEmpty(label))
+                    {
+                        vertexIdToLabel[vertexId] = label;
+                        
+                        // Also add to vertex labels if not already there
+                        if (!vertexLabels.ContainsKey(label))
+                        {
+                            var schemaVertex = new SchemaVertexLabel { Label = label };
+                            vertexLabels[label] = schemaVertex;
+                            
+                            // Extract properties if available
+                            if (propsObj != null)
+                            {
+                                ExtractPropertiesFromVertexFormat(propsObj, schemaVertex.Properties);
+                            }
+                        }
+                        
+                        vertexLabels[label].Count++;
+                        schema.VertexSampleCount++;
+                        
+                        return label;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors fetching vertex
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Processes an edge and adds it to the schema (from initial results with inVLabel/outVLabel).
+    /// </summary>
+    private static void ProcessEdgeForSchema(
+        Newtonsoft.Json.Linq.JObject jObj,
+        string label,
+        Dictionary<string, SchemaEdgeLabel> edgeLabels,
+        Dictionary<string, List<(string Source, string Target)>> edgeConnections,
+        GraphSchema schema,
+        Dictionary<string, string> vertexIdToLabel)
+    {
+        // Try to get labels directly from the edge (present in initial results)
+        var inVLabel = jObj["inVLabel"]?.ToString();
+        var outVLabel = jObj["outVLabel"]?.ToString();
+        
+        // If not present, try to look up from vertex ID map
+        if (string.IsNullOrEmpty(inVLabel))
+        {
+            var inV = jObj["inV"]?.ToString();
+            if (!string.IsNullOrEmpty(inV))
+                vertexIdToLabel.TryGetValue(inV, out inVLabel);
+        }
+        if (string.IsNullOrEmpty(outVLabel))
+        {
+            var outV = jObj["outV"]?.ToString();
+            if (!string.IsNullOrEmpty(outV))
+                vertexIdToLabel.TryGetValue(outV, out outVLabel);
+        }
+
+        ProcessEdgeForSchemaWithLabels(label, outVLabel, inVLabel, jObj, edgeLabels, edgeConnections, schema);
+    }
+
+    /// <summary>
+    /// Processes an edge with known vertex labels.
+    /// </summary>
+    private static void ProcessEdgeForSchemaWithLabels(
+        string label,
+        string? outVLabel,
+        string? inVLabel,
+        Newtonsoft.Json.Linq.JObject? propsSource,
+        Dictionary<string, SchemaEdgeLabel> edgeLabels,
+        Dictionary<string, List<(string Source, string Target)>> edgeConnections,
+        GraphSchema schema)
+    {
+        if (!edgeLabels.TryGetValue(label, out var edgeLabel))
+        {
+            edgeLabel = new SchemaEdgeLabel { Label = label };
+            edgeLabels[label] = edgeLabel;
+            edgeConnections[label] = new List<(string, string)>();
+        }
+
+        edgeLabel.Count++;
+        schema.EdgeSampleCount++;
+
+        // Track source and target labels
+        if (!string.IsNullOrEmpty(outVLabel) && !edgeLabel.SourceLabels.Contains(outVLabel))
+        {
+            edgeLabel.SourceLabels.Add(outVLabel);
+        }
+        if (!string.IsNullOrEmpty(inVLabel) && !edgeLabel.TargetLabels.Contains(inVLabel))
+        {
+            edgeLabel.TargetLabels.Add(inVLabel);
+        }
+
+        // Track connection for vertex edge lists
+        if (!string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(inVLabel))
+        {
+            var conn = (outVLabel, inVLabel);
+            if (!edgeConnections[label].Contains(conn))
+            {
+                edgeConnections[label].Add(conn);
+            }
+        }
+
+        // Extract edge properties
+        if (propsSource?["properties"] is Newtonsoft.Json.Linq.JObject edgeProps)
+        {
+            ExtractProperties(edgeProps, edgeLabel.Properties);
+        }
+    }
+
+    /// <summary>
+    /// Edge data structure for schema discovery.
+    /// </summary>
+    private struct SchemaEdgeData
+    {
+        public string Id;
+        public string Label;
+        public string? OutV;
+        public string? InV;
+        public string? OutVLabel;
+        public string? InVLabel;
+        public Newtonsoft.Json.Linq.JObject? Properties;
+    }
+
+    /// <summary>
+    /// Parses an edge from dynamic result for schema discovery.
+    /// Matches the export service's ParseEdgeFromDynamic logic.
+    /// </summary>
+    private static SchemaEdgeData? ParseEdgeFromDynamicForSchema(dynamic edge)
+    {
+        try
+        {
+            string? id = null;
+            string? label = null;
+            string? outV = null;
+            string? inV = null;
+            string? outVLabel = null;
+            string? inVLabel = null;
+            Newtonsoft.Json.Linq.JObject? propsJObj = null;
+
+            // Handle different edge result formats (same as export service)
+            if (edge is Newtonsoft.Json.Linq.JObject edgeJObj)
+            {
+                id = edgeJObj["id"]?.ToString();
+                label = edgeJObj["label"]?.ToString();
+                outV = edgeJObj["outV"]?.ToString();
+                inV = edgeJObj["inV"]?.ToString();
+                outVLabel = edgeJObj["outVLabel"]?.ToString();
+                inVLabel = edgeJObj["inVLabel"]?.ToString();
+                propsJObj = edgeJObj;
+            }
+            else if (edge is IDictionary<string, object> dict)
+            {
+                id = dict.TryGetValue("id", out var idVal) ? idVal?.ToString() : null;
+                label = dict.TryGetValue("label", out var labelVal) ? labelVal?.ToString() : null;
+                outV = dict.TryGetValue("outV", out var outVVal) ? outVVal?.ToString() : null;
+                inV = dict.TryGetValue("inV", out var inVVal) ? inVVal?.ToString() : null;
+                outVLabel = dict.TryGetValue("outVLabel", out var outVLabelVal) ? outVLabelVal?.ToString() : null;
+                inVLabel = dict.TryGetValue("inVLabel", out var inVLabelVal) ? inVLabelVal?.ToString() : null;
+                
+                try
+                {
+                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(dict);
+                    propsJObj = Newtonsoft.Json.Linq.JObject.Parse(json);
+                }
+                catch { /* ignore serialization errors */ }
+            }
+            else
+            {
+                // Fallback: Try to access properties dynamically (matches export service)
+                try
+                {
+                    id = edge.id?.ToString();
+                    label = edge.label?.ToString();
+                    outV = edge.outV?.ToString();
+                    inV = edge.inV?.ToString();
+                    // outVLabel and inVLabel usually not present in dynamic access
+                }
+                catch { /* ignore dynamic access errors */ }
+            }
+
+            // Edge must have id, label, and both vertex references
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(label) || 
+                string.IsNullOrEmpty(outV) || string.IsNullOrEmpty(inV))
+                return null;
+
+            return new SchemaEdgeData
+            {
+                Id = id,
+                Label = label,
+                OutV = outV,
+                InV = inV,
+                OutVLabel = outVLabel,
+                InVLabel = inVLabel,
+                Properties = propsJObj
+            };
+        }
+        catch
+        {
+            // Ignore parsing errors
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Escapes a string for use in a Gremlin query.
+    /// </summary>
+    private static string EscapeGremlinString(string value)
+    {
+        return value.Replace("\\", "\\\\").Replace("'", "\\'");
+    }
+
+    /// <summary>
+    /// Extracts properties from edge format (simple key-value pairs).
+    /// </summary>
+    private static void ExtractProperties(Newtonsoft.Json.Linq.JObject props, List<SchemaProperty> propertyList)
+    {
+        foreach (var prop in props.Properties())
+        {
+            var propName = prop.Name;
+            var existing = propertyList.FirstOrDefault(p => p.Name == propName);
+
+            if (existing == null)
+            {
+                var schemaProperty = new SchemaProperty
+                {
+                    Name = propName,
+                    InferredType = InferPropertyType(prop.Value),
+                    SampleValues = new List<string>()
+                };
+
+                var sampleValue = prop.Value?.ToString();
+                if (!string.IsNullOrEmpty(sampleValue) && schemaProperty.SampleValues.Count < 3)
+                {
+                    schemaProperty.SampleValues.Add(sampleValue.Length > 50 ? sampleValue.Substring(0, 50) + "..." : sampleValue);
+                }
+
+                propertyList.Add(schemaProperty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extracts properties from vertex format (Gremlin vertex properties are arrays).
+    /// </summary>
+    private static void ExtractPropertiesFromVertexFormat(Newtonsoft.Json.Linq.JObject props, List<SchemaProperty> propertyList)
+    {
+        foreach (var prop in props.Properties())
+        {
+            var propName = prop.Name;
+            var existing = propertyList.FirstOrDefault(p => p.Name == propName);
+
+            if (existing == null)
+            {
+                var schemaProperty = new SchemaProperty
+                {
+                    Name = propName,
+                    SampleValues = new List<string>()
+                };
+
+                // Vertex properties in Gremlin are arrays of {id, value} objects
+                if (prop.Value is Newtonsoft.Json.Linq.JArray arr && arr.Count > 0)
+                {
+                    var firstItem = arr[0];
+                    if (firstItem is Newtonsoft.Json.Linq.JObject propObj && propObj["value"] != null)
+                    {
+                        schemaProperty.InferredType = InferPropertyType(propObj["value"]);
+                        var sampleValue = propObj["value"]?.ToString();
+                        if (!string.IsNullOrEmpty(sampleValue))
+                        {
+                            schemaProperty.SampleValues.Add(sampleValue.Length > 50 ? sampleValue.Substring(0, 50) + "..." : sampleValue);
+                        }
+                    }
+                    else
+                    {
+                        schemaProperty.InferredType = InferPropertyType(firstItem);
+                    }
+                }
+                else
+                {
+                    schemaProperty.InferredType = InferPropertyType(prop.Value);
+                }
+
+                propertyList.Add(schemaProperty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Infers the C# type from a JSON token.
+    /// </summary>
+    private static string InferPropertyType(Newtonsoft.Json.Linq.JToken? token)
+    {
+        if (token == null)
+            return "string";
+
+        return token.Type switch
+        {
+            Newtonsoft.Json.Linq.JTokenType.Integer => "int",
+            Newtonsoft.Json.Linq.JTokenType.Float => "double",
+            Newtonsoft.Json.Linq.JTokenType.Boolean => "bool",
+            Newtonsoft.Json.Linq.JTokenType.Date => "DateTime",
+            Newtonsoft.Json.Linq.JTokenType.Array => "ICollection<string>",
+            _ => "string"
+        };
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDiscoverSchema))]
+    private async Task DiscoverSchemaAsync()
+    {
+        // Trigger the async schema building with edge fetching
+        await BuildSchemaFromResultsAsync().ConfigureAwait(true);
+    }
+
+    private bool CanDiscoverSchema() => !IsDiscoveringSchema && !string.IsNullOrWhiteSpace(ResultJson) && ResultJson != "No results";
+
+    [RelayCommand]
+    private void CancelSchemaDiscovery()
+    {
+        _schemaCts?.Cancel();
+        SchemaDiscoveryStatus = "Cancelling...";
+    }
+
+    [RelayCommand]
+    private void ExportSchemaToCode()
+    {
+        if (DiscoveredSchema == null)
+        {
+            StatusText = "No schema discovered. Click 'Discover Schema' first.";
+            return;
+        }
+
+        try
+        {
+            var options = new SchemaExportOptions
+            {
+                Namespace = SchemaExportNamespace,
+                ContextClassName = SchemaContextClassName,
+                GenerateTypedEdges = true,
+                GenerateNavigationProperties = true,
+                IncludeXmlDocumentation = true,
+                GenerateContext = true,
+                UseFileScopedNamespace = true,
+                UseNullableReferenceTypes = true
+            };
+
+            SchemaCodePreview = _schemaExportService.ExportToCode(DiscoveredSchema, options);
+            StatusText = "Schema code generated successfully";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export schema to code");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void SaveSchemaToFile()
+    {
+        if (string.IsNullOrWhiteSpace(SchemaCodePreview))
+        {
+            StatusText = "Generate schema code first";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "C# files (*.cs)|*.cs|All files (*.*)|*.*",
+                DefaultExt = ".cs",
+                FileName = $"{SchemaContextClassName}.cs"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                System.IO.File.WriteAllText(dialog.FileName, SchemaCodePreview);
+                StatusText = $"Schema saved to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save schema file");
+            StatusText = $"Save failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CopySchemaToClipboard()
+    {
+        if (string.IsNullOrWhiteSpace(SchemaCodePreview))
+        {
+            StatusText = "Generate schema code first";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(SchemaCodePreview);
+            StatusText = "Schema code copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    private void BuildSchemaTreeView()
+    {
+        SchemaTreeItems.Clear();
+
+        if (DiscoveredSchema == null)
+            return;
+
+        // Root node for schema info
+        var rootNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Graph Schema",
+            Value = $"Discovered at {DiscoveredSchema.DiscoveredAt:HH:mm:ss}",
+            FontWeight = "Bold",
+            IsExpanded = true
+        };
+
+        // Vertex Labels section
+        var vertexNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Vertex Labels",
+            Value = $"({DiscoveredSchema.VertexLabels.Count})",
+            FontWeight = "SemiBold",
+            IsExpanded = true
+        };
+
+        foreach (var vLabel in DiscoveredSchema.VertexLabels.OrderBy(v => v.Label))
+        {
+            var labelNode = new TreeNodeViewModel
+            {
+                Icon = "?",
+                Name = vLabel.Label,
+                Value = $"({vLabel.Count} instances)",
+                IsExpanded = false
+            };
+
+            // Properties
+            if (vLabel.Properties.Count > 0)
+            {
+                var propsNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Properties",
+                    Value = $"({vLabel.Properties.Count})"
+                };
+
+                foreach (var prop in vLabel.Properties)
+                {
+                    propsNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "•",
+                        Name = prop.Name,
+                        Value = $"{prop.CSharpType}"
+                    });
+                }
+
+                labelNode.Children.Add(propsNode);
+            }
+
+            // Outgoing edges
+            if (vLabel.OutgoingEdges.Count > 0)
+            {
+                var outNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Outgoing Edges",
+                    Value = $"({vLabel.OutgoingEdges.Count})"
+                };
+
+                foreach (var edge in vLabel.OutgoingEdges)
+                {
+                    outNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "?",
+                        Name = edge.EdgeLabel,
+                        Value = $"? {edge.VertexLabel}"
+                    });
+                }
+
+                labelNode.Children.Add(outNode);
+            }
+
+            // Incoming edges
+            if (vLabel.IncomingEdges.Count > 0)
+            {
+                var inNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Incoming Edges",
+                    Value = $"({vLabel.IncomingEdges.Count})"
+                };
+
+                foreach (var edge in vLabel.IncomingEdges)
+                {
+                    inNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "?",
+                        Name = edge.EdgeLabel,
+                        Value = $"? {edge.VertexLabel}"
+                    });
+                }
+
+                labelNode.Children.Add(inNode);
+            }
+
+            vertexNode.Children.Add(labelNode);
+        }
+
+        rootNode.Children.Add(vertexNode);
+
+        // Edge Labels section
+        var edgeNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Edge Labels",
+            Value = $"({DiscoveredSchema.EdgeLabels.Count})",
+            FontWeight = "SemiBold",
+            IsExpanded = true
+        };
+
+        foreach (var eLabel in DiscoveredSchema.EdgeLabels.OrderBy(e => e.Label))
+        {
+            var labelNode = new TreeNodeViewModel
+            {
+                Icon = "—",
+                Name = eLabel.Label,
+                Value = $"({eLabel.Count} instances)"
+            };
+
+            // Connection info
+            if (eLabel.SourceLabels.Count > 0 || eLabel.TargetLabels.Count > 0)
+            {
+                var connNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Connections",
+                    Value = $"{string.Join(", ", eLabel.SourceLabels)} ? {string.Join(", ", eLabel.TargetLabels)}"
+                };
+                labelNode.Children.Add(connNode);
+            }
+
+            // Properties
+            if (eLabel.Properties.Count > 0)
+            {
+                var propsNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Properties",
+                    Value = $"({eLabel.Properties.Count})"
+                };
+
+                foreach (var prop in eLabel.Properties)
+                {
+                    propsNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "•",
+                        Name = prop.Name,
+                        Value = $"{prop.CSharpType}"
+                    });
+                }
+
+                labelNode.Children.Add(propsNode);
+            }
+
+            edgeNode.Children.Add(labelNode);
+        }
+
+        rootNode.Children.Add(edgeNode);
+
+        SchemaTreeItems.Add(rootNode);
     }
 
     #endregion
