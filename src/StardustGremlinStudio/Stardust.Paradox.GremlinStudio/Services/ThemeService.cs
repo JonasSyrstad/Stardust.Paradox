@@ -1,6 +1,7 @@
 using System.IO;
 using System.Windows;
 using Microsoft.Win32;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
 
 namespace Stardust.Paradox.GremlinStudio.Services;
 
@@ -45,6 +46,9 @@ public class ThemeService : IThemeService
     private const string ThemePreferenceKey = "GremlinStudio_ThemeMode";
     private const string LightThemeUri = "Themes/LightTheme.xaml";
     private const string DarkThemeUri = "Themes/DarkTheme.xaml";
+    private const string MoonLightThemeUri = "Themes/MoonLightTheme.xaml";
+    private const string DarkForrestThemeUri = "Themes/DarkForrestTheme.xaml";
+    private const string MuddyRiverThemeUri = "Themes/MuddyRiverTheme.xaml";
     
     private ThemeMode _currentMode = ThemeMode.System;
     private ResourceDictionary? _currentThemeDictionary;
@@ -104,12 +108,17 @@ public class ThemeService : IThemeService
     {
         var app = Application.Current;
         if (app is null) return;
-        
-        // Determine which theme to use
-        bool useDark = _currentMode == ThemeMode.Dark || 
-            (_currentMode == ThemeMode.System && DetectSystemDarkMode());
-        
-        var themeUri = useDark ? DarkThemeUri : LightThemeUri;
+
+        var themeUri = _currentMode switch
+        {
+            ThemeMode.MoonLight => MoonLightThemeUri,
+            ThemeMode.DarkForrest => DarkForrestThemeUri,
+            ThemeMode.MuddyRiver => MuddyRiverThemeUri,
+            ThemeMode.Dark => DarkThemeUri,
+            ThemeMode.Light => LightThemeUri,
+            ThemeMode.System => DetectSystemDarkMode() ? DarkThemeUri : LightThemeUri,
+            _ => LightThemeUri
+        };
         
         // Remove old theme dictionary if present
         if (_currentThemeDictionary is not null)
@@ -143,12 +152,7 @@ public class ThemeService : IThemeService
     {
         try
         {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var settingsDir = Path.Combine(appDataPath, "GremlinStudio");
-            Directory.CreateDirectory(settingsDir);
-            
-            var settingsFile = Path.Combine(settingsDir, "theme.txt");
-            File.WriteAllText(settingsFile, mode.ToString());
+            File.WriteAllText(AppDataPaths.ThemePreferenceFilePath, mode.ToString());
         }
         catch
         {
@@ -160,12 +164,9 @@ public class ThemeService : IThemeService
     {
         try
         {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var settingsFile = Path.Combine(appDataPath, "GremlinStudio", "theme.txt");
-            
-            if (File.Exists(settingsFile))
+            if (File.Exists(AppDataPaths.ThemePreferenceFilePath))
             {
-                var modeStr = File.ReadAllText(settingsFile).Trim();
+                var modeStr = File.ReadAllText(AppDataPaths.ThemePreferenceFilePath).Trim();
                 if (Enum.TryParse<ThemeMode>(modeStr, out var mode))
                 {
                     return mode;

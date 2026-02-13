@@ -187,8 +187,7 @@ public partial class MainViewModel : ObservableObject
         if (value != null && SelectedTab != null)
         {
             SelectedTab.QueryText = value.Query;
-            _selectedHistoryItem = null; // Reset selection without triggering change
-            OnPropertyChanged(nameof(SelectedHistoryItem));
+            SelectedHistoryItem = null;
         }
     }
 
@@ -724,6 +723,10 @@ public partial class MainViewModel : ObservableObject
             StatusText = "No active tab";
             return;
         }
+
+        // Ensure any pending editor/textbox edits are committed before executing.
+        // This is important for AvalonEdit and templated controls where bindings can lag.
+        System.Windows.Input.Keyboard.ClearFocus();
 
         await SelectedTab.RunQueryCommand.ExecuteAsync(null);
     }

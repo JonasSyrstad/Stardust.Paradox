@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
 
 namespace Stardust.Paradox.GremlinStudio.Core.History;
 
@@ -19,12 +20,8 @@ public class FileQueryHistoryService : IQueryHistoryService
     {
         _logger = logger;
         _maxHistoryCount = maxHistoryCount;
-        
-        var appDataPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GremlinStudio");
-        Directory.CreateDirectory(appDataPath);
-        _historyFilePath = Path.Combine(appDataPath, "query-history.json");
+
+        _historyFilePath = Path.Combine(AppDataPaths.EnsureAppDataDirectoryExists(), "query-history.json");
     }
 
     public IReadOnlyList<QueryHistoryItem> GetHistory()

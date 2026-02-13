@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Services;
 using Stardust.Paradox.GremlinStudio.ViewModels;
@@ -24,6 +25,10 @@ public partial class App : Application
         
         // Initialize Velopack as early as possible
         VelopackApp.Build().Run();
+
+        // Migrate any legacy settings that may have been stored in the app directory
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        LegacySettingsMigration.MigrateIfNeeded(loggerFactory.CreateLogger<App>());
 
         // Show splash screen
         var splash = new SplashScreen();

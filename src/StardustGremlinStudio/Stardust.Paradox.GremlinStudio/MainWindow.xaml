@@ -718,20 +718,20 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                 <!-- Query Toolbar -->
                 <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
-                    <Button Command="{Binding RunQueryCommand}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
+                    <Button Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="▶" Foreground="#22CC22" FontWeight="Bold" Margin="0,0,6,0"/>
                             <TextBlock Text="Run (Ctrl+Enter)" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding CancelCommand}" ToolTip="Cancel Query (Esc)" Padding="8,4">
+                    <Button Command="{Binding DataContext.CancelCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Cancel Query (Esc)" Padding="8,4">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="■" Foreground="#FF4444" FontWeight="Bold" Margin="0,0,6,0"/>
                             <TextBlock Text="Cancel" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
                     <Separator />
-                    
+
                     <!-- Query History Dropdown -->
                     <TextBlock Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     <ComboBox Width="280" 
@@ -757,7 +757,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             ToolTip="Clear unpinned history" Padding="6,4">
                         <TextBlock Text="✕" FontSize="12" Foreground="#FF6B6B" FontWeight="Bold"/>
                     </Button>
-                    
+
                     <Separator />
                     <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     <TextBlock Text="{Binding ConnectionDisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
@@ -777,7 +777,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         ShowLineNumbers="True"
                         Background="{DynamicResource EditorBackgroundBrush}"
                         Foreground="{DynamicResource EditorForegroundBrush}"
-                        controls:TextEditorHelper.BoundText="{Binding QueryText, UpdateSourceTrigger=PropertyChanged}"
+                        controls:TextEditorHelper.BoundText="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
                         controls:TextEditorHelper.EnableGremlinFeatures="True" />
                 </GroupBox>
 

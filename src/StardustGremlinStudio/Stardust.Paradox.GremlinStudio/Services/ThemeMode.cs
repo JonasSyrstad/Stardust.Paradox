@@ -18,5 +18,20 @@ public enum ThemeMode
     /// <summary>
     /// Dark theme.
     /// </summary>
-    Dark
+    Dark,
+
+    /// <summary>
+    /// Moon light theme.
+    /// </summary>
+    MoonLight,
+
+    /// <summary>
+    /// Dark forrest theme.
+    /// </summary>
+    DarkForrest,
+
+    /// <summary>
+    /// Muddy river theme.
+    /// </summary>
+    MuddyRiver
 }

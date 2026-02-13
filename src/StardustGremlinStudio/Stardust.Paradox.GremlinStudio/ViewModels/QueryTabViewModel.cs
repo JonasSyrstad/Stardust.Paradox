@@ -101,6 +101,9 @@ public partial class QueryTabViewModel : ObservableObject
 
     #endregion
 
+
+    // (Snippets/Variables feature removed)
+
     #region Connection (Tab-specific snapshot)
 
     /// <summary>
@@ -494,9 +497,11 @@ public partial class QueryTabViewModel : ObservableObject
             SchemaTreeItems.Clear();
             SchemaCodePreview = string.Empty;
 
+            var queryToExecute = QueryText;
+
             var result = await _queryExecutor.ExecuteAsync(
                 connector,
-                QueryText,
+                queryToExecute,
                 cancellationToken: _queryCts.Token).ConfigureAwait(true);
 
             ResultJson = result.ResultJson ?? result.ErrorMessage ?? "No results";
@@ -1163,14 +1168,28 @@ public partial class QueryTabViewModel : ObservableObject
 
                 if (id != null && !existingEdgeIds.Contains(id) && inV != null && outV != null)
                 {
-                    edges.Add(new GraphEdgeViewModel
+                    var edge = new GraphEdgeViewModel
                     {
                         Id = id,
                         Label = label ?? "",
                         FromId = outV,
                         ToId = inV,
                         Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(120, 120, 120))
-                    });
+                    };
+
+                    if (item["properties"] is Newtonsoft.Json.Linq.JObject props)
+                    {
+                        foreach (var prop in props.Properties())
+                        {
+                            var value = ExtractPropertyValue(prop.Value);
+                            if (value != null)
+                            {
+                                edge.Properties[prop.Name] = value;
+                            }
+                        }
+                    }
+
+                    edges.Add(edge);
                     existingEdgeIds.Add(id);
                 }
             }

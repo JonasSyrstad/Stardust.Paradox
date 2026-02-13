@@ -85,15 +85,24 @@ public static class TextEditorHelper
         }
 
         var newText = (string)e.NewValue ?? string.Empty;
+
+        // Avoid re-entrancy loops, especially for read-only editors where we only want VM -> UI updates.
         if (editor.Text != newText)
         {
+            SetIsUpdating(editor, true);
             editor.Text = newText;
+            SetIsUpdating(editor, false);
         }
     }
 
     private static void Editor_TextChanged(object? sender, EventArgs e)
     {
         if (sender is not TextEditor editor)
+        {
+            return;
+        }
+
+        if (editor.IsReadOnly)
         {
             return;
         }
