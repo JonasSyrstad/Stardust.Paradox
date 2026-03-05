@@ -26,6 +26,7 @@ public static class LegacySettingsMigration
                 MigrateFileIfMissing(logger, root, targetDir, "connections.json");
                 MigrateFileIfMissing(logger, root, targetDir, "theme.txt");
                 MigrateFileIfMissing(logger, root, targetDir, "query-history.json");
+                MigrateFileIfMissing(logger, root, targetDir, "last-connection.txt");
             }
         }
         catch (Exception ex)

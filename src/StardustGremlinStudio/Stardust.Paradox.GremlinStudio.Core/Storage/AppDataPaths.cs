@@ -24,6 +24,8 @@ public static class AppDataPaths
 
     public static string ThemePreferenceFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "theme.txt");
 
+    public static string LastConnectionPreferenceFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "last-connection.txt");
+
     public static string SnippetsFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "snippets.json");
 
     public static string VariablesFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "variables.json");

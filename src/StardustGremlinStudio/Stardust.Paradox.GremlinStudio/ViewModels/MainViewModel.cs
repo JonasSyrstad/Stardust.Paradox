@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Data;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -12,6 +13,7 @@ using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
 using Stardust.Paradox.GremlinStudio.Dialogs;
 using Stardust.Paradox.GremlinStudio.Services;
 
@@ -101,8 +103,7 @@ public partial class MainViewModel : ObservableObject
         _playgroundService.StateChanged += OnPlaygroundStateChanged;
 
         // Load connections and query history on startup
-        _ = LoadConnectionsAsync();
-        _ = LoadQueryHistoryAsync();
+        _ = InitializeStartupStateAsync();
         
         // Check for updates in background on startup
         _ = CheckForUpdatesOnStartupAsync();
@@ -111,17 +112,36 @@ public partial class MainViewModel : ObservableObject
         CreateNewTab();
     }
 
+    private async Task InitializeStartupStateAsync()
+    {
+        _connectionLoadingTask = LoadConnectionsAsync();
+        await _connectionLoadingTask.ConfigureAwait(true);
+
+        await LoadQueryHistoryAsync().ConfigureAwait(true);
+    }
+
     private async Task LoadQueryHistoryAsync()
     {
         await _queryHistoryService.LoadAsync();
         RefreshQueryHistory();
     }
 
+    private bool _isRefreshingHistory;
+
     private void RefreshQueryHistory()
     {
-        // Replace collection atomically to avoid binding issues during collection changes
-        var newHistory = new ObservableCollection<QueryHistoryItem>(_queryHistoryService.GetHistory());
-        QueryHistory = newHistory;
+        // Guard: prevent ComboBox auto-selection from resetting QueryText
+        // when the ItemsSource collection is replaced.
+        _isRefreshingHistory = true;
+        try
+        {
+            var newHistory = new ObservableCollection<QueryHistoryItem>(_queryHistoryService.GetHistory());
+            QueryHistory = newHistory;
+        }
+        finally
+        {
+            _isRefreshingHistory = false;
+        }
     }
 
     #region Properties
@@ -170,6 +190,7 @@ public partial class MainViewModel : ObservableObject
         // Update status from tab
         StatusText = newValue.StatusText;
         LastDurationText = newValue.LastDurationText;
+        LastRequestUnitsText = newValue.LastRequestUnitsText;
     }
 
     private bool _isSyncingTabConnection;
@@ -184,6 +205,13 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedHistoryItemChanged(QueryHistoryItem? value)
     {
+        if (_isRefreshingHistory)
+        {
+            // Suppress ComboBox auto-selection during collection refresh
+            SelectedHistoryItem = null;
+            return;
+        }
+
         if (value != null && SelectedTab != null)
         {
             SelectedTab.QueryText = value.Query;
@@ -196,6 +224,8 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private GremlinConnectionMetadata? _selectedConnection;
+
+    private bool _isLoadingConnections;
 
 
     [ObservableProperty]
@@ -216,6 +246,43 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedThemeModeChanged(ThemeMode value)
     {
         _themeService.SetTheme(value);
+    }
+
+    private void SaveLastConnectionPreference(string? connectionId)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(connectionId))
+            {
+                if (File.Exists(AppDataPaths.LastConnectionPreferenceFilePath))
+                {
+                    File.Delete(AppDataPaths.LastConnectionPreferenceFilePath);
+                }
+                return;
+            }
+
+            File.WriteAllText(AppDataPaths.LastConnectionPreferenceFilePath, connectionId);
+        }
+        catch
+        {
+            // Ignore save errors
+        }
+    }
+
+    private string? LoadLastConnectionPreference()
+    {
+        try
+        {
+            if (!File.Exists(AppDataPaths.LastConnectionPreferenceFilePath))
+                return null;
+
+            var id = File.ReadAllText(AppDataPaths.LastConnectionPreferenceFilePath).Trim();
+            return string.IsNullOrWhiteSpace(id) ? null : id;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // Connection editing fields
@@ -249,6 +316,12 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _lastDurationText = string.Empty;
+
+    /// <summary>
+    /// RU consumption text from the active tab (visible only for Cosmos DB connections).
+    /// </summary>
+    [ObservableProperty]
+    private string _lastRequestUnitsText = string.Empty;
 
     [ObservableProperty]
     private bool _isPlaygroundRunning;
@@ -367,7 +440,11 @@ public partial class MainViewModel : ObservableObject
             _schemaDiscoveryService,
             _schemaExportService,
             _logger,
-            status => StatusText = status,
+            status =>
+            {
+                StatusText = status;
+                LastRequestUnitsText = SelectedTab?.LastRequestUnitsText ?? string.Empty;
+            },
             RefreshQueryHistory,
             connectionSettings);
 
@@ -724,10 +801,6 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // Ensure any pending editor/textbox edits are committed before executing.
-        // This is important for AvalonEdit and templated controls where bindings can lag.
-        System.Windows.Input.Keyboard.ClearFocus();
-
         await SelectedTab.RunQueryCommand.ExecuteAsync(null);
     }
 
@@ -952,17 +1025,36 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            _isLoadingConnections = true;
+
             var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(true);
             Connections.Clear();
             foreach (var connection in connections)
             {
                 Connections.Add(connection);
             }
+
+            if (!IsPlaygroundRunning && SelectedConnection is null)
+            {
+                var lastConnectionId = LoadLastConnectionPreference();
+                if (!string.IsNullOrWhiteSpace(lastConnectionId))
+                {
+                    var match = Connections.FirstOrDefault(c => c.Id == lastConnectionId);
+                    if (match != null)
+                    {
+                        SelectedConnection = match;
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load connections");
             StatusText = $"Error loading connections: {ex.Message}";
+        }
+        finally
+        {
+            _isLoadingConnections = false;
         }
     }
 
@@ -977,6 +1069,11 @@ public partial class MainViewModel : ObservableObject
         if (_isSyncingTabConnection)
         {
             return;
+        }
+
+        if (!_isLoadingConnections)
+        {
+            SaveLastConnectionPreference(value.Id);
         }
 
         // Populate edit fields from selected connection

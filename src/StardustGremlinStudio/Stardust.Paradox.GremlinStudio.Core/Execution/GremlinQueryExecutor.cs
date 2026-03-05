@@ -43,6 +43,9 @@ public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
         string connectionName = "Unknown";
         Exception? lastException = null;
 
+        // Capture cumulative RU before the query so we can compute per-query cost
+        double ruBefore = connector.ConsumedRU;
+
         for (int attempt = 0; attempt <= MaxRetryAttempts; attempt++)
         {
             try
@@ -53,6 +56,7 @@ public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
                 {
                     _logger.LogInformation("Retry attempt {Attempt} of {MaxAttempts} for query", attempt, MaxRetryAttempts);
                     await Task.Delay(RetryDelays[Math.Min(attempt - 1, RetryDelays.Length - 1)], cancellationToken).ConfigureAwait(false);
+                    ruBefore = connector.ConsumedRU;
                 }
 
                 var results = await connector.ExecuteAsync(query, queryParams).ConfigureAwait(false);
@@ -61,12 +65,13 @@ public sealed class GremlinQueryExecutor : IGremlinQueryExecutor
                 var resultList = results?.ToList() ?? new List<dynamic>();
                 var resultJson = JsonConvert.SerializeObject(resultList, Formatting.Indented);
 
+                double queryRU = connector.ConsumedRU - ruBefore;
                 var executionResult = QueryExecutionResult.Success(
                     resultList,
                     resultJson,
                     stopwatch.Elapsed,
                     query,
-                    connector.ConsumedRU > 0 ? connector.ConsumedRU : null);
+                    queryRU > 0 ? queryRU : null);
 
                 AddLogEntry(new QueryLogEntry(
                     DateTimeOffset.UtcNow,

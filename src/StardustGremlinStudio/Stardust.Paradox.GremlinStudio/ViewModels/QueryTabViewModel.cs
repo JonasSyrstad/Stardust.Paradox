@@ -259,6 +259,12 @@ public partial class QueryTabViewModel : ObservableObject
     [ObservableProperty]
     private string _lastDurationText = string.Empty;
 
+    /// <summary>
+    /// RU consumption text for Cosmos DB queries (empty for non-Cosmos connections).
+    /// </summary>
+    [ObservableProperty]
+    private string _lastRequestUnitsText = string.Empty;
+
     [ObservableProperty]
     private bool _isExecuting;
 
@@ -485,6 +491,7 @@ public partial class QueryTabViewModel : ObservableObject
             IsExecuting = true;
             _queryCts = new CancellationTokenSource();
             StatusText = "Executing query...";
+            LastRequestUnitsText = string.Empty;
 
             // Clear export data when running a new query
             ClearExportData();
@@ -506,6 +513,10 @@ public partial class QueryTabViewModel : ObservableObject
 
             ResultJson = result.ResultJson ?? result.ErrorMessage ?? "No results";
             LastDurationText = $"Query: {result.Duration.TotalMilliseconds:F0}ms";
+
+            LastRequestUnitsText = result.RequestUnits.HasValue
+                ? $"RU: {result.RequestUnits.Value:F2}"
+                : string.Empty;
 
             StatusText = result.IsSuccess
                 ? $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms"
@@ -532,6 +543,7 @@ public partial class QueryTabViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             StatusText = "Query cancelled";
+            LastRequestUnitsText = string.Empty;
             ResultJson = "Query was cancelled";
             ClearResultViews();
         }
@@ -539,6 +551,7 @@ public partial class QueryTabViewModel : ObservableObject
         {
             _logger.LogError(ex, "Failed to execute query");
             StatusText = $"Query error: {ex.Message}";
+            LastRequestUnitsText = string.Empty;
             ResultJson = ex.ToString();
             ClearResultViews();
         }

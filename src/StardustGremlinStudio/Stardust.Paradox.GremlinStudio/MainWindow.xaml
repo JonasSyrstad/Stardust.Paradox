@@ -500,9 +500,12 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="{Binding StatusText}" Foreground="{DynamicResource StatusBarForegroundBrush}" FontSize="12" VerticalAlignment="Center"/>
-            <TextBlock Grid.Column="1" Text="{Binding LastDurationText}" Foreground="{DynamicResource StatusBarForegroundBrush}" FontSize="12" VerticalAlignment="Center" Opacity="0.9"/>
+            <TextBlock Grid.Column="1" Text="{Binding LastRequestUnitsText}" Foreground="{DynamicResource AccentBrush}" FontSize="12" VerticalAlignment="Center" Opacity="0.9" Margin="12,0"
+                       Visibility="{Binding LastRequestUnitsText, Converter={StaticResource NullToCollapsedConverter}}"/>
+            <TextBlock Grid.Column="2" Text="{Binding LastDurationText}" Foreground="{DynamicResource StatusBarForegroundBrush}" FontSize="12" VerticalAlignment="Center" Opacity="0.9"/>
         </Grid>
     </Border>
 
@@ -737,6 +740,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <ComboBox Width="280" 
                               ItemsSource="{Binding DataContext.QueryHistory, RelativeSource={RelativeSource AncestorType=Window}}" 
                               SelectedItem="{Binding DataContext.SelectedHistoryItem, RelativeSource={RelativeSource AncestorType=Window}}"
+                              IsSynchronizedWithCurrentItem="False"
                               ToolTip="Select a previous query from history">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>

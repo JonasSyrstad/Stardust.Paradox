@@ -107,6 +107,14 @@ public static class TextEditorHelper
             return;
         }
 
+        // Guard against re-entrancy: OnBoundTextChanged sets IsUpdating before
+        // assigning editor.Text, which synchronously fires this handler.
+        // Without this check, the flag is cleared prematurely.
+        if (GetIsUpdating(editor))
+        {
+            return;
+        }
+
         SetIsUpdating(editor, true);
         SetBoundText(editor, editor.Text);
         SetIsUpdating(editor, false);
