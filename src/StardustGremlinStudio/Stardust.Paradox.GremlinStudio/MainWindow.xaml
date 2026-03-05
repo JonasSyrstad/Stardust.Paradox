@@ -831,12 +831,20 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                             <TextBlock Text="Export to CSV" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                                         </StackPanel>
                                     </Button>
+                                    <Button Command="{Binding ExportTableToXlsxCommand}" 
+                                            ToolTip="Export table data to Excel file" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="⬇" FontSize="12" Margin="0,0,6,0" Foreground="#569CD6" FontWeight="Bold"/>
+                                            <TextBlock Text="Export to Excel" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
                                 </ToolBar>
                                 <DataGrid 
                                     x:Name="ResultDataGrid"
                                     ItemsSource="{Binding ResultTable}"
                                     AutoGenerateColumns="True"
                                     AutoGeneratingColumn="ResultDataGrid_AutoGeneratingColumn"
+                                    ColumnReordered="ResultDataGrid_ColumnReordered"
                                     IsReadOnly="True"
                                     CanUserAddRows="False"
                                     CanUserDeleteRows="False"

@@ -249,6 +249,21 @@ public partial class QueryTabViewModel : ObservableObject
     /// </summary>
     public Dictionary<string, bool> ColumnIsProperty { get; } = new();
 
+    /// <summary>
+    /// Tracks the current visual column display order. Updated when the user reorders
+    /// columns in the DataGrid. Used by CSV export to preserve visual ordering.
+    /// </summary>
+    private List<string>? _columnDisplayOrder;
+
+    /// <summary>
+    /// Updates the column display order from the DataGrid's visual column arrangement.
+    /// Called from code-behind when the user reorders columns.
+    /// </summary>
+    public void UpdateColumnDisplayOrder(List<string> order)
+    {
+        _columnDisplayOrder = order;
+    }
+
     [ObservableProperty]
     private ObservableCollection<TreeNodeViewModel> _resultTreeItems = new();
 
@@ -634,15 +649,19 @@ public partial class QueryTabViewModel : ObservableObject
                     StatusText = "No table data available";
                     return;
                 }
-                
+
+                // Use visual column order (from user reordering) if available,
+                // otherwise fall back to the DataTable column order.
+                var columnNames = _columnDisplayOrder
+                    ?? table.Columns.Cast<System.Data.DataColumn>().Select(c => c.ColumnName).ToList();
+
                 // Headers
-                var headers = table.Columns.Cast<System.Data.DataColumn>().Select(c => EscapeCsvField(c.ColumnName));
-                csv.AppendLine(string.Join(",", headers));
+                csv.AppendLine(string.Join(",", columnNames.Select(EscapeCsvField)));
                 
-                // Rows from the DataView
+                // Rows from the DataView, in visual column order
                 foreach (System.Data.DataRowView rowView in ResultTable)
                 {
-                    var values = rowView.Row.ItemArray.Select(v => EscapeCsvField(v?.ToString() ?? ""));
+                    var values = columnNames.Select(col => EscapeCsvField(rowView[col]?.ToString() ?? ""));
                     csv.AppendLine(string.Join(",", values));
                 }
                 
@@ -664,6 +683,100 @@ public partial class QueryTabViewModel : ObservableObject
             return $"\"{field.Replace("\"", "\"\"")}\"";
         }
         return field;
+    }
+
+    [RelayCommand]
+    private void ExportTableToXlsx()
+    {
+        if (ResultTable == null || ResultTable.Count == 0)
+        {
+            StatusText = "No data to export";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                DefaultExt = ".xlsx",
+                FileName = $"query-results-{DateTime.Now:yyyyMMdd-HHmmss}.xlsx"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var table = ResultTable.Table;
+
+                if (table == null)
+                {
+                    StatusText = "No table data available";
+                    return;
+                }
+
+                var columnNames = _columnDisplayOrder
+                    ?? table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
+
+                WriteXlsx(dialog.FileName, columnNames, ResultTable);
+                StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export to XLSX");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Writes the result data to an XLSX file using Open XML SDK.
+    /// </summary>
+    private static void WriteXlsx(string filePath, List<string> columnNames, DataView dataView)
+    {
+        using var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(
+            filePath, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook);
+
+        var workbookPart = document.AddWorkbookPart();
+        workbookPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
+
+        var worksheetPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
+        var sheetData = new DocumentFormat.OpenXml.Spreadsheet.SheetData();
+        worksheetPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(sheetData);
+
+        var sheets = workbookPart.Workbook.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheets());
+        sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet
+        {
+            Id = workbookPart.GetIdOfPart(worksheetPart),
+            SheetId = 1,
+            Name = "Query Results"
+        });
+
+        // Header row
+        var headerRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
+        foreach (var col in columnNames)
+        {
+            headerRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
+            {
+                DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+                CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(col)
+            });
+        }
+        sheetData.Append(headerRow);
+
+        // Data rows
+        foreach (DataRowView rowView in dataView)
+        {
+            var dataRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
+            foreach (var col in columnNames)
+            {
+                var value = rowView[col]?.ToString() ?? string.Empty;
+                dataRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
+                {
+                    DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+                    CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(value)
+                });
+            }
+            sheetData.Append(dataRow);
+        }
     }
 
     [RelayCommand]
@@ -926,6 +1039,7 @@ public partial class QueryTabViewModel : ObservableObject
 
             // Populate Table View
             ColumnIsProperty.Clear();
+            _columnDisplayOrder = null; // Reset visual order; new query generates fresh columns
             ResultTable = BuildResultDataTable(results, ColumnIsProperty);
 
             // Populate Graph View
@@ -1470,9 +1584,11 @@ public partial class QueryTabViewModel : ObservableObject
         }
 
         var orderedColumns = columnInfo
-            .OrderBy(c => c.Value.IsProperty)
-            .ThenBy(c => c.Key == "id" ? 0 : c.Key == "label" ? 1 : c.Key == "type" ? 2 : 3)
-            .ThenBy(c => c.Key)
+            .OrderBy(c => c.Key.Equals("id", StringComparison.OrdinalIgnoreCase) ? 0
+                        : c.Key.Equals("name", StringComparison.OrdinalIgnoreCase) ? 1
+                        : c.Key.Equals("pk", StringComparison.OrdinalIgnoreCase) ? 2
+                        : 3)
+            .ThenBy(c => c.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         foreach (var col in orderedColumns)

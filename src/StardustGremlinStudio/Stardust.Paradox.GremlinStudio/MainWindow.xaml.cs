@@ -279,8 +279,12 @@ public partial class MainWindow : Window
     {
         var columnName = e.PropertyName;
 
+        // Get ColumnIsProperty from the current tab's ViewModel
+        var tab = _viewModel.SelectedTab;
+        var columnIsProperty = tab?.ColumnIsProperty ?? _viewModel.ColumnIsProperty;
+
         // Check if this column is a property or instance value
-        if (_viewModel.ColumnIsProperty.TryGetValue(columnName, out var isProperty))
+        if (columnIsProperty.TryGetValue(columnName, out var isProperty))
         {
             // Create a styled header with color coding
             var headerPanel = new StackPanel { Orientation = Orientation.Horizontal };
@@ -308,6 +312,23 @@ public partial class MainWindow : Window
 
             e.Column.Header = headerPanel;
         }
+    }
+
+    private void ResultDataGrid_ColumnReordered(object? sender, DataGridColumnEventArgs e)
+    {
+        if (sender is not DataGrid dataGrid) return;
+
+        var tab = _viewModel.SelectedTab;
+        if (tab == null) return;
+
+        // Read columns in visual display order and extract the property name
+        var columnOrder = dataGrid.Columns
+            .OrderBy(c => c.DisplayIndex)
+            .Select(c => c.SortMemberPath)
+            .Where(name => !string.IsNullOrEmpty(name))
+            .ToList();
+
+        tab.UpdateColumnDisplayOrder(columnOrder);
     }
 
     private GridLength _lastLeftPanelWidth = new(280);
