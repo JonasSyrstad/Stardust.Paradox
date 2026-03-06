@@ -483,6 +483,16 @@ public partial class QueryTabViewModel : ObservableObject
 
     #endregion
 
+    #region Agent Skills Download
+
+    [ObservableProperty]
+    private bool _isDownloadingSkills;
+
+    [ObservableProperty]
+    private string _skillsDownloadStatusText = "";
+
+    #endregion
+
     #region Commands
 
     [RelayCommand(CanExecute = nameof(CanRunQuery))]

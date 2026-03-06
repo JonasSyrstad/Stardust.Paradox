@@ -36,6 +36,7 @@ public partial class MainViewModel : ObservableObject
     private readonly ISchemaExportService _schemaExportService;
     private readonly IThemeService _themeService;
     private readonly ICosmosDbDiscoveryService _discoveryService;
+    private readonly IAgentSkillsDownloadService _agentSkillsDownloadService;
     private readonly ILogger<MainViewModel> _logger;
 
     private IGremlinLanguageConnector? _activeConnector;
@@ -57,6 +58,7 @@ public partial class MainViewModel : ObservableObject
         IThemeService themeService,
         ICosmosDbDiscoveryService discoveryService,
         IUpdateService updateService,
+        IAgentSkillsDownloadService agentSkillsDownloadService,
         ILogger<MainViewModel> logger)
     {
         _connectionStore = connectionStore;
@@ -71,6 +73,7 @@ public partial class MainViewModel : ObservableObject
         _schemaExportService = schemaExportService;
         _themeService = themeService;
         _discoveryService = discoveryService;
+        _agentSkillsDownloadService = agentSkillsDownloadService;
         _updateService = updateService;
         _logger = logger;
 
@@ -997,6 +1000,80 @@ public partial class MainViewModel : ObservableObject
     private void CancelExport()
     {
         SelectedTab?.CancelExportCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private async Task DownloadAgentSkillsAsync()
+    {
+        if (SelectedTab == null)
+        {
+            StatusText = "No active tab";
+            return;
+        }
+
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Select a folder inside a git repository",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var selectedDir = dialog.FolderName;
+
+        // Resolve the correct skills directory within the git repo
+        var resolution = _agentSkillsDownloadService.ResolveSkillsDirectory(selectedDir);
+
+        if (!resolution.IsGitRepo)
+        {
+            System.Windows.MessageBox.Show(
+                resolution.ErrorMessage ?? "The selected folder is not inside a git repository.",
+                "Not a Git Repository",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Warning);
+
+            StatusText = "Download cancelled — not a git repository";
+            return;
+        }
+
+        var targetDir = resolution.SkillsDirectory!;
+        StatusText = $"Skills will be placed in {resolution.AgentConfigFolder}/skills";
+
+        try
+        {
+            SelectedTab.IsDownloadingSkills = true;
+            SelectedTab.SkillsDownloadStatusText = $"Downloading to {resolution.AgentConfigFolder}/skills...";
+
+            var progress = new Progress<string>(msg =>
+            {
+                SelectedTab.SkillsDownloadStatusText = msg;
+            });
+
+            var result = await _agentSkillsDownloadService.DownloadSkillsAsync(
+                targetDir, progress, CancellationToken.None).ConfigureAwait(true);
+
+            if (result.IsSuccess)
+            {
+                SelectedTab.SkillsDownloadStatusText = $"Downloaded {result.FileCount} file(s) to {resolution.AgentConfigFolder}/skills";
+                StatusText = $"Agent skills downloaded to {result.TargetDirectory}";
+            }
+            else
+            {
+                SelectedTab.SkillsDownloadStatusText = $"Failed: {result.ErrorMessage}";
+                StatusText = $"Download failed: {result.ErrorMessage}";
+            }
+        }
+        catch (Exception ex)
+        {
+            SelectedTab.SkillsDownloadStatusText = $"Error: {ex.Message}";
+            StatusText = $"Download error: {ex.Message}";
+            _logger.LogError(ex, "Failed to download agent skills");
+        }
+        finally
+        {
+            SelectedTab.IsDownloadingSkills = false;
+        }
     }
 
     #endregion

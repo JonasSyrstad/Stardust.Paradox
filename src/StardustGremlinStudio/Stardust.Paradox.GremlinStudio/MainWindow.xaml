@@ -1559,6 +1559,37 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                     IsEnabled="{Binding HasExportData}"
                                                     Padding="8,6" Margin="0,0,0,12"/>
                                             
+                                            <Separator Margin="0,4,0,16" Background="{DynamicResource BorderBrush}"/>
+                                            
+                                            <TextBlock Text="Agent Skills" FontSize="14" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                                            <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,8"
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                Download reusable InMemory scenario skills from the Stardust.Paradox repository for use with AI agent frameworks.
+                                            </TextBlock>
+                                            
+                                            <Button Content="📥 Download Agent Skills..." 
+                                                    Command="{Binding DataContext.DownloadAgentSkillsCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    IsEnabled="{Binding IsDownloadingSkills, Converter={StaticResource InverseBoolConverter}}"
+                                                    Padding="8,6" Margin="0,0,0,8"/>
+                                            
+                                            <!-- Skills download progress -->
+                                            <TextBlock Text="{Binding SkillsDownloadStatusText}" FontSize="11" 
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                       TextWrapping="Wrap" Margin="0,0,0,12"
+                                                       Visibility="{Binding SkillsDownloadStatusText, Converter={StaticResource NullToCollapsedConverter}}"/>
+                                            
+                                            <Border Background="{DynamicResource SecondaryBackgroundBrush}" 
+                                                    CornerRadius="4" Padding="8" Margin="0,0,0,12"
+                                                    Visibility="{Binding IsDownloadingSkills, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <StackPanel>
+                                                    <ProgressBar IsIndeterminate="True" Height="4" Margin="0,0,0,8"/>
+                                                    <TextBlock Text="{Binding SkillsDownloadStatusText}" FontSize="11"
+                                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                               TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Border>
+                                            
                                             <!-- Progress Indicator -->
                                             <Border Background="{DynamicResource SecondaryBackgroundBrush}" 
                                                     CornerRadius="4" Padding="8" Margin="0,0,0,12"

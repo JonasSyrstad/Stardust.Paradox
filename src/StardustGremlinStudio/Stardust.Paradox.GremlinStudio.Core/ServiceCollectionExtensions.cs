@@ -42,6 +42,9 @@ public static class ServiceCollectionExtensions
         // Scenario export
         services.AddSingleton<IScenarioExportService, ScenarioExportService>();
 
+        // Agent skills download
+        services.AddHttpClient<IAgentSkillsDownloadService, AgentSkillsDownloadService>();
+
         // Schema discovery and export
         services.AddSingleton<ISchemaDiscoveryService, SchemaDiscoveryService>();
         services.AddSingleton<ISchemaExportService, SchemaExportService>();
