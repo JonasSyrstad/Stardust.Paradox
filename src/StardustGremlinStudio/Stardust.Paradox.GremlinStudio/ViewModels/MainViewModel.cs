@@ -376,6 +376,17 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private int _updateDownloadProgress;
 
+    /// <summary>
+    /// Gets or sets whether the update pane is open.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isUpdatePaneOpen;
+
+    /// <summary>
+    /// Gets the current application version from the update service.
+    /// </summary>
+    public string CurrentVersion => _updateService.CurrentVersion;
+
     #endregion
 
     #endregion
@@ -1183,6 +1194,15 @@ public partial class MainViewModel : ObservableObject
     private void DismissUpdate()
     {
         IsUpdateAvailable = false;
+    }
+
+    /// <summary>
+    /// Toggles the update pane visibility.
+    /// </summary>
+    [RelayCommand]
+    private void ToggleUpdatePane()
+    {
+        IsUpdatePaneOpen = !IsUpdatePaneOpen;
     }
 
     private async Task CheckForUpdatesOnStartupAsync()

@@ -474,6 +474,92 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                      Foreground="{DynamicResource AccentBrush}"/>
                     </Grid>
                 </Border>
+                <!-- Update Pane Toggle Button -->
+                <Button x:Name="UpdatePaneButton" Style="{StaticResource CaptionButtonStyle}" 
+                        Command="{Binding ToggleUpdatePaneCommand}"
+                        ToolTip="Application updates">
+                    <Grid>
+                        <TextBlock Text="&#xE895;" FontFamily="Segoe MDL2 Assets" FontSize="12" 
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <!-- Notification dot when update is available -->
+                        <Ellipse Width="7" Height="7" Fill="#FF5722" Margin="12,-10,0,0" 
+                                 HorizontalAlignment="Right" VerticalAlignment="Top"
+                                 Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </Grid>
+                </Button>
+                <Popup x:Name="UpdatePanePopup"
+                       PlacementTarget="{Binding ElementName=UpdatePaneButton}"
+                       Placement="Bottom"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       IsOpen="{Binding IsUpdatePaneOpen, Mode=TwoWay}">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}" 
+                            BorderBrush="{DynamicResource BorderBrush}" 
+                            BorderThickness="1" CornerRadius="8" 
+                            Padding="16" Width="300"
+                            Margin="0,4,0,0">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="12" ShadowDepth="4" Opacity="0.3" Color="Black"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <!-- Header -->
+                            <TextBlock Text="Application Updates" FontWeight="SemiBold" FontSize="14" 
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,12"/>
+                            
+                            <!-- Current Version -->
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <TextBlock Text="Current version:" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12"/>
+                                <TextBlock Text="{Binding CurrentVersion}" Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"/>
+                            </StackPanel>
+                            
+                            <Separator Margin="0,0,0,12"/>
+                            
+                            <!-- Update Available Section -->
+                            <StackPanel Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,8">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                               Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                    <TextBlock Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12" VerticalAlignment="Center">
+                                        <Run Text="Version"/><Run Text=" "/><Run Text="{Binding UpdateVersion, Mode=OneWay}"/><Run Text=" is available!"/>
+                                    </TextBlock>
+                                </StackPanel>
+                                <Button Content="Download &amp; Install" 
+                                        Command="{Binding DownloadAndApplyUpdateCommand}"
+                                        HorizontalAlignment="Stretch" Padding="10,8"
+                                        Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                            </StackPanel>
+                            
+                            <!-- Download Progress Section -->
+                            <StackPanel Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVisibilityConverter}}" Margin="0,0,0,8">
+                                <TextBlock Text="Downloading update..." Foreground="{DynamicResource PrimaryForegroundBrush}" FontSize="12" Margin="0,0,0,6"/>
+                                <ProgressBar Value="{Binding UpdateDownloadProgress}" Minimum="0" Maximum="100" Height="6" 
+                                             Background="{DynamicResource TertiaryBackgroundBrush}" 
+                                             Foreground="{DynamicResource AccentBrush}"/>
+                                <TextBlock Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11" Margin="0,4,0,0"
+                                           Text="{Binding UpdateDownloadProgress, StringFormat='{}{0}%'}"/>
+                            </StackPanel>
+                            
+                            <!-- Checking indicator -->
+                            <StackPanel Visibility="{Binding IsCheckingForUpdates, Converter={StaticResource BoolToVisibilityConverter}}" 
+                                        Orientation="Horizontal" Margin="0,0,0,8">
+                                <TextBlock Text="&#xE117;" FontFamily="Segoe MDL2 Assets" FontSize="12" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Text="Checking for updates..." Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            
+                            <!-- No Update / Up to date (shown when not checking, not downloading, and no update available) -->
+                            <TextBlock Text="You're up to date!" FontSize="12"
+                                       Foreground="{DynamicResource SecondaryForegroundBrush}" Margin="0,0,0,8"
+                                       Visibility="{Binding IsUpdateAvailable, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            
+                            <!-- Check Now Button -->
+                            <Button Content="Check for Updates" 
+                                    Command="{Binding CheckForUpdatesCommand}"
+                                    HorizontalAlignment="Stretch" Padding="10,8" Margin="0,4,0,0"
+                                    IsEnabled="{Binding IsCheckingForUpdates, Converter={StaticResource InverseBoolConverter}}"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
                 <Button x:Name="MinimizeButton" Content="&#xE949;" Style="{StaticResource CaptionButtonStyle}" Click="MinimizeButton_Click" ToolTip="Minimize"/>
                 <Button x:Name="MaximizeButton" Content="&#xE739;" Style="{StaticResource CaptionButtonStyle}" Click="MaximizeButton_Click" ToolTip="Maximize"/>
                 <Button x:Name="CloseButton" Content="&#xE106;" Style="{StaticResource CloseButtonStyle}" Click="CloseButton_Click" ToolTip="Close"/>
