@@ -29,4 +29,6 @@ public static class AppDataPaths
     public static string SnippetsFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "snippets.json");
 
     public static string VariablesFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "variables.json");
+
+    public static string WelcomeGuideFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "welcome-guide.json");
 }

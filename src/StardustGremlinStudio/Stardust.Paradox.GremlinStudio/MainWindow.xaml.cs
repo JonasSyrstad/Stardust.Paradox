@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 using Stardust.Paradox.GremlinStudio.ViewModels;
 
 namespace Stardust.Paradox.GremlinStudio;
@@ -47,6 +48,9 @@ public partial class MainWindow : Window
         
         // Subscribe to settings panel toggle event
         _viewModel.ToggleSettingsPanelRequested += (s, e) => ToggleSettingsPanel();
+        
+        // Subscribe to welcome guide step navigation
+        _viewModel.WelcomeGuide.StepNavigationRequested += OnGuideStepNavigationRequested;
         
         // Hook into window messages for proper multi-monitor maximize support
         SourceInitialized += OnSourceInitialized;
@@ -572,6 +576,243 @@ public partial class MainWindow : Window
             }
             e.Handled = true;
         }
+    }
+
+    #endregion
+
+    #region Welcome Guide Navigation
+
+    private Dialogs.KeyboardShortcutsDialog? _guideShortcutsDialog;
+
+    /// <summary>
+    /// Handles step navigation: performs the UI action then positions the bubble near the target element.
+    /// </summary>
+    private void OnGuideStepNavigationRequested(object? sender, WelcomeGuideStep step)
+    {
+        Dispatcher.InvokeAsync(async () =>
+        {
+            // Close any previously opened guide dialog
+            CloseGuideDialog();
+
+            // Navigate the UI to reveal the target
+            NavigateForStep(step);
+
+            // Allow layout to settle after navigation
+            await Task.Delay(100).ConfigureAwait(true);
+
+            PositionBubbleNearTarget(step);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
+    /// <summary>
+    /// Performs the UI navigation action required to show the target element.
+    /// </summary>
+    private void NavigateForStep(WelcomeGuideStep step)
+    {
+        switch (step.NavigationAction)
+        {
+            case GuideNavigationAction.EnsureSettingsPanelOpen:
+                EnsureSettingsPanelOpen();
+                break;
+
+            case GuideNavigationAction.SwitchToJsonTab:
+                SwitchResultTab(0);
+                break;
+
+            case GuideNavigationAction.SwitchToTableTab:
+                SwitchResultTab(1);
+                break;
+
+            case GuideNavigationAction.SwitchToTreeTab:
+                SwitchResultTab(2);
+                break;
+
+            case GuideNavigationAction.SwitchToGraphTab:
+                SwitchResultTab(3);
+                break;
+
+            case GuideNavigationAction.SwitchToExportTab:
+                SwitchResultTab(4);
+                break;
+
+            case GuideNavigationAction.ShowKeyboardShortcutsDialog:
+                ShowGuideShortcutsDialog();
+                break;
+        }
+    }
+
+    private void EnsureSettingsPanelOpen()
+    {
+        var leftPanel = FindName("LeftPanel") as FrameworkElement;
+        if (leftPanel is { Visibility: Visibility.Collapsed })
+        {
+            ExpandButton_Click(this, new RoutedEventArgs());
+        }
+    }
+
+    /// <summary>
+    /// Scrolls the left panel ScrollViewer to bring the target element into view.
+    /// </summary>
+    private void ScrollTargetIntoView(FrameworkElement target)
+    {
+        // Walk up the visual tree to find the ScrollViewer in the left panel
+        DependencyObject current = target;
+        while (current is not null)
+        {
+            if (current is ScrollViewer scrollViewer)
+            {
+                // Get position of target relative to the scroll viewer's content
+                var transform = target.TransformToAncestor(scrollViewer);
+                var targetRect = transform.TransformBounds(
+                    new Rect(0, 0, target.ActualWidth, target.ActualHeight));
+
+                // Scroll to make the target visible, centered if possible
+                var verticalOffset = targetRect.Top - scrollViewer.ViewportHeight / 3;
+                scrollViewer.ScrollToVerticalOffset(
+                    Math.Max(0, scrollViewer.VerticalOffset + verticalOffset));
+                return;
+            }
+            current = VisualTreeHelper.GetParent(current);
+        }
+    }
+
+    private void SwitchResultTab(int tabIndex)
+    {
+        if (_viewModel.SelectedTab is not null)
+        {
+            _viewModel.SelectedTab.SelectedResultViewIndex = tabIndex;
+        }
+    }
+
+    private void ShowGuideShortcutsDialog()
+    {
+        _guideShortcutsDialog = new Dialogs.KeyboardShortcutsDialog { Owner = this };
+        _guideShortcutsDialog.Show();
+    }
+
+    private void CloseGuideDialog()
+    {
+        if (_guideShortcutsDialog is { IsLoaded: true })
+        {
+            _guideShortcutsDialog.Close();
+        }
+        _guideShortcutsDialog = null;
+    }
+
+    /// <summary>
+    /// Finds the target element and sets bubble position on the view model.
+    /// </summary>
+    private void PositionBubbleNearTarget(WelcomeGuideStep step)
+    {
+        var guideVm = _viewModel.WelcomeGuide;
+        var target = FindVisualChild<FrameworkElement>(this, step.TargetElementName);
+
+        if (target is null || !target.IsVisible)
+        {
+            // Fallback: center the bubble
+            guideVm.TargetCenterX = ActualWidth / 2;
+            guideVm.TargetCenterY = ActualHeight / 2;
+            guideVm.BubbleLeft = ActualWidth / 2 - 160;
+            guideVm.BubbleTop = ActualHeight / 2 - 80;
+            UpdateOverlayArrow();
+            return;
+        }
+
+        // For left-panel elements, scroll into view first
+        if (step.NavigationAction == GuideNavigationAction.EnsureSettingsPanelOpen)
+        {
+            ScrollTargetIntoView(target);
+        }
+
+        // Get target position relative to this window
+        var targetPos = target.TranslatePoint(new Point(0, 0), this);
+        var targetWidth = target.ActualWidth;
+        var targetHeight = target.ActualHeight;
+
+        // Store actual target center for arrow aiming
+        var targetCenterX = targetPos.X + targetWidth / 2;
+        var targetCenterY = targetPos.Y + targetHeight / 2;
+        guideVm.TargetCenterX = targetCenterX;
+        guideVm.TargetCenterY = targetCenterY;
+
+        const double bubbleWidth = 320;
+        const double bubbleHeight = 180;
+        const double gap = 14;
+
+        double left, top;
+
+        switch (step.ArrowSide)
+        {
+            case BubbleArrowSide.Top:
+                // Bubble below target, arrow points up
+                left = targetCenterX - bubbleWidth / 2;
+                top = targetPos.Y + targetHeight + gap;
+                break;
+
+            case BubbleArrowSide.Bottom:
+                // Bubble above target, arrow points down
+                left = targetCenterX - bubbleWidth / 2;
+                top = targetPos.Y - bubbleHeight - gap;
+                break;
+
+            case BubbleArrowSide.Left:
+                // Bubble to the right of target, arrow points left
+                left = targetPos.X + targetWidth + gap;
+                top = targetCenterY - 50;
+                break;
+
+            case BubbleArrowSide.Right:
+                // Bubble to the left of target, arrow points right
+                left = targetPos.X - bubbleWidth - gap;
+                top = targetCenterY - 50;
+                break;
+
+            default:
+                left = ActualWidth / 2 - 160;
+                top = ActualHeight / 2 - 80;
+                break;
+        }
+
+        // Clamp to window bounds
+        left = Math.Clamp(left, 10, Math.Max(10, ActualWidth - bubbleWidth - 10));
+        top = Math.Clamp(top, 50, Math.Max(50, ActualHeight - bubbleHeight - 10));
+
+        guideVm.BubbleLeft = left;
+        guideVm.BubbleTop = top;
+
+        UpdateOverlayArrow();
+    }
+
+    /// <summary>
+    /// Triggers arrow repositioning on the overlay control after bubble position changes.
+    /// </summary>
+    private void UpdateOverlayArrow()
+    {
+        var overlay = FindVisualChild<Controls.WelcomeGuideOverlay>(this, string.Empty);
+        // Search for the overlay by type since it may not have x:Name
+        overlay ??= FindVisualChildByType<Controls.WelcomeGuideOverlay>(this);
+        overlay?.Dispatcher.InvokeAsync(
+            () => overlay.UpdateArrowPosition(),
+            System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    /// <summary>
+    /// Finds a child element in the visual tree by type.
+    /// </summary>
+    private static T? FindVisualChildByType<T>(DependencyObject parent) where T : DependencyObject
+    {
+        int childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T match)
+                return match;
+
+            var found = FindVisualChildByType<T>(child);
+            if (found is not null)
+                return found;
+        }
+        return null;
     }
 
     #endregion

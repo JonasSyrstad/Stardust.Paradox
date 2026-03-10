@@ -14,6 +14,7 @@ using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Core.Storage;
+using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 using Stardust.Paradox.GremlinStudio.Dialogs;
 using Stardust.Paradox.GremlinStudio.Services;
 
@@ -37,6 +38,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IThemeService _themeService;
     private readonly ICosmosDbDiscoveryService _discoveryService;
     private readonly IAgentSkillsDownloadService _agentSkillsDownloadService;
+    private readonly IWelcomeGuideService _welcomeGuideService;
     private readonly ILogger<MainViewModel> _logger;
 
     private IGremlinLanguageConnector? _activeConnector;
@@ -59,6 +61,7 @@ public partial class MainViewModel : ObservableObject
         ICosmosDbDiscoveryService discoveryService,
         IUpdateService updateService,
         IAgentSkillsDownloadService agentSkillsDownloadService,
+        IWelcomeGuideService welcomeGuideService,
         ILogger<MainViewModel> logger)
     {
         _connectionStore = connectionStore;
@@ -74,8 +77,12 @@ public partial class MainViewModel : ObservableObject
         _themeService = themeService;
         _discoveryService = discoveryService;
         _agentSkillsDownloadService = agentSkillsDownloadService;
+        _welcomeGuideService = welcomeGuideService;
         _updateService = updateService;
         _logger = logger;
+
+        // Initialize welcome guide
+        WelcomeGuide = new WelcomeGuideViewModel(_welcomeGuideService);
 
         // Reset tab counter for fresh start
         QueryTabViewModel.ResetTabCounter();
@@ -113,6 +120,9 @@ public partial class MainViewModel : ObservableObject
 
         // Create initial tab
         CreateNewTab();
+
+        // Show welcome guide on startup (first run or new features)
+        _ = WelcomeGuide.CheckAndShowOnStartupAsync();
     }
 
     private async Task InitializeStartupStateAsync()
@@ -897,6 +907,29 @@ public partial class MainViewModel : ObservableObject
         {
             _logger.LogError(ex, "Failed to show keyboard shortcuts dialog");
         }
+    }
+
+    /// <summary>
+    /// View model for the welcome guide overlay.
+    /// </summary>
+    public WelcomeGuideViewModel WelcomeGuide { get; }
+
+    /// <summary>
+    /// Shows the full welcome guide from the beginning.
+    /// </summary>
+    [RelayCommand]
+    private async Task ShowWelcomeGuideAsync()
+    {
+        await WelcomeGuide.StartFullGuideAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Resets guide progress and restarts from the beginning.
+    /// </summary>
+    [RelayCommand]
+    private async Task ResetWelcomeGuideAsync()
+    {
+        await WelcomeGuide.ResetGuideCommand.ExecuteAsync(null).ConfigureAwait(true);
     }
 
     #endregion

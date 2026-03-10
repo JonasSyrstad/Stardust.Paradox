@@ -453,6 +453,13 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
             
             <!-- Window Control Buttons -->
             <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <!-- Welcome Guide Button -->
+                <Button x:Name="GuideTarget_ShortcutsHint" Style="{StaticResource CaptionButtonStyle}" 
+                        Command="{Binding ShowWelcomeGuideCommand}"
+                        ToolTip="Welcome Guide">
+                    <TextBlock Text="&#xE897;" FontFamily="Segoe MDL2 Assets" FontSize="12" 
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Button>
                 <!-- Update Available Indicator -->
                 <Button Style="{StaticResource CaptionButtonStyle}" 
                         Command="{Binding DownloadAndApplyUpdateCommand}"
@@ -628,7 +635,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                              Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
 
                     <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <Button Content="New" Command="{Binding NewConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" />
+                        <Button x:Name="GuideTarget_NewConnectionButton" Content="New" Command="{Binding NewConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" />
                         <Button Content="Save" Command="{Binding SaveConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" />
                         <Button Content="Test" Command="{Binding TestConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" />
                         <Button Content="Delete" Command="{Binding DeleteConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="50" Margin="4,0,0,0" 
@@ -688,7 +695,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Local Playground" />
-                    <Button Margin="0,8,0,0" Content="Start" Command="{Binding StartPlaygroundCommand}" />
+                    <Button x:Name="GuideTarget_StartPlaygroundButton" Margin="0,8,0,0" Content="Start" Command="{Binding StartPlaygroundCommand}" />
                     <Button Margin="0,6,0,0" Content="Stop" Command="{Binding StopPlaygroundCommand}" />
 
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Scenarios" Margin="0,14,0,0" />
@@ -705,7 +712,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Theme" />
-                    <ComboBox Margin="0,8,0,0" ItemsSource="{Binding ThemeModes}" SelectedItem="{Binding SelectedThemeMode}" />
+                    <ComboBox x:Name="GuideTarget_ThemeDropdown" Margin="0,8,0,0" ItemsSource="{Binding ThemeModes}" SelectedItem="{Binding SelectedThemeMode}" />
                 </StackPanel>
             </ScrollViewer>
             </Grid>
@@ -735,7 +742,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 <!-- Tab Headers with New Tab Button -->
                 <Border Grid.Row="0" Background="{DynamicResource TertiaryBackgroundBrush}" CornerRadius="6,6,0,0">
                     <DockPanel>
-                        <Button DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}" 
+                        <Button x:Name="GuideTarget_NewTabButton" DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}" 
                                 Style="{StaticResource CompactButtonStyle}" 
                                 Width="28" Height="28" Margin="4" 
                                 ToolTip="New Query Tab" FontWeight="Bold" FontSize="14"/>
@@ -807,7 +814,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                 <!-- Query Toolbar -->
                 <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
-                    <Button Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
+                    <Button x:Name="GuideTarget_RunButton" Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="▶" Foreground="#22CC22" FontWeight="Bold" Margin="0,0,6,0"/>
                             <TextBlock Text="Run (Ctrl+Enter)" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
@@ -822,7 +829,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <Separator />
 
                     <!-- Query History Dropdown -->
-                    <TextBlock Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <TextBlock x:Name="GuideTarget_HistoryDropdown" Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     <ComboBox Width="280" 
                               ItemsSource="{Binding DataContext.QueryHistory, RelativeSource={RelativeSource AncestorType=Window}}" 
                               SelectedItem="{Binding DataContext.SelectedHistoryItem, RelativeSource={RelativeSource AncestorType=Window}}"
@@ -880,7 +887,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 <GroupBox Header="Results" Grid.Row="3" BorderBrush="{DynamicResource BorderBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <TabControl SelectedIndex="{Binding SelectedResultViewIndex}" Background="{DynamicResource SecondaryBackgroundBrush}">
                         <!-- Raw JSON View with Syntax Highlighting -->
-                        <TabItem Header="JSON">
+                        <TabItem x:Name="GuideTarget_JsonTab" Header="JSON">
                             <DockPanel>
                                 <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
                                     <Button Command="{Binding CopyJsonToClipboardCommand}" 
@@ -907,7 +914,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </TabItem>
                         
                         <!-- Table/List View -->
-                        <TabItem Header="Table">
+                        <TabItem x:Name="GuideTarget_TableTab" Header="Table">
                             <DockPanel>
                                 <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
                                     <Button Command="{Binding ExportTableToCsvCommand}" 
@@ -951,7 +958,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </TabItem>
                         
                         <!-- Tree View / Schema Explorer -->
-                        <TabItem Header="Tree">
+                        <TabItem x:Name="GuideTarget_TreeTab" Header="Tree">
                             <DockPanel>
                                 <!-- Schema Explorer Toolbar -->
                                 <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
@@ -1236,7 +1243,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         
                         
                         <!-- Graph View - Azure Portal Style -->
-                        <TabItem Header="Graph">
+                        <TabItem x:Name="GuideTarget_GraphTab" Header="Graph">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="160"/>
@@ -1506,7 +1513,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </TabItem>
                         
                         <!-- Scenario Export Tab -->
-                        <TabItem Header="Export">
+                        <TabItem x:Name="GuideTarget_ExportTab" Header="Export">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="250"/>
@@ -1710,6 +1717,10 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         </Grid>
     </DockPanel>
     </Grid>
+    
+    <!-- Welcome Guide Overlay (topmost layer) -->
+    <controls:WelcomeGuideOverlay Grid.Row="0" Grid.RowSpan="2"
+                                   DataContext="{Binding WelcomeGuide}"/>
 </Grid>
 </Border>
 </Window>

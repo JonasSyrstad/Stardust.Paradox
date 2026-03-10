@@ -5,6 +5,7 @@ using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 
 namespace Stardust.Paradox.GremlinStudio.Core;
 
@@ -48,6 +49,9 @@ public static class ServiceCollectionExtensions
         // Schema discovery and export
         services.AddSingleton<ISchemaDiscoveryService, SchemaDiscoveryService>();
         services.AddSingleton<ISchemaExportService, SchemaExportService>();
+
+        // Welcome guide
+        services.AddSingleton<IWelcomeGuideService, FileWelcomeGuideService>();
 
         return services;
     }

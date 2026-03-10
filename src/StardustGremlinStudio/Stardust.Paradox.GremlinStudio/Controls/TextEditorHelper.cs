@@ -46,6 +46,13 @@ public static class TextEditorHelper
             typeof(TextEditorHelper),
             new PropertyMetadata(null));
 
+    private static readonly DependencyProperty TooltipProviderProperty =
+        DependencyProperty.RegisterAttached(
+            "TooltipProvider",
+            typeof(GremlinTooltipProvider),
+            typeof(TextEditorHelper),
+            new PropertyMetadata(null));
+
     public static readonly DependencyProperty SyntaxModeProperty =
         DependencyProperty.RegisterAttached(
             "SyntaxMode",
@@ -147,6 +154,16 @@ public static class TextEditorHelper
             editor.TextArea.TextView.BackgroundRenderers.Add(errorRenderer);
             editor.Tag = errorRenderer;
 
+            // Install hover tooltip provider (uninstall any previous one first)
+            if (editor.GetValue(TooltipProviderProperty) is GremlinTooltipProvider oldProvider)
+            {
+                oldProvider.Uninstall();
+            }
+
+            var tooltipProvider = new GremlinTooltipProvider(editor);
+            tooltipProvider.Install();
+            editor.SetValue(TooltipProviderProperty, tooltipProvider);
+
             // Validate on text change
             editor.TextChanged -= Editor_ValidateOnChange;
             editor.TextChanged += Editor_ValidateOnChange;
@@ -158,6 +175,13 @@ public static class TextEditorHelper
             editor.TextArea.TextEntered -= TextArea_TextEntered;
             editor.TextArea.KeyDown -= TextArea_KeyDown;
             editor.TextChanged -= Editor_ValidateOnChange;
+
+            // Uninstall hover tooltip provider
+            if (editor.GetValue(TooltipProviderProperty) is GremlinTooltipProvider provider)
+            {
+                provider.Uninstall();
+                editor.SetValue(TooltipProviderProperty, null);
+            }
         }
     }
 
