@@ -6,15 +6,18 @@ namespace Stardust.Paradox.GremlinStudio.Core.History;
 public interface IQueryHistoryService
 {
     /// <summary>
-    /// Gets the list of query history items, ordered by pinned first then by last executed.
+    /// Gets the list of query history items for a specific connection,
+    /// ordered by pinned first then by last executed.
     /// </summary>
-    IReadOnlyList<QueryHistoryItem> GetHistory();
+    /// <param name="connectionId">The connection to filter by, or null for all.</param>
+    IReadOnlyList<QueryHistoryItem> GetHistory(string? connectionId = null);
 
     /// <summary>
-    /// Adds a query to the history. If it already exists, updates the last executed time.
+    /// Adds a query to the history. If it already exists for the same connection, updates the last executed time.
     /// </summary>
     /// <param name="query">The query text to add.</param>
-    void AddQuery(string query);
+    /// <param name="connectionId">The connection this query was executed against.</param>
+    void AddQuery(string query, string? connectionId = null);
 
     /// <summary>
     /// Pins or unpins a query in the history.
@@ -30,9 +33,10 @@ public interface IQueryHistoryService
     void RemoveQuery(string id);
 
     /// <summary>
-    /// Clears all non-pinned queries from history.
+    /// Clears all non-pinned queries from history for the given connection.
     /// </summary>
-    void ClearUnpinned();
+    /// <param name="connectionId">The connection to clear history for, or null for all.</param>
+    void ClearUnpinned(string? connectionId = null);
 
     /// <summary>
     /// Saves the history to persistent storage.

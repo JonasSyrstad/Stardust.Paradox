@@ -536,27 +536,30 @@ public partial class QueryTabViewModel : ObservableObject
                 queryToExecute,
                 cancellationToken: _queryCts.Token).ConfigureAwait(true);
 
-            ResultJson = result.ResultJson ?? result.ErrorMessage ?? "No results";
             LastDurationText = $"Query: {result.Duration.TotalMilliseconds:F0}ms";
 
             LastRequestUnitsText = result.RequestUnits.HasValue
                 ? $"RU: {result.RequestUnits.Value:F2}"
                 : string.Empty;
 
-            StatusText = result.IsSuccess
-                ? $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms"
-                : $"Query failed: {result.ErrorMessage}";
-
-            _updateMainStatus(StatusText);
-
             if (result.IsSuccess)
             {
-                _queryHistoryService.AddQuery(QueryText);
+                ResultJson = result.ResultJson ?? "No results";
+                StatusText = $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
+
+                _queryHistoryService.AddQuery(QueryText, ConnectionMetadata?.Id);
                 _ = _queryHistoryService.SaveAsync();
                 _refreshMainHistory();
             }
+            else
+            {
+                ResultJson = result.ErrorMessage ?? "Unknown error";
+                StatusText = "Query error";
+            }
 
-            PopulateResultViews(result.ResultJson);
+            _updateMainStatus(StatusText);
+
+            PopulateResultViews(result.IsSuccess ? result.ResultJson : null);
             IsDirty = false;
 
             // If user is currently viewing schema mode, run a fresh discovery for the new results
@@ -575,7 +578,8 @@ public partial class QueryTabViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to execute query");
-            StatusText = $"Query error: {ex.Message}";
+            StatusText = "Query error";
+            _updateMainStatus(StatusText);
             LastRequestUnitsText = string.Empty;
             ResultJson = ex.ToString();
             ClearResultViews();

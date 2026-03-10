@@ -16,6 +16,13 @@ public class QueryHistoryItem
     public string Query { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the connection identifier this query was executed against.
+    /// Null for queries executed before connection-scoped history was introduced,
+    /// or for playground queries.
+    /// </summary>
+    public string? ConnectionId { get; set; }
+
+    /// <summary>
     /// Gets or sets when the query was last executed.
     /// </summary>
     public DateTime LastExecuted { get; set; } = DateTime.UtcNow;

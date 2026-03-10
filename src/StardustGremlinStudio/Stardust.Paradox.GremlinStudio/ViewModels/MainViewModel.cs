@@ -148,7 +148,9 @@ public partial class MainViewModel : ObservableObject
         _isRefreshingHistory = true;
         try
         {
-            var newHistory = new ObservableCollection<QueryHistoryItem>(_queryHistoryService.GetHistory());
+            var connectionId = SelectedTab?.ConnectionMetadata?.Id;
+            var newHistory = new ObservableCollection<QueryHistoryItem>(
+                _queryHistoryService.GetHistory(connectionId));
             QueryHistory = newHistory;
         }
         finally
@@ -204,6 +206,9 @@ public partial class MainViewModel : ObservableObject
         StatusText = newValue.StatusText;
         LastDurationText = newValue.LastDurationText;
         LastRequestUnitsText = newValue.LastRequestUnitsText;
+
+        // Refresh history for the new tab's connection
+        RefreshQueryHistory();
     }
 
     private bool _isSyncingTabConnection;
@@ -961,7 +966,8 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ClearQueryHistory()
     {
-        _queryHistoryService.ClearUnpinned();
+        var connectionId = SelectedTab?.ConnectionMetadata?.Id;
+        _queryHistoryService.ClearUnpinned(connectionId);
         _ = _queryHistoryService.SaveAsync();
         RefreshQueryHistory();
     }
@@ -1208,6 +1214,9 @@ public partial class MainViewModel : ObservableObject
 
         // Load secret asynchronously and apply to current tab (always apply, even if playground is running)
         _connectionLoadingTask = LoadSelectedConnectionSecretAsync(value.Id);
+
+        // Refresh history for the newly selected connection
+        RefreshQueryHistory();
     }
 
     private async Task LoadSelectedConnectionSecretAsync(string connectionId)

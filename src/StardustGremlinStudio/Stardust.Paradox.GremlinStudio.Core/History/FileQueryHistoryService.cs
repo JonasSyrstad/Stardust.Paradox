@@ -24,12 +24,16 @@ public class FileQueryHistoryService : IQueryHistoryService
         _historyFilePath = Path.Combine(AppDataPaths.EnsureAppDataDirectoryExists(), "query-history.json");
     }
 
-    public IReadOnlyList<QueryHistoryItem> GetHistory()
+    public IReadOnlyList<QueryHistoryItem> GetHistory(string? connectionId = null)
     {
         _lock.EnterReadLock();
         try
         {
-            return _history
+            var query = connectionId != null
+                ? _history.Where(h => string.Equals(h.ConnectionId, connectionId, StringComparison.Ordinal))
+                : _history.AsEnumerable();
+
+            return query
                 .OrderByDescending(h => h.IsPinned)
                 .ThenByDescending(h => h.LastExecuted)
                 .ToList();
@@ -40,7 +44,7 @@ public class FileQueryHistoryService : IQueryHistoryService
         }
     }
 
-    public void AddQuery(string query)
+    public void AddQuery(string query, string? connectionId = null)
     {
         if (string.IsNullOrWhiteSpace(query))
             return;
@@ -50,9 +54,10 @@ public class FileQueryHistoryService : IQueryHistoryService
         _lock.EnterWriteLock();
         try
         {
-            // Check if query already exists
+            // Check if query already exists for this connection
             var existing = _history.FirstOrDefault(h => 
-                string.Equals(h.Query, normalizedQuery, StringComparison.OrdinalIgnoreCase));
+                string.Equals(h.Query, normalizedQuery, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(h.ConnectionId, connectionId, StringComparison.Ordinal));
             
             if (existing != null)
             {
@@ -63,6 +68,7 @@ public class FileQueryHistoryService : IQueryHistoryService
                 _history.Add(new QueryHistoryItem
                 {
                     Query = normalizedQuery,
+                    ConnectionId = connectionId,
                     LastExecuted = DateTime.UtcNow
                 });
 
@@ -129,12 +135,20 @@ public class FileQueryHistoryService : IQueryHistoryService
         }
     }
 
-    public void ClearUnpinned()
+    public void ClearUnpinned(string? connectionId = null)
     {
         _lock.EnterWriteLock();
         try
         {
-            _history.RemoveAll(h => !h.IsPinned);
+            if (connectionId != null)
+            {
+                _history.RemoveAll(h => !h.IsPinned &&
+                    string.Equals(h.ConnectionId, connectionId, StringComparison.Ordinal));
+            }
+            else
+            {
+                _history.RemoveAll(h => !h.IsPinned);
+            }
         }
         finally
         {

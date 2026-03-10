@@ -460,18 +460,6 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <TextBlock Text="&#xE897;" FontFamily="Segoe MDL2 Assets" FontSize="12" 
                                VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Button>
-                <!-- Update Available Indicator -->
-                <Button Style="{StaticResource CaptionButtonStyle}" 
-                        Command="{Binding DownloadAndApplyUpdateCommand}"
-                        ToolTip="{Binding UpdateVersion, StringFormat='Update to v{0} available - Click to install'}"
-                        Visibility="{Binding IsUpdateAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <Grid>
-                        <TextBlock Text="&#xE777;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
-                                   Foreground="{DynamicResource SuccessBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        <!-- Pulsing dot indicator -->
-                        <Ellipse Width="8" Height="8" Fill="#FF5722" Margin="12,-12,0,0" HorizontalAlignment="Right" VerticalAlignment="Top"/>
-                    </Grid>
-                </Button>
                 <!-- Update Download Progress -->
                 <Border Visibility="{Binding IsDownloadingUpdate, Converter={StaticResource BoolToVisibilityConverter}}"
                         Background="Transparent" VerticalAlignment="Center" Margin="8,0" Width="100">
@@ -830,22 +818,62 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                     <!-- Query History Dropdown -->
                     <TextBlock x:Name="GuideTarget_HistoryDropdown" Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                    <ComboBox Width="280" 
+                    <ComboBox Width="350" 
                               ItemsSource="{Binding DataContext.QueryHistory, RelativeSource={RelativeSource AncestorType=Window}}" 
                               SelectedItem="{Binding DataContext.SelectedHistoryItem, RelativeSource={RelativeSource AncestorType=Window}}"
                               IsSynchronizedWithCurrentItem="False"
                               ToolTip="Select a previous query from history">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
-                                <Grid MaxWidth="350">
+                                <Grid MaxWidth="420">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="📌" Margin="0,0,4,0" FontSize="10"
                                                Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                     <TextBlock Grid.Column="1" Text="{Binding Query}" TextTrimming="CharacterEllipsis" 
-                                               FontFamily="Consolas" FontSize="11" ToolTip="{Binding Query}"/>
+                                               FontFamily="Consolas" FontSize="11" ToolTip="{Binding Query}"
+                                               VerticalAlignment="Center"/>
+                                    <Button Grid.Column="2" Padding="3,1" Margin="4,0,0,0" VerticalAlignment="Center"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Command="{Binding DataContext.TogglePinQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Unpin/Pin}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="ToolTip" Value="Pin query"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                                        <Setter Property="ToolTip" Value="Unpin query"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                        <TextBlock FontSize="12">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="📍"/>
+                                                    <Setter Property="Opacity" Value="0.5"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPinned}" Value="True">
+                                                            <Setter Property="Text" Value="📌"/>
+                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Button>
+                                    <Button Grid.Column="3" Padding="3,1" Margin="2,0,0,0" VerticalAlignment="Center"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Command="{Binding DataContext.RemoveFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="Remove from history">
+                                        <TextBlock Text="✕" FontSize="10" Foreground="#FF6B6B" FontWeight="Bold"/>
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
