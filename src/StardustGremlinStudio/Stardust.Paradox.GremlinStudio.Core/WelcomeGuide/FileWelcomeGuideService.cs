@@ -301,6 +301,60 @@ public sealed class FileWelcomeGuideService : IWelcomeGuideService
                 "GuideTarget_RunButton",
                 GuideNavigationAction.None,
                 BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "query-formatter",
+                "Query Formatter",
+                "Click Format or press Ctrl+Shift+F to auto-format your Gremlin query with proper indentation and line breaks. Each traversal step gets its own line for readability.",
+                "1.6.0",
+                "GuideTarget_FormatButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "parameterized-resolver",
+                "Parameterized Query Resolver",
+                "Paste a parameterized query from Stardust ORM logs (query + JSON parameter map) and click Resolve or press Ctrl+P. The __pN tokens are replaced with their actual values.",
+                "1.6.0",
+                "GuideTarget_ResolveButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "query-explainer",
+                "Query Explainer",
+                "Click Explain or press Ctrl+E to get a detailed step-by-step breakdown of your Gremlin query. Each traversal step is described with its purpose and arguments.",
+                "1.6.0",
+                "GuideTarget_ExplainTab",
+                GuideNavigationAction.SwitchToExplainTab,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "snippets",
+                "Query Snippets",
+                "Save frequently used queries as snippets in the side panel. Click 'Snippet' in the toolbar to save, then double-click or Insert to paste a snippet into the editor.",
+                "1.6.0",
+                "GuideTarget_SnippetsSection",
+                GuideNavigationAction.EnsureSettingsPanelOpen,
+                BubbleArrowSide.Left),
+
+            new WelcomeGuideStep(
+                "variables",
+                "Query Variables",
+                "Define variable sets as JSON key-value pairs. Use ${name} placeholders in queries, then click Apply to substitute values. Great for reusing queries across environments.",
+                "1.6.0",
+                "GuideTarget_VariablesSection",
+                GuideNavigationAction.EnsureSettingsPanelOpen,
+                BubbleArrowSide.Left),
+
+            new WelcomeGuideStep(
+                "database-statistics",
+                "Database Statistics",
+                "The Stats tab shows vertex and edge counts with label breakdowns for your connected database. Click Refresh to load or update the statistics.",
+                "1.6.0",
+                "GuideTarget_StatsTab",
+                GuideNavigationAction.SwitchToStatsTab,
+                BubbleArrowSide.Top),
         ];
     }
 }

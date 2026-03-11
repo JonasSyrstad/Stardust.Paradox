@@ -12,10 +12,13 @@ using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Core.Snippets;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Core.Storage;
+using Stardust.Paradox.GremlinStudio.Core.Variables;
 using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 using Stardust.Paradox.GremlinStudio.Dialogs;
+using Stardust.Paradox.GremlinStudio.Editor;
 using Stardust.Paradox.GremlinStudio.Services;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
@@ -39,6 +42,8 @@ public partial class MainViewModel : ObservableObject
     private readonly ICosmosDbDiscoveryService _discoveryService;
     private readonly IAgentSkillsDownloadService _agentSkillsDownloadService;
     private readonly IWelcomeGuideService _welcomeGuideService;
+    private readonly IQuerySnippetStore _snippetStore;
+    private readonly IQueryVariableStore _variableStore;
     private readonly ILogger<MainViewModel> _logger;
 
     private IGremlinLanguageConnector? _activeConnector;
@@ -62,6 +67,8 @@ public partial class MainViewModel : ObservableObject
         IUpdateService updateService,
         IAgentSkillsDownloadService agentSkillsDownloadService,
         IWelcomeGuideService welcomeGuideService,
+        IQuerySnippetStore snippetStore,
+        IQueryVariableStore variableStore,
         ILogger<MainViewModel> logger)
     {
         _connectionStore = connectionStore;
@@ -78,6 +85,8 @@ public partial class MainViewModel : ObservableObject
         _discoveryService = discoveryService;
         _agentSkillsDownloadService = agentSkillsDownloadService;
         _welcomeGuideService = welcomeGuideService;
+        _snippetStore = snippetStore;
+        _variableStore = variableStore;
         _updateService = updateService;
         _logger = logger;
 
@@ -131,6 +140,8 @@ public partial class MainViewModel : ObservableObject
         await _connectionLoadingTask.ConfigureAwait(true);
 
         await LoadQueryHistoryAsync().ConfigureAwait(true);
+        await LoadSnippetsAsync().ConfigureAwait(true);
+        await LoadVariableSetsAsync().ConfigureAwait(true);
     }
 
     private async Task LoadQueryHistoryAsync()
@@ -1398,6 +1409,555 @@ public partial class MainViewModel : ObservableObject
     {
         IsPlaygroundRunning = state.IsRunning;
         LoadedScenarioName = state.LoadedScenarioName;
+    }
+
+    #endregion
+
+    #region Snippets
+
+    /// <summary>
+    /// Collection of saved query snippets.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<SnippetItemViewModel> _snippets = new();
+
+    /// <summary>
+    /// The currently selected snippet.
+    /// </summary>
+    [ObservableProperty]
+    private SnippetItemViewModel? _selectedSnippet;
+
+    private async Task LoadSnippetsAsync()
+    {
+        try
+        {
+            var all = await _snippetStore.GetAllAsync().ConfigureAwait(true);
+            Snippets.Clear();
+            foreach (var snippet in all)
+            {
+                Snippets.Add(new SnippetItemViewModel(snippet));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load snippets");
+        }
+    }
+
+    /// <summary>
+    /// Saves the current query as a new snippet, prompting for a name via dialog.
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveAsSnippetAsync()
+    {
+        if (SelectedTab == null || string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            StatusText = "Enter a query first";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Dialogs.SnippetNameDialog();
+
+            var mainWindow = System.Windows.Application.Current.MainWindow;
+            if (mainWindow != null && mainWindow.IsLoaded)
+            {
+                dialog.Owner = mainWindow;
+            }
+
+            // Suggest a name from the first line of the query
+            var firstLine = SelectedTab.QueryText.Split('\n')[0].Trim();
+            if (firstLine.Length > 50)
+                firstLine = firstLine[..50] + "...";
+            dialog.SetSuggestedName(firstLine);
+
+            if (dialog.ShowDialog() != true || string.IsNullOrWhiteSpace(dialog.SnippetName))
+                return;
+
+            var snippet = new QuerySnippet(
+                Guid.NewGuid().ToString(),
+                dialog.SnippetName,
+                SelectedTab.QueryText,
+                Array.Empty<string>(),
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow);
+
+            await _snippetStore.SaveAsync(snippet).ConfigureAwait(true);
+            await LoadSnippetsAsync().ConfigureAwait(true);
+            StatusText = $"Saved snippet: {dialog.SnippetName}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save snippet");
+            StatusText = $"Error saving snippet: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Inserts the selected snippet into the current query editor.
+    /// </summary>
+    [RelayCommand]
+    private void InsertSnippet()
+    {
+        if (SelectedSnippet == null || SelectedTab == null) return;
+        SelectedTab.QueryText = SelectedSnippet.Query;
+        StatusText = $"Inserted snippet: {SelectedSnippet.Name}";
+    }
+
+    /// <summary>
+    /// Deletes the selected snippet.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteSnippetAsync()
+    {
+        if (SelectedSnippet == null)
+        {
+            StatusText = "Select a snippet to delete";
+            return;
+        }
+
+        try
+        {
+            var name = SelectedSnippet.Name;
+            await _snippetStore.DeleteAsync(SelectedSnippet.Id).ConfigureAwait(true);
+            await LoadSnippetsAsync().ConfigureAwait(true);
+            StatusText = $"Deleted snippet: {name}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete snippet");
+            StatusText = $"Error deleting snippet: {ex.Message}";
+        }
+    }
+
+    #endregion
+
+    #region Variables
+
+    /// <summary>
+    /// Collection of saved variable sets.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<VariableSetItemViewModel> _variableSets = new();
+
+    /// <summary>
+    /// The currently selected variable set.
+    /// </summary>
+    [ObservableProperty]
+    private VariableSetItemViewModel? _selectedVariableSet;
+
+    /// <summary>
+    /// Name for a new variable set being created.
+    /// </summary>
+    [ObservableProperty]
+    private string _newVariableSetName = string.Empty;
+
+    /// <summary>
+    /// JSON content for the currently selected or new variable set.
+    /// </summary>
+    [ObservableProperty]
+    private string _editVariableJson = "{\n  \n}";
+
+    partial void OnSelectedVariableSetChanged(VariableSetItemViewModel? value)
+    {
+        if (value != null)
+        {
+            EditVariableJson = value.Json;
+            NewVariableSetName = value.Name;
+        }
+    }
+
+    private async Task LoadVariableSetsAsync()
+    {
+        try
+        {
+            var all = await _variableStore.GetAllAsync().ConfigureAwait(true);
+            VariableSets.Clear();
+            foreach (var v in all)
+            {
+                VariableSets.Add(new VariableSetItemViewModel(v));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load variable sets");
+        }
+    }
+
+    /// <summary>
+    /// Saves or updates a variable set.
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveVariableSetAsync()
+    {
+        var name = string.IsNullOrWhiteSpace(NewVariableSetName) ? "Untitled Variables" : NewVariableSetName.Trim();
+
+        try
+        {
+            // Validate JSON
+            System.Text.Json.JsonDocument.Parse(EditVariableJson);
+
+            var id = SelectedVariableSet?.Id ?? Guid.NewGuid().ToString();
+            var variableSet = new QueryVariableSet(
+                id,
+                name,
+                EditVariableJson,
+                SelectedVariableSet?.Set.CreatedAt ?? DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow);
+
+            await _variableStore.SaveAsync(variableSet).ConfigureAwait(true);
+            await LoadVariableSetsAsync().ConfigureAwait(true);
+
+            // Re-select the saved item
+            SelectedVariableSet = VariableSets.FirstOrDefault(v => v.Id == id);
+            StatusText = $"Saved variables: {name}";
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            StatusText = "Invalid JSON in variable set";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save variable set");
+            StatusText = $"Error saving variables: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Deletes the selected variable set.
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteVariableSetAsync()
+    {
+        if (SelectedVariableSet == null)
+        {
+            StatusText = "Select a variable set to delete";
+            return;
+        }
+
+        try
+        {
+            var name = SelectedVariableSet.Name;
+            await _variableStore.DeleteAsync(SelectedVariableSet.Id).ConfigureAwait(true);
+            await LoadVariableSetsAsync().ConfigureAwait(true);
+            EditVariableJson = "{\n  \n}";
+            NewVariableSetName = string.Empty;
+            StatusText = $"Deleted variables: {name}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to delete variable set");
+            StatusText = $"Error deleting variables: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Applies the selected variable set to the current query by substituting ${var} tokens.
+    /// </summary>
+    [RelayCommand]
+    private void ApplyVariables()
+    {
+        if (SelectedVariableSet == null)
+        {
+            StatusText = "Select a variable set first";
+            return;
+        }
+
+        if (SelectedTab == null || string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            StatusText = "Enter a query first";
+            return;
+        }
+
+        try
+        {
+            var substituted = QueryVariableSubstitutor.Substitute(SelectedTab.QueryText, SelectedVariableSet.Json);
+            SelectedTab.QueryText = substituted;
+            StatusText = "Variables applied to query";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Error applying variables: {ex.Message}";
+        }
+    }
+
+    #endregion
+
+    #region Query Formatting
+
+    /// <summary>
+    /// Formats the current query with proper indentation.
+    /// </summary>
+    [RelayCommand]
+    private void FormatQuery()
+    {
+        if (SelectedTab == null || string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            StatusText = "Enter a query first";
+            return;
+        }
+
+
+        SelectedTab.QueryText = GremlinQueryFormatter.Format(SelectedTab.QueryText);
+        StatusText = "Query formatted";
+    }
+
+    /// <summary>
+    /// Resolves a parameterized query (from Stardust ORM logging) by inlining the
+    /// __pN parameter values from the accompanying JSON map.
+    /// </summary>
+    [RelayCommand]
+    private void ResolveParameters()
+    {
+        if (SelectedTab == null || string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            StatusText = "Enter a query first";
+            return;
+        }
+
+        if (!ParameterizedQueryResolver.IsParameterizedQuery(SelectedTab.QueryText))
+        {
+            StatusText = "No parameterized query detected – expected __pN tokens followed by a JSON block";
+            return;
+        }
+
+        SelectedTab.QueryText = ParameterizedQueryResolver.Resolve(SelectedTab.QueryText);
+        StatusText = "Parameters resolved";
+    }
+
+    /// <summary>
+    /// Generates a detailed explanation of the current query and displays it in the Explain tab.
+    /// </summary>
+    /// <summary>
+    /// Tab index of the Explain results tab inside the results TabControl.
+    /// </summary>
+    private const int ExplainTabIndex = 6;
+
+    [RelayCommand]
+    private void ExplainQuery()
+    {
+        if (SelectedTab == null || string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            StatusText = "Enter a query first";
+            return;
+        }
+
+        SelectedTab.QueryExplanation = GremlinQueryExplainer.Explain(SelectedTab.QueryText);
+        SelectedTab.SelectedResultViewIndex = ExplainTabIndex;
+        StatusText = "Query explained";
+    }
+
+    #endregion
+
+    #region Database Statistics
+
+    /// <summary>
+    /// Loads database statistics from the active connection.
+    /// Uses two-phase loading: counts first (fast) then labels (slower).
+    /// </summary>
+    [RelayCommand]
+    private async Task LoadDatabaseStatisticsAsync()
+    {
+        var tab = SelectedTab;
+        if (tab == null)
+        {
+            StatusText = "No active tab";
+            return;
+        }
+
+        var connector = tab.GetActiveConnector();
+        if (connector == null)
+        {
+            StatusText = "No active connection";
+            tab.StatisticsStatusText = "Connect to a database first";
+            return;
+        }
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+        var errors = new List<string>();
+
+        try
+        {
+            tab.IsLoadingStatistics = true;
+
+            // Phase 1: counts — these are fast single-value queries
+            tab.StatisticsStatusText = "Loading vertex count...";
+            var vCountResult = await _queryExecutor.ExecuteAsync(connector, "g.V().count()", cancellationToken: cts.Token).ConfigureAwait(true);
+            tab.TotalVertexCount = vCountResult.IsSuccess ? ParseCount(vCountResult.ResultJson) : 0;
+            if (!vCountResult.IsSuccess)
+                errors.Add($"Vertex count: {vCountResult.ErrorMessage}");
+
+            tab.StatisticsStatusText = "Loading edge count...";
+            var eCountResult = await _queryExecutor.ExecuteAsync(connector, "g.E().count()", cancellationToken: cts.Token).ConfigureAwait(true);
+            tab.TotalEdgeCount = eCountResult.IsSuccess ? ParseCount(eCountResult.ResultJson) : 0;
+            if (!eCountResult.IsSuccess)
+                errors.Add($"Edge count: {eCountResult.ErrorMessage}");
+
+            // Show counts immediately so the user sees progress
+            tab.HasStatistics = true;
+            tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges — loading labels...";
+
+            // Phase 2: label distributions.
+            // For Cosmos DB, use a hybrid approach:
+            //   - Gremlin dedup() to get distinct labels (cheap, small result set)
+            //   - SQL API SELECT VALUE COUNT(1) per label (gateway-supported cross-partition count)
+            // For other connections, use Gremlin groupCount() directly.
+            if (tab.ConnectionSettings?.Kind == GremlinConnectionKind.CosmosDb)
+            {
+                tab.StatisticsStatusText = "Loading labels (SQL API)...";
+                try
+                {
+                    // Run vertex and edge label loading concurrently — pure SQL API, no Gremlin
+                    var vertexTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: false, cts.Token);
+                    var edgeTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: true, cts.Token);
+
+                    await Task.WhenAll(vertexTask, edgeTask).ConfigureAwait(true);
+
+                    tab.VertexLabelCounts = new ObservableCollection<LabelCountItem>(vertexTask.Result);
+                    tab.EdgeLabelCounts = new ObservableCollection<LabelCountItem>(edgeTask.Result);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Hybrid label count failed, falling back to Gremlin");
+
+                    tab.StatisticsStatusText = "Loading labels (Gremlin fallback)...";
+                    var vFallback = await _queryExecutor.ExecuteAsync(connector, "g.V().groupCount().by(label)", cancellationToken: cts.Token).ConfigureAwait(true);
+                    if (vFallback.IsSuccess)
+                        tab.VertexLabelCounts = new ObservableCollection<LabelCountItem>(ParseGroupCount(vFallback.ResultJson));
+                    else
+                        errors.Add($"Vertex labels: {vFallback.ErrorMessage}");
+
+                    var eFallback = await _queryExecutor.ExecuteAsync(connector, "g.E().groupCount().by(label)", cancellationToken: cts.Token).ConfigureAwait(true);
+                    if (eFallback.IsSuccess)
+                        tab.EdgeLabelCounts = new ObservableCollection<LabelCountItem>(ParseGroupCount(eFallback.ResultJson));
+                    else
+                        errors.Add($"Edge labels: {eFallback.ErrorMessage}");
+                }
+            }
+            else
+            {
+                tab.StatisticsStatusText = "Loading vertex labels...";
+                var vLabelsResult = await _queryExecutor.ExecuteAsync(connector, "g.V().groupCount().by(label)", cancellationToken: cts.Token).ConfigureAwait(true);
+                if (vLabelsResult.IsSuccess)
+                {
+                    tab.VertexLabelCounts = new ObservableCollection<LabelCountItem>(ParseGroupCount(vLabelsResult.ResultJson));
+                }
+                else
+                {
+                    _logger.LogWarning("Vertex labels query failed: {Error}", vLabelsResult.ErrorMessage);
+                    errors.Add($"Vertex labels: {vLabelsResult.ErrorMessage}");
+                }
+
+                tab.StatisticsStatusText = "Loading edge labels...";
+                var eLabelsResult = await _queryExecutor.ExecuteAsync(connector, "g.E().groupCount().by(label)", cancellationToken: cts.Token).ConfigureAwait(true);
+                if (eLabelsResult.IsSuccess)
+                {
+                    tab.EdgeLabelCounts = new ObservableCollection<LabelCountItem>(ParseGroupCount(eLabelsResult.ResultJson));
+                }
+                else
+                {
+                    _logger.LogWarning("Edge labels query failed: {Error}", eLabelsResult.ErrorMessage);
+                    errors.Add($"Edge labels: {eLabelsResult.ErrorMessage}");
+                }
+            }
+
+            if (errors.Count > 0)
+            {
+                tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges (partial — {errors.Count} query failed)";
+                StatusText = $"Statistics loaded with errors: {string.Join("; ", errors)}";
+            }
+            else
+            {
+                tab.StatisticsStatusText = $"Loaded: {tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges";
+                StatusText = tab.StatisticsStatusText;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("Database statistics query timed out");
+            tab.StatisticsStatusText = "Timed out — try again or check connection";
+            StatusText = "Statistics query timed out";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load database statistics");
+            tab.StatisticsStatusText = $"Error: {ex.Message}";
+            StatusText = $"Statistics error: {ex.Message}";
+        }
+        finally
+        {
+            tab.IsLoadingStatistics = false;
+        }
+    }
+
+    private static long ParseCount(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return 0;
+        try
+        {
+            // Results come as a JSON array, e.g. [4] or [{"@type":"g:Int64","@value":4}]
+            var arr = Newtonsoft.Json.JsonConvert.DeserializeObject<List<object>>(json);
+            if (arr != null && arr.Count > 0)
+            {
+                return Convert.ToInt64(arr[0]);
+            }
+        }
+        catch { }
+        return 0;
+    }
+
+    private static List<LabelCountItem> ParseGroupCount(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return new();
+        try
+        {
+            // Results come as [{"person":3,"software":2}] or similar map structure
+            var arr = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Newtonsoft.Json.Linq.JObject>>(json);
+            if (arr != null && arr.Count > 0)
+            {
+                return arr[0].Properties()
+                    .Select(p => new LabelCountItem(p.Name, Convert.ToInt64(p.Value)))
+                    .OrderByDescending(x => x.Count)
+                    .ToList();
+            }
+        }
+        catch { }
+        return new();
+    }
+
+    /// <summary>
+    /// Loads label counts entirely via SQL API — no Gremlin required.
+    /// Uses per-partition GROUP BY queries, then merges results client-side.
+    /// </summary>
+    private async Task<List<LabelCountItem>> LoadLabelCountsViaSqlApiAsync(
+        GremlinConnectionSettings settings,
+        bool isEdge,
+        CancellationToken cancellationToken)
+    {
+        var (endpoint, database, container) = ResolveCosmosDbSqlEndpoint(settings);
+        var counts = await _discoveryService.DiscoverLabelCountsAsync(
+            endpoint, settings.Secret, database, container, isEdge, cancellationToken).ConfigureAwait(true);
+
+        return counts
+            .Select(kvp => new LabelCountItem(kvp.Key, kvp.Value))
+            .OrderByDescending(x => x.Count)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Converts a Gremlin connection to the Cosmos DB documents endpoint, database, and container.
+    /// </summary>
+    private static (string Endpoint, string Database, string Container) ResolveCosmosDbSqlEndpoint(
+        GremlinConnectionSettings settings)
+    {
+        var documentsHost = settings.Host.Replace(".gremlin.cosmos.azure.com", ".documents.azure.com");
+        var endpoint = $"https://{documentsHost}";
+        var database = settings.DatabaseName
+            ?? throw new InvalidOperationException("Database name is required for Cosmos DB SQL API queries");
+        var container = settings.GraphName
+            ?? throw new InvalidOperationException("Graph name is required for Cosmos DB SQL API queries");
+        return (endpoint, database, container);
     }
 
     #endregion

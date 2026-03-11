@@ -23,6 +23,12 @@ public partial class MainWindow : Window
     private Border? _graphCanvasBorder;
 
     /// <summary>
+    /// The DataGridRow being edited, used to apply/remove the edit highlight.
+    /// </summary>
+    private DataGridRow? _editingDataGridRow;
+    private Brush? _editingRowOriginalBackground;
+
+    /// <summary>
     /// Gets the GraphCanvasBorder element, searching the visual tree if not cached.
     /// </summary>
     private Border? GraphCanvasBorder
@@ -365,6 +371,105 @@ public partial class MainWindow : Window
         Clipboard.SetText(text);
     }
 
+    private void EditRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+
+        var tab = _viewModel.SelectedTab;
+        if (tab == null) return;
+
+        if (dataGrid.CurrentItem is not DataRowView rowView) return;
+
+        // Enable editing on the DataGrid and mark non-editable columns
+        dataGrid.IsReadOnly = false;
+        foreach (var column in dataGrid.Columns)
+        {
+            var colName = column.SortMemberPath;
+            if (!string.IsNullOrEmpty(colName))
+            {
+                column.IsReadOnly = QueryTabViewModel.IsNonEditableColumn(colName)
+                    || (tab.ColumnIsProperty.TryGetValue(colName, out var isProp) && !isProp);
+            }
+        }
+
+        // Wire up the commit callback so the ViewModel can flush pending
+        // DataGrid cell edits before reading values for change detection.
+        tab.CommitDataGridEdit = () =>
+        {
+            dataGrid.CommitEdit(DataGridEditingUnit.Cell, true);
+            dataGrid.CommitEdit(DataGridEditingUnit.Row, true);
+        };
+
+        // Select and scroll to the editing row so it is clearly visible
+        dataGrid.SelectedItem = rowView;
+        dataGrid.ScrollIntoView(rowView);
+
+        // Apply an accent highlight to the editing row
+        dataGrid.UpdateLayout();
+        _editingDataGridRow = dataGrid.ItemContainerGenerator.ContainerFromItem(rowView) as DataGridRow;
+        if (_editingDataGridRow != null)
+        {
+            _editingRowOriginalBackground = _editingDataGridRow.Background;
+            _editingDataGridRow.Background = new SolidColorBrush(Color.FromArgb(0x40, 0x00, 0x78, 0xD4));
+        }
+
+        // Begin editing on the view model
+        tab.BeginEditRow(rowView);
+
+        // Subscribe to IsEditingRow changes to restore read-only state when done
+        tab.PropertyChanged -= OnTabEditingRowChanged;
+        tab.PropertyChanged += OnTabEditingRowChanged;
+    }
+
+    private void OnTabEditingRowChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(QueryTabViewModel.IsEditingRow)) return;
+        if (sender is not QueryTabViewModel tab) return;
+
+        if (!tab.IsEditingRow)
+        {
+            tab.PropertyChanged -= OnTabEditingRowChanged;
+            tab.CommitDataGridEdit = null;
+
+            // Restore the editing row highlight and DataGrid read-only state
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (_editingDataGridRow != null)
+                {
+                    _editingDataGridRow.Background = _editingRowOriginalBackground
+                        ?? (Brush)FindResource("PrimaryBackgroundBrush");
+                    _editingDataGridRow = null;
+                    _editingRowOriginalBackground = null;
+                }
+
+                var dataGrid = FindVisualChild<DataGrid>(this, "ResultDataGrid");
+                if (dataGrid != null)
+                {
+                    dataGrid.IsReadOnly = true;
+                }
+            });
+        }
+    }
+
+    private void ResultDataGrid_BeginningEdit(object? sender, DataGridBeginningEditEventArgs e)
+    {
+        var tab = _viewModel.SelectedTab;
+        if (tab == null || !tab.IsEditingRow)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        // Block editing non-editable columns
+        var colName = e.Column.SortMemberPath;
+        if (!string.IsNullOrEmpty(colName) && QueryTabViewModel.IsNonEditableColumn(colName))
+        {
+            e.Cancel = true;
+        }
+    }
+
     private void QueryEditor_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
         if (Keyboard.Modifiers != ModifierKeys.Control) return;
@@ -688,6 +793,14 @@ public partial class MainWindow : Window
                 SwitchResultTab(5);
                 break;
 
+            case GuideNavigationAction.SwitchToExplainTab:
+                SwitchResultTab(6);
+                break;
+
+            case GuideNavigationAction.SwitchToStatsTab:
+                SwitchResultTab(7);
+                break;
+
             case GuideNavigationAction.ShowKeyboardShortcutsDialog:
                 ShowGuideShortcutsDialog();
                 break;
@@ -866,6 +979,18 @@ public partial class MainWindow : Window
                 return found;
         }
         return null;
+    }
+
+    #endregion
+
+    #region Snippets
+
+    private void SnippetList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.InsertSnippetCommand.CanExecute(null))
+        {
+            _viewModel.InsertSnippetCommand.Execute(null);
+        }
     }
 
     #endregion

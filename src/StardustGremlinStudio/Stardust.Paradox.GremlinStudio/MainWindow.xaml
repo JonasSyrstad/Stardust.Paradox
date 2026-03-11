@@ -33,6 +33,9 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveQueryCommand}" />
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveQueryAsCommand}" />
         <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding OpenQueryCommand}" />
+        <KeyBinding Key="F" Modifiers="Ctrl+Shift" Command="{Binding FormatQueryCommand}" />
+        <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding ExplainQueryCommand}" />
+        <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding ResolveParametersCommand}" />
     </Window.InputBindings>
     
 <Window.Resources>
@@ -705,6 +708,52 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                     <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
+                    <TextBlock x:Name="GuideTarget_SnippetsSection" FontSize="16" FontWeight="SemiBold" Text="Snippets" />
+                    <ListBox Margin="0,8,0,0" ItemsSource="{Binding Snippets}" SelectedItem="{Binding SelectedSnippet}" Height="120"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                             MouseDoubleClick="SnippetList_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel ToolTip="{Binding Query}" Margin="0,1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Query}" FontSize="9" FontFamily="Consolas"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="220"/>
+                                    <TextBlock Text="{Binding Tags}" FontSize="8" FontStyle="Italic"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}" Opacity="0.7"
+                                               Visibility="{Binding Tags, Converter={StaticResource NullToCollapsedConverter}}"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="Insert" Command="{Binding InsertSnippetCommand}" Style="{StaticResource CompactButtonStyle}" Width="50" ToolTip="Insert selected snippet (or double-click)"/>
+                        <Button Content="Del" Command="{Binding DeleteSnippetCommand}" Style="{StaticResource CompactButtonStyle}" Width="36" Margin="4,0,0,0" ToolTip="Delete selected snippet"/>
+                    </StackPanel>
+
+                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
+
+                    <TextBlock x:Name="GuideTarget_VariablesSection" FontSize="16" FontWeight="SemiBold" Text="Variables" />
+                    <TextBlock Text="Use ${name} in queries" FontSize="10" Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic" Margin="0,2,0,0"/>
+                    <ListBox Margin="0,8,0,0" ItemsSource="{Binding VariableSets}" SelectedItem="{Binding SelectedVariableSet}" DisplayMemberPath="Name" Height="60"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
+                    <TextBox Margin="0,6,0,0" Text="{Binding NewVariableSetName, UpdateSourceTrigger=PropertyChanged}"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                             Padding="4,4" FontSize="11"/>
+                    <TextBox Margin="0,4,0,0" Text="{Binding EditVariableJson, UpdateSourceTrigger=PropertyChanged}"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                             AcceptsReturn="True" TextWrapping="Wrap" Height="60" FontFamily="Consolas" FontSize="11"
+                             VerticalScrollBarVisibility="Auto"/>
+                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="Save" Command="{Binding SaveVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" ToolTip="Save variable set"/>
+                        <Button Content="Apply" Command="{Binding ApplyVariablesCommand}" Style="{StaticResource CompactButtonStyle}" Width="48" Margin="4,0,0,0" ToolTip="Substitute variables into query"/>
+                        <Button Content="Del" Command="{Binding DeleteVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="36" Margin="4,0,0,0" ToolTip="Delete selected variable set"/>
+                    </StackPanel>
+
+                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
+
                     <TextBlock FontSize="16" FontWeight="SemiBold" Text="Theme" />
                     <ComboBox x:Name="GuideTarget_ThemeDropdown" Margin="0,8,0,0" ItemsSource="{Binding ThemeModes}" SelectedItem="{Binding SelectedThemeMode}" />
                 </StackPanel>
@@ -735,11 +784,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 
                 <!-- Tab Headers with New Tab Button -->
                 <Border Grid.Row="0" Background="{DynamicResource TertiaryBackgroundBrush}" CornerRadius="6,6,0,0">
-                    <DockPanel>
-                        <Button x:Name="GuideTarget_NewTabButton" DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}" 
-                                Style="{StaticResource CompactButtonStyle}" 
-                                Width="28" Height="28" Margin="4" 
-                                ToolTip="New Query Tab" FontWeight="Bold" FontSize="14"/>
+                    <StackPanel Orientation="Horizontal">
                         <ItemsControl ItemsSource="{Binding QueryTabs}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
@@ -789,7 +834,11 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
-                    </DockPanel>
+                        <Button x:Name="GuideTarget_NewTabButton" Content="+" Command="{Binding NewTabCommand}" 
+                                Style="{StaticResource CompactButtonStyle}" 
+                                Width="28" Height="28" Margin="4" VerticalAlignment="Bottom"
+                                ToolTip="New Query Tab" FontWeight="Bold" FontSize="14"/>
+                    </StackPanel>
                 </Border>
                 
                 <!-- Tab Content -->
@@ -833,6 +882,35 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
                                        Foreground="{DynamicResource AccentBrush}"/>
                             <TextBlock Text="Save" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Separator />
+                    <Button x:Name="GuideTarget_FormatButton" Command="{Binding DataContext.FormatQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Format Query (Ctrl+Shift+F)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE943;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Format" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="GuideTarget_ResolveButton" Command="{Binding DataContext.ResolveParametersCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Resolve parameterized query from ORM log (Ctrl+P)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE943;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="#C586C0"/>
+                            <TextBlock Text="Resolve" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DataContext.SaveAsSnippetCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Save current query as snippet" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="#4EC9B0"/>
+                            <TextBlock Text="Snippet" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DataContext.ExplainQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Explain Query (Ctrl+E)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="#DCDCAA"/>
+                            <TextBlock Text="Explain" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
                     <Separator />
@@ -985,6 +1063,29 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                             <TextBlock Text="Export to Excel" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                                         </StackPanel>
                                     </Button>
+                                    <Separator/>
+                                    <CheckBox IsChecked="{Binding ConvertEpochDates}"
+                                              ToolTip="Convert columns with date/time-like names from epoch values to Excel dates"
+                                              VerticalAlignment="Center" Margin="4,0">
+                                        <TextBlock Text="Convert epoch dates" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                    </CheckBox>
+                                    <Separator Visibility="{Binding IsEditingRow, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <Button Command="{Binding SaveEditedRowCommand}" 
+                                            ToolTip="Save changes to the edited row" Padding="8,4"
+                                            Visibility="{Binding IsEditingRow, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" Foreground="#22CC22"/>
+                                            <TextBlock Text="Save Row" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Command="{Binding CancelEditRowCommand}" 
+                                            ToolTip="Cancel editing and restore original values" Padding="8,4"
+                                            Visibility="{Binding IsEditingRow, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" Foreground="#FF4444"/>
+                                            <TextBlock Text="Cancel Edit" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
                                 </ToolBar>
                                 <DataGrid 
                                     x:Name="ResultDataGrid"
@@ -992,6 +1093,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     AutoGenerateColumns="True"
                                     AutoGeneratingColumn="ResultDataGrid_AutoGeneratingColumn"
                                     ColumnReordered="ResultDataGrid_ColumnReordered"
+                                    BeginningEdit="ResultDataGrid_BeginningEdit"
                                     IsReadOnly="True"
                                     CanUserAddRows="False"
                                     CanUserDeleteRows="False"
@@ -1014,6 +1116,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                         <ContextMenu>
                                             <MenuItem Header="Copy Cell" Click="CopyCell_Click" InputGestureText="Ctrl+C"/>
                                             <MenuItem Header="Copy Row" Click="CopyRow_Click"/>
+                                            <Separator/>
+                                            <MenuItem Header="Edit Row" Click="EditRow_Click" InputGestureText="F2"/>
                                         </ContextMenu>
                                     </DataGrid.ContextMenu>
                                 </DataGrid>
@@ -1840,6 +1944,179 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                         </DataGridTextColumn>
                                     </DataGrid.Columns>
                                 </DataGrid>
+                            </DockPanel>
+                        </TabItem>
+                        
+                        <!-- Query Explain Tab -->
+                        <TabItem x:Name="GuideTarget_ExplainTab" Header="Explain">
+                            <DockPanel>
+                                <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
+                                    <Button Command="{Binding DataContext.ExplainQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                            ToolTip="Explain current query (Ctrl+E)" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
+                                                       Foreground="#DCDCAA"/>
+                                            <TextBlock Text="Explain Query" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Separator/>
+                                    <Button Command="{Binding CopyExplanationToClipboardCommand}" 
+                                            ToolTip="Copy explanation to clipboard" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                            <TextBlock Text="Copy" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                </ToolBar>
+                                <avalonedit:TextEditor
+                                    FontFamily="Consolas"
+                                    FontSize="12"
+                                    IsReadOnly="True"
+                                    ShowLineNumbers="False"
+                                    Background="{DynamicResource EditorBackgroundBrush}"
+                                    Foreground="{DynamicResource EditorForegroundBrush}"
+                                    controls:TextEditorHelper.BoundText="{Binding QueryExplanation, Mode=OneWay}"
+                                    VerticalScrollBarVisibility="Auto"
+                                    HorizontalScrollBarVisibility="Auto"
+                                    WordWrap="True"/>
+                            </DockPanel>
+                        </TabItem>
+                        
+                        <!-- Database Statistics Tab -->
+                        <TabItem x:Name="GuideTarget_StatsTab" Header="Stats">
+                            <DockPanel>
+                                <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
+                                    <Button Command="{Binding DataContext.LoadDatabaseStatisticsCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                            ToolTip="Refresh database statistics" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE72C;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
+                                                       Foreground="{DynamicResource AccentBrush}"/>
+                                            <TextBlock Text="Refresh" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Separator/>
+                                    <TextBlock Text="{Binding StatisticsStatusText}" VerticalAlignment="Center" Margin="4,0"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12"/>
+                                </ToolBar>
+                                
+                                <!-- Loading Indicator -->
+                                <Border DockPanel.Dock="Top" Padding="8,6"
+                                        Visibility="{Binding IsLoadingStatistics, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ProgressBar IsIndeterminate="True" Height="4" Width="120" Margin="0,0,8,0"/>
+                                        <TextBlock Text="Loading statistics..." FontSize="12" 
+                                                   Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                    </StackPanel>
+                                </Border>
+                                
+                                <ScrollViewer VerticalScrollBarVisibility="Auto" Background="{DynamicResource EditorBackgroundBrush}">
+                                    <Grid>
+                                        <!-- Empty state: no statistics loaded yet -->
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                    Visibility="{Binding HasStatistics, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                            <TextBlock Text="📊" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                                            <TextBlock Text="No statistics loaded" FontSize="16" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="Click Refresh to load database statistics" FontSize="12" 
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" HorizontalAlignment="Center" Margin="0,8,0,0"/>
+                                            <TextBlock Text="{Binding StatisticsStatusText}" FontSize="12" Margin="0,12,0,0"
+                                                       Foreground="#FF6B6B" HorizontalAlignment="Center" TextWrapping="Wrap" MaxWidth="400"
+                                                       Visibility="{Binding StatisticsStatusText, Converter={StaticResource NullToCollapsedConverter}}"/>
+                                        </StackPanel>
+                                    
+                                        <!-- Has Statistics -->
+                                        <StackPanel Margin="16" Visibility="{Binding HasStatistics, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <!-- Summary Cards -->
+                                        <Grid Margin="0,0,0,16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="16"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Border Grid.Column="0" Background="{DynamicResource TertiaryBackgroundBrush}" CornerRadius="8" Padding="16">
+                                                <StackPanel>
+                                                    <TextBlock Text="Total Vertices" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                                    <TextBlock Text="{Binding TotalVertexCount, StringFormat=N0}" FontSize="28" FontWeight="Bold" 
+                                                               Foreground="{DynamicResource AccentBrush}" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border Grid.Column="2" Background="{DynamicResource TertiaryBackgroundBrush}" CornerRadius="8" Padding="16">
+                                                <StackPanel>
+                                                    <TextBlock Text="Total Edges" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                                    <TextBlock Text="{Binding TotalEdgeCount, StringFormat=N0}" FontSize="28" FontWeight="Bold" 
+                                                               Foreground="#4EC9B0" Margin="0,4,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                        
+                                        <!-- Vertex Labels -->
+                                        <TextBlock Text="Vertex Labels" FontSize="14" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                                        <DataGrid ItemsSource="{Binding VertexLabelCounts}"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  CanUserAddRows="False"
+                                                  CanUserDeleteRows="False"
+                                                  GridLinesVisibility="Horizontal"
+                                                  RowBackground="{DynamicResource PrimaryBackgroundBrush}"
+                                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                  AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
+                                                  Background="{DynamicResource EditorBackgroundBrush}"
+                                                  BorderBrush="{DynamicResource BorderBrush}"
+                                                  HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                                                  ColumnHeaderStyle="{StaticResource DataGridColumnHeaderStyle}"
+                                                  FontFamily="Consolas"
+                                                  FontSize="12"
+                                                  MaxHeight="250"
+                                                  Margin="0,0,0,16">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="*"/>
+                                                <DataGridTextColumn Header="Count" Binding="{Binding Count, StringFormat=N0}" Width="120">
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                        
+                                        <!-- Edge Labels -->
+                                        <TextBlock Text="Edge Labels" FontSize="14" FontWeight="SemiBold" 
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                                        <DataGrid ItemsSource="{Binding EdgeLabelCounts}"
+                                                  AutoGenerateColumns="False"
+                                                  IsReadOnly="True"
+                                                  CanUserAddRows="False"
+                                                  CanUserDeleteRows="False"
+                                                  GridLinesVisibility="Horizontal"
+                                                  RowBackground="{DynamicResource PrimaryBackgroundBrush}"
+                                                  Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                  AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
+                                                  Background="{DynamicResource EditorBackgroundBrush}"
+                                                  BorderBrush="{DynamicResource BorderBrush}"
+                                                  HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                                                  ColumnHeaderStyle="{StaticResource DataGridColumnHeaderStyle}"
+                                                  FontFamily="Consolas"
+                                                  FontSize="12"
+                                                  MaxHeight="250">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Label" Binding="{Binding Label}" Width="*"/>
+                                                <DataGridTextColumn Header="Count" Binding="{Binding Count, StringFormat=N0}" Width="120">
+                                                    <DataGridTextColumn.ElementStyle>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="HorizontalAlignment" Value="Right"/>
+                                                            <Setter Property="FontWeight" Value="SemiBold"/>
+                                                        </Style>
+                                                    </DataGridTextColumn.ElementStyle>
+                                                </DataGridTextColumn>
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                    </Grid>
+                                </ScrollViewer>
                             </DockPanel>
                         </TabItem>
                     </TabControl>

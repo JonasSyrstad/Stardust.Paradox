@@ -24,6 +24,8 @@ public enum GuideNavigationAction
     SwitchToGraphTab,
     SwitchToExportTab,
     SwitchToLogTab,
+    SwitchToExplainTab,
+    SwitchToStatsTab,
     ShowKeyboardShortcutsDialog
 }
 

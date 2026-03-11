@@ -1036,15 +1036,23 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
         /// </summary>
         private void HandleChainedMethod(TinkerGraphStep step, string methodString)
         {
-            var match = Regex.Match(methodString, @"^([a-zA-Z_][a-zA-Z0-9_]*)\s*(\([^)]*\))?");
-            if (!match.Success)
+            // Extract method name
+            var nameMatch = Regex.Match(methodString, @"^([a-zA-Z_][a-zA-Z0-9_]*)");
+            if (!nameMatch.Success)
                 return;
 
-            var methodName = match.Groups[1].Value;
+            var methodName = nameMatch.Groups[1].Value;
 
-            if (methodName.Equals("as", StringComparison.OrdinalIgnoreCase) && match.Groups[2].Success)
+            // Extract arguments using balanced parentheses (handles nested calls like label())
+            string argsString = null;
+            var parenStart = methodString.IndexOf('(');
+            if (parenStart >= 0)
             {
-                var argsString = match.Groups[2].Value.Trim('(', ')');
+                argsString = ExtractBalancedParenthesesContent(methodString, parenStart);
+            }
+
+            if (methodName.Equals("as", StringComparison.OrdinalIgnoreCase) && argsString != null)
+            {
                 var labels = ParseArguments(argsString);
                 foreach (var label in labels)
                 {
@@ -1054,10 +1062,9 @@ namespace Stardust.Paradox.Data.InMemory.ExecutionEngine
                     }
                 }
             }
-            else if (methodName.Equals("by", StringComparison.OrdinalIgnoreCase) && match.Groups[2].Success)
+            else if (methodName.Equals("by", StringComparison.OrdinalIgnoreCase) && argsString != null)
             {
                 // Handle .by() modulator for grouping operations
-                var argsString = match.Groups[2].Value.Trim('(', ')');
                 var byArgs = ParseArguments(argsString);
                 if (byArgs.Any())
                 {

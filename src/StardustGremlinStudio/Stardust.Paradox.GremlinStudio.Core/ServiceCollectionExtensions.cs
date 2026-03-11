@@ -5,6 +5,8 @@ using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Core.Snippets;
+using Stardust.Paradox.GremlinStudio.Core.Variables;
 using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 
 namespace Stardust.Paradox.GremlinStudio.Core;
@@ -52,6 +54,10 @@ public static class ServiceCollectionExtensions
 
         // Welcome guide
         services.AddSingleton<IWelcomeGuideService, FileWelcomeGuideService>();
+
+        // Snippets and variables
+        services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();
+        services.AddSingleton<IQueryVariableStore, FileQueryVariableStore>();
 
         return services;
     }
