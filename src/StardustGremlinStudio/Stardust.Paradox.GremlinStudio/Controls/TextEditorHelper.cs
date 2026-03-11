@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -50,6 +52,14 @@ public static class TextEditorHelper
         DependencyProperty.RegisterAttached(
             "TooltipProvider",
             typeof(GremlinTooltipProvider),
+            typeof(TextEditorHelper),
+            new PropertyMetadata(null));
+
+
+    private static readonly DependencyProperty FindReplacePanelProperty =
+        DependencyProperty.RegisterAttached(
+            "FindReplacePanel",
+            typeof(FindReplacePanel),
             typeof(TextEditorHelper),
             new PropertyMetadata(null));
 
@@ -167,6 +177,9 @@ public static class TextEditorHelper
             // Validate on text change
             editor.TextChanged -= Editor_ValidateOnChange;
             editor.TextChanged += Editor_ValidateOnChange;
+
+            // Bind Ctrl+F and Ctrl+H to custom FindReplacePanel
+            editor.PreviewKeyDown += Editor_OpenFindReplace;
         }
         else
         {
@@ -175,6 +188,7 @@ public static class TextEditorHelper
             editor.TextArea.TextEntered -= TextArea_TextEntered;
             editor.TextArea.KeyDown -= TextArea_KeyDown;
             editor.TextChanged -= Editor_ValidateOnChange;
+            editor.PreviewKeyDown -= Editor_OpenFindReplace;
 
             // Uninstall hover tooltip provider
             if (editor.GetValue(TooltipProviderProperty) is GremlinTooltipProvider provider)
@@ -182,6 +196,64 @@ public static class TextEditorHelper
                 provider.Uninstall();
                 editor.SetValue(TooltipProviderProperty, null);
             }
+        }
+    }
+
+    private static FindReplacePanel GetOrCreateFindReplacePanel(TextEditor editor)
+    {
+        if (editor.GetValue(FindReplacePanelProperty) is FindReplacePanel existing)
+        {
+            return existing;
+        }
+
+        var panel = new FindReplacePanel();
+        editor.SetValue(FindReplacePanelProperty, panel);
+
+        // Use an adorner to overlay the panel on the editor.
+        // This avoids re-parenting the editor which can break
+        // DataTemplate bindings and content presenters.
+        editor.Loaded += (_, _) =>
+        {
+            var layer = AdornerLayer.GetAdornerLayer(editor);
+            if (layer is not null && !panel.IsLoaded)
+            {
+                var adorner = new FindReplacePanelAdorner(editor, panel);
+                layer.Add(adorner);
+            }
+        };
+
+        // If the editor is already loaded, install immediately
+        if (editor.IsLoaded)
+        {
+            var layer = AdornerLayer.GetAdornerLayer(editor);
+            if (layer is not null)
+            {
+                var adorner = new FindReplacePanelAdorner(editor, panel);
+                layer.Add(adorner);
+            }
+        }
+
+        return panel;
+    }
+
+    private static void Editor_OpenFindReplace(object sender, KeyEventArgs e)
+    {
+        if (sender is not TextEditor editor)
+        {
+            return;
+        }
+
+        if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            var panel = GetOrCreateFindReplacePanel(editor);
+            panel.ShowFind(editor);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.H && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            var panel = GetOrCreateFindReplacePanel(editor);
+            panel.ShowReplace(editor);
+            e.Handled = true;
         }
     }
 
@@ -326,6 +398,84 @@ public static class TextEditorHelper
             "gremlin" => GremlinSyntaxHighlighting.Definition,
             _ => null
         };
+    }
+}
+
+/// <summary>
+/// Adorner wrapper for hosting a FindReplacePanel over the TextEditor.
+/// Supports dragging by exposing an offset that the panel can update.
+/// </summary>
+internal sealed class FindReplacePanelAdorner : Adorner
+{
+    private readonly FindReplacePanel _panel;
+    private Point _offset;
+    private bool _hasUserPosition;
+
+    public FindReplacePanelAdorner(UIElement adornedElement, FindReplacePanel panel)
+        : base(adornedElement)
+    {
+        _panel = panel;
+        _panel.SetAdorner(this);
+        AddVisualChild(_panel);
+        AddLogicalChild(_panel);
+    }
+
+    protected override int VisualChildrenCount => 1;
+
+    protected override Visual GetVisualChild(int index) => _panel;
+
+    protected override Size MeasureOverride(Size constraint)
+    {
+        _panel.Measure(constraint);
+        // Return the full adorned element size so we cover the editor
+        return AdornedElement.RenderSize;
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var panelSize = _panel.DesiredSize;
+
+        if (!_hasUserPosition)
+        {
+            // Default: top-right corner of the editor
+            _offset = new Point(
+                Math.Max(0, finalSize.Width - panelSize.Width - 12),
+                4);
+        }
+
+        _panel.Arrange(new Rect(_offset, panelSize));
+        return finalSize;
+    }
+
+    /// <summary>
+    /// Moves the panel by a delta and triggers re-arrange.
+    /// </summary>
+    public void MoveByDelta(double dx, double dy)
+    {
+        var editorSize = AdornedElement.RenderSize;
+        var panelSize = _panel.DesiredSize;
+
+        var newX = Math.Max(0, Math.Min(_offset.X + dx, editorSize.Width - panelSize.Width));
+        var newY = Math.Max(0, Math.Min(_offset.Y + dy, editorSize.Height - panelSize.Height));
+
+        _offset = new Point(newX, newY);
+        _hasUserPosition = true;
+        InvalidateArrange();
+    }
+
+    /// <summary>
+    /// Resets position to top-right on next arrange.
+    /// </summary>
+    public void ResetPosition()
+    {
+        _hasUserPosition = false;
+        InvalidateArrange();
+    }
+
+    protected override HitTestResult? HitTestCore(PointHitTestParameters hitTestParameters)
+    {
+        // Only hit-test the panel itself; let everything else pass through to the editor
+        return null;
     }
 }
 

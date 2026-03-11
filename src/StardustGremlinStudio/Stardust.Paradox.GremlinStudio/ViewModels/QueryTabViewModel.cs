@@ -280,8 +280,45 @@ public partial class QueryTabViewModel : ObservableObject
     [ObservableProperty]
     private string _lastRequestUnitsText = string.Empty;
 
+    /// <summary>
+    /// Result count text from the last query execution.
+    /// </summary>
+    [ObservableProperty]
+    private string _lastResultCountText = string.Empty;
+
     [ObservableProperty]
     private bool _isExecuting;
+
+    /// <summary>
+    /// Font size for the query editor. Adjustable via Ctrl+Scroll.
+    /// </summary>
+    [ObservableProperty]
+    private double _editorFontSize = 13.0;
+
+    private const double MinEditorFontSize = 8.0;
+    private const double MaxEditorFontSize = 40.0;
+
+    /// <summary>
+    /// Increases the editor font size.
+    /// </summary>
+    public void ZoomEditorIn()
+    {
+        if (EditorFontSize < MaxEditorFontSize)
+        {
+            EditorFontSize = Math.Min(EditorFontSize + 1, MaxEditorFontSize);
+        }
+    }
+
+    /// <summary>
+    /// Decreases the editor font size.
+    /// </summary>
+    public void ZoomEditorOut()
+    {
+        if (EditorFontSize > MinEditorFontSize)
+        {
+            EditorFontSize = Math.Max(EditorFontSize - 1, MinEditorFontSize);
+        }
+    }
 
     #endregion
 
@@ -493,6 +530,45 @@ public partial class QueryTabViewModel : ObservableObject
 
     #endregion
 
+    #region Execution Log
+
+    /// <summary>
+    /// Session-scoped execution log for this tab. Not persisted.
+    /// </summary>
+    public ObservableCollection<ExecutionLogEntry> ExecutionLog { get; } = new();
+
+    /// <summary>
+    /// The currently selected log entry (for detail display).
+    /// </summary>
+    [ObservableProperty]
+    private ExecutionLogEntry? _selectedLogEntry;
+
+    /// <summary>
+    /// Clears all log entries for this tab.
+    /// </summary>
+    [RelayCommand]
+    private void ClearExecutionLog() => ExecutionLog.Clear();
+
+    #endregion
+
+    #region Query File
+
+    /// <summary>
+    /// The file path this tab was opened from or last saved to.
+    /// </summary>
+    [ObservableProperty]
+    private string? _queryFilePath;
+
+    partial void OnQueryFilePathChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            TabName = System.IO.Path.GetFileName(value);
+        }
+    }
+
+    #endregion
+
     #region Commands
 
     [RelayCommand(CanExecute = nameof(CanRunQuery))]
@@ -511,6 +587,7 @@ public partial class QueryTabViewModel : ObservableObject
             return;
         }
 
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             IsExecuting = true;
@@ -536,15 +613,21 @@ public partial class QueryTabViewModel : ObservableObject
                 queryToExecute,
                 cancellationToken: _queryCts.Token).ConfigureAwait(true);
 
+            stopwatch.Stop();
+
             LastDurationText = $"Query: {result.Duration.TotalMilliseconds:F0}ms";
 
             LastRequestUnitsText = result.RequestUnits.HasValue
                 ? $"RU: {result.RequestUnits.Value:F2}"
                 : string.Empty;
 
+            // Record execution in session log
+            ExecutionLog.Insert(0, ExecutionLogEntry.FromResult(result));
+
             if (result.IsSuccess)
             {
                 ResultJson = result.ResultJson ?? "No results";
+                LastResultCountText = $"Results: {result.ResultCount}";
                 StatusText = $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
 
                 _queryHistoryService.AddQuery(QueryText, ConnectionMetadata?.Id);
@@ -554,6 +637,7 @@ public partial class QueryTabViewModel : ObservableObject
             else
             {
                 ResultJson = result.ErrorMessage ?? "Unknown error";
+                LastResultCountText = string.Empty;
                 StatusText = "Query error";
             }
 
@@ -570,17 +654,23 @@ public partial class QueryTabViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            stopwatch.Stop();
+            ExecutionLog.Insert(0, ExecutionLogEntry.Cancelled(QueryText, stopwatch.Elapsed));
             StatusText = "Query cancelled";
             LastRequestUnitsText = string.Empty;
+            LastResultCountText = string.Empty;
             ResultJson = "Query was cancelled";
             ClearResultViews();
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            ExecutionLog.Insert(0, ExecutionLogEntry.Error(QueryText, stopwatch.Elapsed, ex.Message));
             _logger.LogError(ex, "Failed to execute query");
             StatusText = "Query error";
             _updateMainStatus(StatusText);
             LastRequestUnitsText = string.Empty;
+            LastResultCountText = string.Empty;
             ResultJson = ex.ToString();
             ClearResultViews();
         }

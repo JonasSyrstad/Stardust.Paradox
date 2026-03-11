@@ -274,6 +274,33 @@ public sealed class FileWelcomeGuideService : IWelcomeGuideService
                 "GuideTarget_ExportTab",
                 GuideNavigationAction.SwitchToExportTab,
                 BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "query-file-open-save",
+                "Open & Save Queries",
+                "Save queries to .gremlin files (Ctrl+S) and open them later (Ctrl+O). Use Ctrl+Shift+S to Save As. Files are loaded into a new tab or the current empty tab.",
+                "1.5.0",
+                "GuideTarget_OpenQueryButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "execution-log",
+                "Execution Log",
+                "The Log tab records every query you run during this session. See the query text, execution time, result count, RU cost, and any errors at a glance. Use Clear Log to reset.",
+                "1.5.0",
+                "GuideTarget_LogTab",
+                GuideNavigationAction.SwitchToLogTab,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "find-replace",
+                "Find & Replace",
+                "Press Ctrl+F to find text in the query editor, or Ctrl+H to open find and replace. The panel is draggable and supports wrap-around search.",
+                "1.5.0",
+                "GuideTarget_RunButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
         ];
     }
 }

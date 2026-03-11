@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Data;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -335,6 +336,54 @@ public partial class MainWindow : Window
         tab.UpdateColumnDisplayOrder(columnOrder);
     }
 
+    private void CopyCell_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+
+        var currentCell = dataGrid.CurrentCell;
+        if (currentCell.Column == null || currentCell.Item is not DataRowView rowView) return;
+
+        var columnName = currentCell.Column.SortMemberPath;
+        if (!string.IsNullOrEmpty(columnName) && rowView.Row.Table.Columns.Contains(columnName))
+        {
+            Clipboard.SetText(rowView[columnName]?.ToString() ?? string.Empty);
+        }
+    }
+
+    private void CopyRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+
+        if (dataGrid.CurrentItem is not DataRowView rowView) return;
+
+        var values = rowView.Row.ItemArray;
+        var text = string.Join("\t", values.Select(v => v?.ToString() ?? string.Empty));
+        Clipboard.SetText(text);
+    }
+
+    private void QueryEditor_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+
+        var tab = _viewModel.SelectedTab;
+        if (tab == null) return;
+
+        if (e.Delta > 0)
+        {
+            tab.ZoomEditorIn();
+        }
+        else
+        {
+            tab.ZoomEditorOut();
+        }
+
+        e.Handled = true;
+    }
+
     private GridLength _lastLeftPanelWidth = new(280);
 
     private void CollapseButton_Click(object sender, RoutedEventArgs e)
@@ -633,6 +682,10 @@ public partial class MainWindow : Window
 
             case GuideNavigationAction.SwitchToExportTab:
                 SwitchResultTab(4);
+                break;
+
+            case GuideNavigationAction.SwitchToLogTab:
+                SwitchResultTab(5);
                 break;
 
             case GuideNavigationAction.ShowKeyboardShortcutsDialog:

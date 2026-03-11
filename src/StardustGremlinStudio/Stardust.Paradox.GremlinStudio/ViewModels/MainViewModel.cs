@@ -686,6 +686,47 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task ImportConnectionsAsync()
+    {
+        try
+        {
+            var dialog = new OpenFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+                DefaultExt = ".json",
+                Title = "Import Connections"
+            };
+
+            if (dialog.ShowDialog() != true)
+            {
+                return;
+            }
+
+            var imported = await _connectionExporter.ImportAsync(dialog.FileName).ConfigureAwait(true);
+
+            if (imported.Count == 0)
+            {
+                StatusText = "No connections found in file";
+                return;
+            }
+
+            foreach (var metadata in imported)
+            {
+                var settings = new GremlinConnectionSettings(metadata, string.Empty);
+                await _connectionStore.SaveConnectionAsync(settings).ConfigureAwait(true);
+            }
+
+            await LoadConnectionsAsync().ConfigureAwait(true);
+            StatusText = $"Imported {imported.Count} connection(s)";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to import connections");
+            StatusText = $"Import error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
     private void StartPlayground()
     {
         try
@@ -841,6 +882,103 @@ public partial class MainViewModel : ObservableObject
         SelectedTab?.CancelCommand.Execute(null);
         StatusText = "Cancelling...";
     }
+
+    #region Query File Save/Open
+
+    [RelayCommand]
+    private async Task SaveQueryAsync()
+    {
+        if (SelectedTab == null) return;
+
+        // If already has a file path, save directly
+        if (!string.IsNullOrEmpty(SelectedTab.QueryFilePath))
+        {
+            await SaveQueryToFileAsync(SelectedTab.QueryFilePath).ConfigureAwait(true);
+            return;
+        }
+
+        // Otherwise show Save As dialog
+        await SaveQueryAsAsync().ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private async Task SaveQueryAsAsync()
+    {
+        if (SelectedTab == null) return;
+
+        var dialog = new SaveFileDialog
+        {
+            Title = "Save Query",
+            Filter = "Gremlin files (*.gremlin)|*.gremlin|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ".gremlin",
+            FileName = string.IsNullOrEmpty(SelectedTab.QueryFilePath)
+                ? "query.gremlin"
+                : System.IO.Path.GetFileName(SelectedTab.QueryFilePath)
+        };
+
+        if (dialog.ShowDialog() == true)
+        {
+            await SaveQueryToFileAsync(dialog.FileName).ConfigureAwait(true);
+        }
+    }
+
+    private async Task SaveQueryToFileAsync(string filePath)
+    {
+        try
+        {
+            await File.WriteAllTextAsync(filePath, SelectedTab!.QueryText).ConfigureAwait(true);
+            SelectedTab.QueryFilePath = filePath;
+            SelectedTab.IsDirty = false;
+            StatusText = $"Saved: {System.IO.Path.GetFileName(filePath)}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save query file");
+            StatusText = $"Save error: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenQueryAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Open Query",
+            Filter = "Gremlin files (*.gremlin)|*.gremlin|Text files (*.txt)|*.txt|All files (*.*)|*.*",
+            DefaultExt = ".gremlin"
+        };
+
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            var content = await File.ReadAllTextAsync(dialog.FileName).ConfigureAwait(true);
+
+            // Open in current tab if it's empty/default, otherwise create new tab
+            if (SelectedTab != null && !SelectedTab.IsDirty && SelectedTab.QueryText == "g.V().limit(10)")
+            {
+                SelectedTab.QueryText = content;
+                SelectedTab.QueryFilePath = dialog.FileName;
+                SelectedTab.IsDirty = false;
+            }
+            else
+            {
+                var tab = CreateNewTab(SelectedTab?.ConnectionSettings);
+                tab.QueryText = content;
+                tab.QueryFilePath = dialog.FileName;
+                tab.IsDirty = false;
+            }
+
+            StatusText = $"Opened: {System.IO.Path.GetFileName(dialog.FileName)}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to open query file");
+            StatusText = $"Open error: {ex.Message}";
+        }
+    }
+
+    #endregion
 
 
     [RelayCommand]

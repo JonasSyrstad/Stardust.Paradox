@@ -30,6 +30,9 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         <KeyBinding Key="Escape" Command="{Binding CancelCommand}" />
         <KeyBinding Key="F1" Command="{Binding ShowKeyboardShortcutsCommand}" />
         <KeyBinding Key="B" Modifiers="Ctrl" Command="{Binding ToggleSettingsPanelCommand}" />
+        <KeyBinding Key="S" Modifiers="Ctrl" Command="{Binding SaveQueryCommand}" />
+        <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveQueryAsCommand}" />
+        <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding OpenQueryCommand}" />
     </Window.InputBindings>
     
 <Window.Resources>
@@ -44,6 +47,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:EqualityConverter x:Key="EqualityConverter"/>
 <converters:ExportFormatToSyntaxModeConverter x:Key="ExportFormatToSyntaxModeConverter"/>
 <converters:ProgressToWidthConverter x:Key="ProgressToWidthConverter"/>
+<converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
 
 
 
@@ -629,6 +633,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         <Button Content="Delete" Command="{Binding DeleteConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="50" Margin="4,0,0,0" 
                                 ToolTip="Delete selected connection"/>
                         <Button Content="Export" Command="{Binding ExportConnectionsCommand}" Style="{StaticResource CompactButtonStyle}" Width="52" Margin="4,0,0,0" />
+                        <Button Content="Import" Command="{Binding ImportConnectionsCommand}" Style="{StaticResource CompactButtonStyle}" Width="52" Margin="4,0,0,0" 
+                                ToolTip="Import connections from JSON file"/>
                     </StackPanel>
 
                     <Grid Margin="0,10,0,0">
@@ -815,6 +821,21 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </StackPanel>
                     </Button>
                     <Separator />
+                    <Button x:Name="GuideTarget_OpenQueryButton" Command="{Binding DataContext.OpenQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Open Query (Ctrl+O)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE8E5;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Open" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DataContext.SaveQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Save Query (Ctrl+S)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Save" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Separator />
 
                     <!-- Query History Dropdown -->
                     <TextBlock x:Name="GuideTarget_HistoryDropdown" Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
@@ -888,6 +909,10 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <TextBlock Text="{Binding ConnectionDisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
                                Foreground="{DynamicResource AccentBrush}"/>
                     <Separator/>
+                    <TextBlock Text="{Binding LastResultCountText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
+                               Foreground="{DynamicResource AccentBrush}"
+                               Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"/>
+                    <Separator Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"/>
                     <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0" 
                                Foreground="{DynamicResource PrimaryForegroundBrush}"/>
@@ -898,12 +923,13 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <avalonedit:TextEditor
                         x:Name="QueryEditor"
                         FontFamily="Consolas"
-                        FontSize="13"
+                        FontSize="{Binding EditorFontSize}"
                         ShowLineNumbers="True"
                         Background="{DynamicResource EditorBackgroundBrush}"
                         Foreground="{DynamicResource EditorForegroundBrush}"
                         controls:TextEditorHelper.BoundText="{Binding QueryText, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                        controls:TextEditorHelper.EnableGremlinFeatures="True" />
+                        controls:TextEditorHelper.EnableGremlinFeatures="True"
+                        PreviewMouseWheel="QueryEditor_PreviewMouseWheel" />
                 </GroupBox>
 
                 <!-- Results Splitter -->
@@ -970,6 +996,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     CanUserAddRows="False"
                                     CanUserDeleteRows="False"
                                     GridLinesVisibility="All"
+                                    SelectionUnit="CellOrRowHeader"
+                                    ClipboardCopyMode="ExcludeHeader"
                                     RowBackground="{DynamicResource PrimaryBackgroundBrush}"
                                     Foreground="{DynamicResource PrimaryForegroundBrush}"
                                     AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
@@ -981,7 +1009,14 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     FontFamily="Consolas"
                                     FontSize="11"
                                     VerticalScrollBarVisibility="Auto"
-                                    HorizontalScrollBarVisibility="Auto"/>
+                                    HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy Cell" Click="CopyCell_Click" InputGestureText="Ctrl+C"/>
+                                            <MenuItem Header="Copy Row" Click="CopyRow_Click"/>
+                                        </ContextMenu>
+                                    </DataGrid.ContextMenu>
+                                </DataGrid>
                             </DockPanel>
                         </TabItem>
                         
@@ -1733,6 +1768,79 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     </Border>
                                 </Grid>
                             </Grid>
+                        </TabItem>
+                        
+                        <!-- Execution Log Tab -->
+                        <TabItem x:Name="GuideTarget_LogTab" Header="Log">
+                            <DockPanel>
+                                <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
+                                    <Button Command="{Binding ClearExecutionLogCommand}" 
+                                            ToolTip="Clear execution log" Padding="8,4">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
+                                                       Foreground="#FF6B6B"/>
+                                            <TextBlock Text="Clear Log" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Separator/>
+                                    <TextBlock Text="{Binding ExecutionLog.Count, StringFormat='{}{0} entries'}" 
+                                               VerticalAlignment="Center" Margin="4,0"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12"/>
+                                </ToolBar>
+                                <DataGrid ItemsSource="{Binding ExecutionLog}"
+                                          SelectedItem="{Binding SelectedLogEntry}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          GridLinesVisibility="Horizontal"
+                                          SelectionUnit="FullRow"
+                                          SelectionMode="Single"
+                                          RowBackground="{DynamicResource PrimaryBackgroundBrush}"
+                                          Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                          AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
+                                          Background="{DynamicResource EditorBackgroundBrush}"
+                                          BorderBrush="{DynamicResource BorderBrush}"
+                                          HorizontalGridLinesBrush="{DynamicResource BorderBrush}"
+                                          ColumnHeaderStyle="{StaticResource DataGridColumnHeaderStyle}"
+                                          FontFamily="Consolas"
+                                          FontSize="11"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="" Width="24" CanUserResize="False">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Ellipse Width="10" Height="10" 
+                                                             Fill="{Binding IsSuccess, Converter={StaticResource BoolToStatusColorConverter}}"
+                                                             HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Time" Binding="{Binding Timestamp, StringFormat=HH:mm:ss}" Width="70"/>
+                                        <DataGridTextColumn Header="Query" Binding="{Binding Query}" Width="*">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                    <Setter Property="ToolTip" Value="{Binding Query}"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                        <DataGridTextColumn Header="Duration" Binding="{Binding Duration.TotalMilliseconds, StringFormat='{}{0:F0}ms'}" Width="75"/>
+                                        <DataGridTextColumn Header="Results" Binding="{Binding ResultCount}" Width="60"/>
+                                        <DataGridTextColumn Header="RU" Binding="{Binding RequestUnits, StringFormat='{}{0:F2}'}" Width="65"/>
+                                        <DataGridTextColumn Header="Error" Binding="{Binding ErrorMessage}" Width="200">
+                                            <DataGridTextColumn.ElementStyle>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#FF6B6B"/>
+                                                    <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                    <Setter Property="ToolTip" Value="{Binding ErrorMessage}"/>
+                                                </Style>
+                                            </DataGridTextColumn.ElementStyle>
+                                        </DataGridTextColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </DockPanel>
                         </TabItem>
                     </TabControl>
                 </GroupBox>
