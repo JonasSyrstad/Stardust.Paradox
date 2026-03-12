@@ -1684,6 +1684,28 @@ public partial class MainViewModel : ObservableObject
 
     #endregion
 
+    #region Undo / Redo
+
+    /// <summary>
+    /// Undoes the last edit in the active query editor.
+    /// </summary>
+    [RelayCommand]
+    private void UndoQuery()
+    {
+        Controls.TextEditorHelper.Undo();
+    }
+
+    /// <summary>
+    /// Redoes the last undone edit in the active query editor.
+    /// </summary>
+    [RelayCommand]
+    private void RedoQuery()
+    {
+        Controls.TextEditorHelper.Redo();
+    }
+
+    #endregion
+
     #region Query Formatting
 
     /// <summary>

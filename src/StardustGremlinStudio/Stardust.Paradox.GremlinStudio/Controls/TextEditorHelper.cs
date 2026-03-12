@@ -17,6 +17,11 @@ namespace Stardust.Paradox.GremlinStudio.Controls;
 /// </summary>
 public static class TextEditorHelper
 {
+    /// <summary>
+    /// Tracks the most recently focused Gremlin-enabled editor so that toolbar
+    /// Undo/Redo buttons can invoke operations even when the editor loses focus.
+    /// </summary>
+    private static TextEditor? _activeGremlinEditor;
     public static readonly DependencyProperty BoundTextProperty =
         DependencyProperty.RegisterAttached(
             "BoundText",
@@ -70,6 +75,20 @@ public static class TextEditorHelper
             typeof(TextEditorHelper),
             new PropertyMetadata(null, OnSyntaxModeChanged));
 
+    public static readonly DependencyProperty EnableEpochTooltipsProperty =
+        DependencyProperty.RegisterAttached(
+            "EnableEpochTooltips",
+            typeof(bool),
+            typeof(TextEditorHelper),
+            new PropertyMetadata(false, OnEnableEpochTooltipsChanged));
+
+    private static readonly DependencyProperty EpochTooltipProviderProperty =
+        DependencyProperty.RegisterAttached(
+            "EpochTooltipProvider",
+            typeof(EpochTooltipProvider),
+            typeof(TextEditorHelper),
+            new PropertyMetadata(null));
+
     public static string GetBoundText(DependencyObject obj) => (string)obj.GetValue(BoundTextProperty);
     public static void SetBoundText(DependencyObject obj, string value) => obj.SetValue(BoundTextProperty, value);
 
@@ -79,11 +98,46 @@ public static class TextEditorHelper
     public static string GetSyntaxMode(DependencyObject obj) => (string)obj.GetValue(SyntaxModeProperty);
     public static void SetSyntaxMode(DependencyObject obj, string value) => obj.SetValue(SyntaxModeProperty, value);
 
+    public static bool GetEnableEpochTooltips(DependencyObject obj) => (bool)obj.GetValue(EnableEpochTooltipsProperty);
+    public static void SetEnableEpochTooltips(DependencyObject obj, bool value) => obj.SetValue(EnableEpochTooltipsProperty, value);
+
     private static bool GetIsUpdating(DependencyObject obj) => (bool)obj.GetValue(IsUpdatingProperty);
     private static void SetIsUpdating(DependencyObject obj, bool value) => obj.SetValue(IsUpdatingProperty, value);
 
     private static CompletionWindow? GetCompletionWindow(DependencyObject obj) => (CompletionWindow?)obj.GetValue(CompletionWindowProperty);
     private static void SetCompletionWindow(DependencyObject obj, CompletionWindow? value) => obj.SetValue(CompletionWindowProperty, value);
+
+    /// <summary>
+    /// Gets whether the active Gremlin editor can undo.
+    /// </summary>
+    public static bool CanUndo => _activeGremlinEditor?.CanUndo == true;
+
+    /// <summary>
+    /// Gets whether the active Gremlin editor can redo.
+    /// </summary>
+    public static bool CanRedo => _activeGremlinEditor?.CanRedo == true;
+
+    /// <summary>
+    /// Performs an undo operation on the active Gremlin editor.
+    /// </summary>
+    public static void Undo()
+    {
+        if (_activeGremlinEditor?.CanUndo == true)
+        {
+            _activeGremlinEditor.Undo();
+        }
+    }
+
+    /// <summary>
+    /// Performs a redo operation on the active Gremlin editor.
+    /// </summary>
+    public static void Redo()
+    {
+        if (_activeGremlinEditor?.CanRedo == true)
+        {
+            _activeGremlinEditor.Redo();
+        }
+    }
 
     private static void OnBoundTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -146,6 +200,10 @@ public static class TextEditorHelper
 
         if ((bool)e.NewValue)
         {
+            // Track as active Gremlin editor
+            _activeGremlinEditor = editor;
+            editor.GotFocus += Editor_TrackActive;
+
             // Apply syntax highlighting
             editor.SyntaxHighlighting = GremlinSyntaxHighlighting.Definition;
 
@@ -183,6 +241,12 @@ public static class TextEditorHelper
         }
         else
         {
+            editor.GotFocus -= Editor_TrackActive;
+            if (_activeGremlinEditor == editor)
+            {
+                _activeGremlinEditor = null;
+            }
+
             editor.SyntaxHighlighting = null;
             editor.TextArea.TextEntering -= TextArea_TextEntering;
             editor.TextArea.TextEntered -= TextArea_TextEntered;
@@ -196,6 +260,14 @@ public static class TextEditorHelper
                 provider.Uninstall();
                 editor.SetValue(TooltipProviderProperty, null);
             }
+        }
+    }
+
+    private static void Editor_TrackActive(object sender, RoutedEventArgs e)
+    {
+        if (sender is TextEditor editor)
+        {
+            _activeGremlinEditor = editor;
         }
     }
 
@@ -398,6 +470,28 @@ public static class TextEditorHelper
             "gremlin" => GremlinSyntaxHighlighting.Definition,
             _ => null
         };
+    }
+
+    private static void OnEnableEpochTooltipsChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is not TextEditor editor)
+        {
+            return;
+        }
+
+        // Uninstall any existing provider
+        if (editor.GetValue(EpochTooltipProviderProperty) is EpochTooltipProvider oldProvider)
+        {
+            oldProvider.Uninstall();
+            editor.SetValue(EpochTooltipProviderProperty, null);
+        }
+
+        if ((bool)e.NewValue)
+        {
+            var provider = new EpochTooltipProvider(editor);
+            provider.Install();
+            editor.SetValue(EpochTooltipProviderProperty, provider);
+        }
     }
 }
 

@@ -36,6 +36,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         <KeyBinding Key="F" Modifiers="Ctrl+Shift" Command="{Binding FormatQueryCommand}" />
         <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding ExplainQueryCommand}" />
         <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding ResolveParametersCommand}" />
+        <KeyBinding Key="Z" Modifiers="Ctrl" Command="{Binding UndoQueryCommand}" />
+        <KeyBinding Key="Y" Modifiers="Ctrl" Command="{Binding RedoQueryCommand}" />
     </Window.InputBindings>
     
 <Window.Resources>
@@ -51,8 +53,34 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:ExportFormatToSyntaxModeConverter x:Key="ExportFormatToSyntaxModeConverter"/>
 <converters:ProgressToWidthConverter x:Key="ProgressToWidthConverter"/>
 <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
+<converters:EpochToDateTimeTooltipConverter x:Key="EpochToDateTimeTooltipConverter"/>
 
-
+<!-- Themed ToolTip Style -->
+<Style TargetType="ToolTip">
+    <Setter Property="Background" Value="{DynamicResource TertiaryBackgroundBrush}"/>
+    <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="Padding" Value="10,6"/>
+    <Setter Property="FontSize" Value="12"/>
+    <Setter Property="Template">
+        <Setter.Value>
+            <ControlTemplate TargetType="ToolTip">
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="4"
+                        Padding="{TemplateBinding Padding}"
+                        SnapsToDevicePixels="True">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.3" Color="Black"/>
+                    </Border.Effect>
+                    <ContentPresenter/>
+                </Border>
+            </ControlTemplate>
+        </Setter.Value>
+    </Setter>
+</Style>
 
 <!-- Modern Window Caption Button Style -->
 <Style x:Key="CaptionButtonStyle" TargetType="Button">
@@ -407,6 +435,80 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         <Setter.Value>
             <ControlTemplate TargetType="Separator">
                 <Border Background="{TemplateBinding Background}" Height="{TemplateBinding Height}" CornerRadius="1"/>
+            </ControlTemplate>
+        </Setter.Value>
+    </Setter>
+</Style>
+
+<!-- ToolBar style: theme-aware overflow button and popup -->
+<Style TargetType="ToolBar">
+    <Setter Property="Background" Value="{DynamicResource ToolBarBackgroundBrush}"/>
+    <Setter Property="Template">
+        <Setter.Value>
+            <ControlTemplate TargetType="ToolBar">
+                <Border Background="{TemplateBinding Background}" 
+                        BorderBrush="{DynamicResource BorderBrush}" 
+                        BorderThickness="0,0,0,1" 
+                        SnapsToDevicePixels="True">
+                    <DockPanel>
+                        <!-- Overflow toggle button -->
+                        <ToggleButton x:Name="OverflowButton" DockPanel.Dock="Right"
+                                      IsChecked="{Binding IsOverflowOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      ClickMode="Press"
+                                      IsEnabled="{Binding HasOverflowItems, RelativeSource={RelativeSource TemplatedParent}}"
+                                      Width="14" Cursor="Hand">
+                            <ToggleButton.Style>
+                                <Style TargetType="ToggleButton">
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ToggleButton">
+                                                <Border x:Name="Bd" Background="{TemplateBinding Background}" 
+                                                        SnapsToDevicePixels="True" CornerRadius="0,0,2,0">
+                                                    <TextBlock Text="⋯" FontWeight="Bold" FontSize="14"
+                                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsChecked" Value="True">
+                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ToggleButton.Style>
+                        </ToggleButton>
+                        <!-- Overflow popup -->
+                        <Popup x:Name="OverflowPopup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                               IsOpen="{Binding IsOverflowOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                               Focusable="False" PopupAnimation="Slide">
+                            <Border Background="{DynamicResource SecondaryBackgroundBrush}" 
+                                    BorderBrush="{DynamicResource BorderBrush}" 
+                                    BorderThickness="1" CornerRadius="4" Padding="4">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.3" Color="Black"/>
+                                </Border.Effect>
+                                <ToolBarOverflowPanel x:Name="PART_ToolBarOverflowPanel" 
+                                                       FocusVisualStyle="{x:Null}"
+                                                       Focusable="True" 
+                                                       WrapWidth="300"
+                                                       Margin="2"
+                                                       KeyboardNavigation.TabNavigation="Cycle"
+                                                       KeyboardNavigation.DirectionalNavigation="Cycle"/>
+                            </Border>
+                        </Popup>
+                        <!-- Main toolbar panel -->
+                        <ToolBarPanel x:Name="PART_ToolBarPanel" IsItemsHost="True" Margin="2"/>
+                    </DockPanel>
+                </Border>
             </ControlTemplate>
         </Setter.Value>
     </Setter>
@@ -857,13 +959,15 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                 <!-- Query Toolbar -->
                 <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
-                    <Button x:Name="GuideTarget_RunButton" Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4">
+                    <Button x:Name="GuideTarget_RunButton" Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4"
+                            ToolBar.OverflowMode="Never">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="▶" Foreground="#22CC22" FontWeight="Bold" Margin="0,0,6,0"/>
                             <TextBlock Text="Run (Ctrl+Enter)" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding DataContext.CancelCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Cancel Query (Esc)" Padding="8,4">
+                    <Button Command="{Binding DataContext.CancelCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Cancel Query (Esc)" Padding="8,4"
+                            ToolBar.OverflowMode="Never">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="■" Foreground="#FF4444" FontWeight="Bold" Margin="0,0,6,0"/>
                             <TextBlock Text="Cancel" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
@@ -882,6 +986,21 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <TextBlock Text="&#xE74E;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
                                        Foreground="{DynamicResource AccentBrush}"/>
                             <TextBlock Text="Save" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Separator />
+                    <Button Command="{Binding DataContext.UndoQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Undo (Ctrl+Z)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7A7;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Undo" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        </StackPanel>
+                    </Button>
+                    <Button Command="{Binding DataContext.RedoQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Redo (Ctrl+Y)" Padding="8,4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="&#xE7A6;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
+                                       Foreground="{DynamicResource AccentBrush}"/>
+                            <TextBlock Text="Redo" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
                     <Separator />
@@ -917,7 +1036,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                     <!-- Query History Dropdown -->
                     <TextBlock x:Name="GuideTarget_HistoryDropdown" Text="History:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                    <ComboBox Width="350" 
+                    <ComboBox Width="250" MinWidth="120" MaxWidth="350" 
                               ItemsSource="{Binding DataContext.QueryHistory, RelativeSource={RelativeSource AncestorType=Window}}" 
                               SelectedItem="{Binding DataContext.SelectedHistoryItem, RelativeSource={RelativeSource AncestorType=Window}}"
                               IsSynchronizedWithCurrentItem="False"
@@ -982,18 +1101,24 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         <TextBlock Text="✕" FontSize="12" Foreground="#FF6B6B" FontWeight="Bold"/>
                     </Button>
 
-                    <Separator />
-                    <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <Separator ToolBar.OverflowMode="AsNeeded"/>
+                    <TextBlock Text="Connection:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"
+                               ToolBar.OverflowMode="AsNeeded"/>
                     <TextBlock Text="{Binding ConnectionDisplayName}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
-                               Foreground="{DynamicResource AccentBrush}"/>
-                    <Separator/>
+                               Foreground="{DynamicResource AccentBrush}"
+                               ToolBar.OverflowMode="AsNeeded"/>
+                    <Separator ToolBar.OverflowMode="AsNeeded"/>
                     <TextBlock Text="{Binding LastResultCountText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0"
                                Foreground="{DynamicResource AccentBrush}"
-                               Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"/>
-                    <Separator Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"/>
-                    <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                               Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"
+                               ToolBar.OverflowMode="AsNeeded"/>
+                    <Separator Visibility="{Binding LastResultCountText, Converter={StaticResource NullToCollapsedConverter}}"
+                               ToolBar.OverflowMode="AsNeeded"/>
+                    <TextBlock Text="Status:" VerticalAlignment="Center" Margin="4,0" Foreground="{DynamicResource PrimaryForegroundBrush}"
+                               ToolBar.OverflowMode="AsNeeded"/>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center" FontWeight="SemiBold" Margin="4,0" 
-                               Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                               Foreground="{DynamicResource PrimaryForegroundBrush}"
+                               ToolBar.OverflowMode="AsNeeded"/>
                 </ToolBar>
 
                 <!-- Query Editor -->
@@ -1040,6 +1165,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     Foreground="{DynamicResource EditorForegroundBrush}"
                                     controls:TextEditorHelper.BoundText="{Binding ResultJson, Mode=OneWay}"
                                     controls:TextEditorHelper.SyntaxMode="Json"
+                                    controls:TextEditorHelper.EnableEpochTooltips="True"
                                     VerticalScrollBarVisibility="Auto"
                                     HorizontalScrollBarVisibility="Auto" />
                             </DockPanel>
@@ -1216,7 +1342,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                         <TextBlock Text="{Binding Icon}" Foreground="#569CD6" Margin="0,0,6,0" FontWeight="Bold"/>
                                                         <TextBlock Text="{Binding Name}" FontWeight="{Binding FontWeight}" Foreground="{DynamicResource EditorForegroundBrush}"/>
                                                         <TextBlock Text=": " Visibility="{Binding Value, Converter={StaticResource NullToCollapsedConverter}}" Foreground="{DynamicResource EditorForegroundBrush}"/>
-                                                        <TextBlock Text="{Binding Value}" Foreground="#CE9178"/>
+                                                        <TextBlock Text="{Binding Value}" Foreground="#CE9178"
+                                                                   ToolTip="{Binding Value, Converter={StaticResource EpochToDateTimeTooltipConverter}}"/>
                                                     </StackPanel>
                                                     <!-- Expand/Collapse All Button - fixed width column prevents layout shift -->
                                                     <Button x:Name="ExpandCollapseButton"
@@ -1279,7 +1406,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                         <TextBlock Text="{Binding Icon}" Foreground="#569CD6" Margin="0,0,6,0" FontWeight="Bold"/>
                                                         <TextBlock Text="{Binding Name}" FontWeight="{Binding FontWeight}" Foreground="{DynamicResource EditorForegroundBrush}"/>
                                                         <TextBlock Text=" " Visibility="{Binding Value, Converter={StaticResource NullToCollapsedConverter}}"/>
-                                                        <TextBlock Text="{Binding Value}" Foreground="#CE9178"/>
+                                                        <TextBlock Text="{Binding Value}" Foreground="#CE9178"
+                                                                   ToolTip="{Binding Value, Converter={StaticResource EpochToDateTimeTooltipConverter}}"/>
                                                     </StackPanel>
                                                 </HierarchicalDataTemplate>
                                             </TreeView.ItemTemplate>
@@ -1623,9 +1751,10 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                                     <ColumnDefinition Width="*"/>
                                                                 </Grid.ColumnDefinitions>
                                                                 <TextBlock Grid.Column="0" Text="{Binding Key}" Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="11"/>
-                                                                <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11" TextWrapping="Wrap"
-                                                                           Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Value}"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11" TextWrapping="Wrap"
+                                                           Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           ToolTip="{Binding Value, Converter={StaticResource EpochToDateTimeTooltipConverter}, ConverterParameter=fallback}"/>
                                                             </Grid>
                                                         </DataTemplate>
                                                     </ItemsControl.ItemTemplate>

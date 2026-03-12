@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -16,6 +17,8 @@ namespace Stardust.Paradox.GremlinStudio;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _viewModel;
+
+    private static readonly Converters.EpochToDateTimeTooltipConverter _epochTooltipConverter = new();
     
     /// <summary>
     /// Cached reference to the GraphCanvasBorder element.
@@ -322,6 +325,16 @@ public partial class MainWindow : Window
             headerPanel.Children.Add(label);
 
             e.Column.Header = headerPanel;
+        }
+
+        // Add epoch date/time tooltip to cell values
+        if (e.Column is DataGridTextColumn textColumn)
+        {
+            var style = new Style(typeof(TextBlock));
+            style.Setters.Add(new Setter(
+                FrameworkElement.ToolTipProperty,
+                new Binding(columnName) { Converter = _epochTooltipConverter }));
+            textColumn.ElementStyle = style;
         }
     }
 
