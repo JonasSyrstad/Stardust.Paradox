@@ -51,6 +51,11 @@ public partial class MainViewModel : ObservableObject
     private CancellationTokenSource? _exportCts;
     private Task? _connectionLoadingTask;
 
+    /// <summary>
+    /// Tracks InMemory connectors by connection ID so each InMemory connection maintains its own state.
+    /// </summary>
+    private readonly Dictionary<string, IGremlinLanguageConnector> _inMemoryConnectors = new();
+
     public MainViewModel(
         IGremlinConnectionStore connectionStore,
         IGremlinConnectorFactory connectorFactory,
@@ -155,14 +160,21 @@ public partial class MainViewModel : ObservableObject
     private void RefreshQueryHistory()
     {
         // Guard: prevent ComboBox auto-selection from resetting QueryText
-        // when the ItemsSource collection is replaced.
+        // when the collection changes.
         _isRefreshingHistory = true;
         try
         {
             var connectionId = SelectedTab?.ConnectionMetadata?.Id;
-            var newHistory = new ObservableCollection<QueryHistoryItem>(
-                _queryHistoryService.GetHistory(connectionId));
-            QueryHistory = newHistory;
+            var items = _queryHistoryService.GetHistory(connectionId);
+
+            // Update the existing collection in-place rather than replacing it.
+            // Replacing the ObservableCollection while the ComboBox popup is open
+            // can crash WPF's ItemContainerGenerator.
+            QueryHistory.Clear();
+            foreach (var item in items)
+            {
+                QueryHistory.Add(item);
+            }
         }
         finally
         {
@@ -212,11 +224,16 @@ public partial class MainViewModel : ObservableObject
             SelectedConnection = null;
             _isSyncingTabConnection = false;
         }
-        
+
         // Update status from tab
         StatusText = newValue.StatusText;
         LastDurationText = newValue.LastDurationText;
         LastRequestUnitsText = newValue.LastRequestUnitsText;
+
+        // Update connection-type-related properties
+        OnPropertyChanged(nameof(IsSelectedConnectionInMemory));
+        OnPropertyChanged(nameof(IsSelectedConnectionCosmosDb));
+        OnPropertyChanged(nameof(SelectedConnectionScenarioName));
 
         // Refresh history for the new tab's connection
         RefreshQueryHistory();
@@ -355,6 +372,21 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isPlaygroundRunning;
 
+    /// <summary>
+    /// Whether the currently selected connection is an InMemory playground connection.
+    /// </summary>
+    public bool IsSelectedConnectionInMemory => SelectedConnection?.Kind == GremlinConnectionKind.InMemory;
+
+    /// <summary>
+    /// Whether the currently selected connection is a Cosmos DB connection.
+    /// </summary>
+    public bool IsSelectedConnectionCosmosDb => SelectedConnection?.Kind == GremlinConnectionKind.CosmosDb;
+
+    /// <summary>
+    /// Scenario name for the currently selected InMemory connection.
+    /// </summary>
+    public string? SelectedConnectionScenarioName => SelectedConnection?.ScenarioName;
+
 
     [ObservableProperty]
     private string? _loadedScenarioName;
@@ -433,8 +465,15 @@ public partial class MainViewModel : ObservableObject
         GremlinConnectionSettings? connectionSettings = null;
 
         // Get the currently selected connection settings from the left panel
-        if (SelectedConnection != null && !IsPlaygroundRunning)
+        if (SelectedConnection != null)
         {
+            if (SelectedConnection.Kind == GremlinConnectionKind.InMemory)
+            {
+                // InMemory connections don't need secret loading; handled by CreateNewTab
+                CreateNewTab();
+                return;
+            }
+
             try
             {
                 // Wait for any pending connection loading to complete
@@ -488,8 +527,15 @@ public partial class MainViewModel : ObservableObject
             RefreshQueryHistory,
             connectionSettings);
 
-        // If playground is running, use it for the new tab
-        if (IsPlaygroundRunning && _playgroundService.Connector != null)
+        // If the selected connection is InMemory, apply its connector to the new tab
+        if (SelectedConnection?.Kind == GremlinConnectionKind.InMemory
+            && _inMemoryConnectors.TryGetValue(SelectedConnection.Id, out var inMemoryConnector))
+        {
+            var settings = new GremlinConnectionSettings(SelectedConnection, string.Empty);
+            tab.ApplyInMemoryConnection(settings, inMemoryConnector);
+        }
+        // Legacy: if playground is running, use it for the new tab
+        else if (IsPlaygroundRunning && _playgroundService.Connector != null)
         {
             tab.UsePlaygroundConnector(_playgroundService.Connector, LoadedScenarioName);
         }
@@ -508,7 +554,7 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
-            var dialogViewModel = new NewConnectionDialogViewModel(_discoveryService);
+            var dialogViewModel = new NewConnectionDialogViewModel(_discoveryService, _playgroundService);
             var dialog = new Dialogs.NewConnectionDialog(dialogViewModel);
             
             // Find the active window to set as owner (avoid setting owner to itself)
@@ -573,11 +619,11 @@ public partial class MainViewModel : ObservableObject
             }
 
             await _connectionStore.DeleteConnectionAsync(connectionId).ConfigureAwait(true);
-            
+
             // Clear selection and reload
             SelectedConnection = null;
             await LoadConnectionsAsync().ConfigureAwait(true);
-            
+
             // Clear edit fields
             EditConnectionName = string.Empty;
             EditHost = string.Empty;
@@ -586,13 +632,138 @@ public partial class MainViewModel : ObservableObject
             EditSecret = string.Empty;
             EditDatabase = string.Empty;
             EditGraph = string.Empty;
-            
+
             StatusText = $"Deleted connection: {connectionName}";
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete connection");
             StatusText = $"Error deleting connection: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Opens a dialog to edit the currently selected connection's settings.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditConnectionAsync()
+    {
+        if (SelectedConnection is null)
+        {
+            StatusText = "Select a connection to edit";
+            return;
+        }
+
+        try
+        {
+            // Load the secret for the selected connection
+            var secret = EditSecret;
+            if (SelectedConnection.Kind != GremlinConnectionKind.InMemory && string.IsNullOrEmpty(secret))
+            {
+                var existing = await _connectionStore.GetConnectionWithSecretAsync(SelectedConnection.Id).ConfigureAwait(true);
+                if (existing is not null)
+                {
+                    secret = existing.Secret;
+                }
+            }
+
+            var dialogViewModel = new EditConnectionDialogViewModel(SelectedConnection, secret, _connectionTester);
+            var dialog = new EditConnectionDialog(dialogViewModel);
+
+            var activeWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsActive);
+
+            if (activeWindow != null && activeWindow != dialog)
+            {
+                dialog.Owner = activeWindow;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                var updatedSettings = dialogViewModel.GetUpdatedSettings();
+                await _connectionStore.SaveConnectionAsync(updatedSettings).ConfigureAwait(true);
+
+                var savedId = updatedSettings.Id;
+                await LoadConnectionsAsync().ConfigureAwait(true);
+
+                // Re-select the edited connection
+                var match = Connections.FirstOrDefault(c => c.Id == savedId);
+                if (match != null)
+                {
+                    SelectedConnection = match;
+                }
+
+                StatusText = $"Updated connection: {updatedSettings.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to edit connection");
+            StatusText = $"Error editing connection: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Clones the selected Cosmos DB connection, allowing the user to pick a different graph
+    /// in the same database account.
+    /// </summary>
+    [RelayCommand]
+    private async Task CloneConnectionAsync()
+    {
+        if (SelectedConnection is null || SelectedConnection.Kind != GremlinConnectionKind.CosmosDb)
+        {
+            StatusText = "Select a Cosmos DB connection to clone";
+            return;
+        }
+
+        try
+        {
+            // Load the secret for the source connection
+            var sourceSettings = await _connectionStore.GetConnectionWithSecretAsync(SelectedConnection.Id).ConfigureAwait(true);
+            if (sourceSettings is null)
+            {
+                StatusText = "Failed to load connection details for cloning";
+                return;
+            }
+
+            var sourceMetadata = sourceSettings.Metadata;
+
+            // Pre-populate the new connection dialog with the source connection's details
+            var dialogViewModel = new NewConnectionDialogViewModel(_discoveryService, _playgroundService);
+            dialogViewModel.PrepopulateFromCosmosDb(sourceMetadata, sourceSettings.Secret);
+
+            var dialog = new Dialogs.NewConnectionDialog(dialogViewModel);
+
+            var activeWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsActive);
+
+            if (activeWindow != null && activeWindow != dialog)
+            {
+                dialog.Owner = activeWindow;
+            }
+
+            if (dialog.ShowDialog() == true)
+            {
+                var settings = dialogViewModel.GetConnectionSettings();
+
+                await _connectionStore.SaveConnectionAsync(settings).ConfigureAwait(true);
+                await LoadConnectionsAsync().ConfigureAwait(true);
+
+                var newConnection = Connections.FirstOrDefault(c => c.Id == settings.Id);
+                if (newConnection != null)
+                {
+                    SelectedConnection = newConnection;
+                }
+
+                StatusText = $"Cloned connection: {settings.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to clone connection");
+            StatusText = $"Error cloning connection: {ex.Message}";
         }
     }
 
@@ -873,6 +1044,56 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// Resets the currently selected InMemory connection to its initial state.
+    /// If a scenario was configured, the scenario data is reloaded. Otherwise resets to an empty graph.
+    /// </summary>
+    [RelayCommand]
+    private void ResetInMemoryConnection()
+    {
+        if (SelectedConnection is null || SelectedConnection.Kind != GremlinConnectionKind.InMemory)
+        {
+            StatusText = "Select an InMemory connection to reset";
+            return;
+        }
+
+        try
+        {
+            var connectionId = SelectedConnection.Id;
+
+            // Dispose old connector if it exists
+            if (_inMemoryConnectors.TryGetValue(connectionId, out var oldConnector))
+            {
+                if (oldConnector is IDisposable disposable)
+                {
+                    disposable.Dispose();
+                }
+                _inMemoryConnectors.Remove(connectionId);
+            }
+
+            // Re-create the connector (with scenario if applicable)
+            var settings = new GremlinConnectionSettings(SelectedConnection, string.Empty);
+            var newConnector = _connectorFactory.CreateConnector(settings);
+            _inMemoryConnectors[connectionId] = newConnector;
+            _activeConnector = newConnector;
+
+            // Update the current tab
+            if (SelectedTab != null)
+            {
+                SelectedTab.ApplyInMemoryConnection(settings, newConnector);
+            }
+
+            StatusText = string.IsNullOrEmpty(SelectedConnection.ScenarioName)
+                ? $"Reset: {SelectedConnection.Name} (empty)"
+                : $"Reset: {SelectedConnection.Name} (scenario: {SelectedConnection.ScenarioName})";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to reset InMemory connection");
+            StatusText = $"Error resetting: {ex.Message}";
+        }
+    }
+
     [RelayCommand(CanExecute = nameof(CanRunQuery))]
     private async Task RunQueryAsync()
     {
@@ -882,7 +1103,30 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        await SelectedTab.RunQueryCommand.ExecuteAsync(null);
+        // Resolve variable substitutions before execution.
+        // The original query (with ${var} tokens) is kept for history;
+        // the resolved query is used for execution and the log.
+        string? resolvedQuery = null;
+        if (SelectedVariableSet != null && !string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        {
+            try
+            {
+                var mergedJson = SelectedVariableSet.Set.GetMergedJson(SelectedConnection?.Id);
+                var substituted = QueryVariableSubstitutor.Substitute(SelectedTab.QueryText, mergedJson);
+                if (substituted != SelectedTab.QueryText)
+                {
+                    resolvedQuery = substituted;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to resolve variables");
+                StatusText = $"Variable resolution failed: {ex.Message}";
+                return;
+            }
+        }
+
+        await SelectedTab.ExecuteQueryAsync(resolvedQuery);
     }
 
     private bool CanRunQuery() => SelectedTab != null && !SelectedTab.IsExecuting;
@@ -1093,20 +1337,20 @@ public partial class MainViewModel : ObservableObject
 
 
     [RelayCommand]
-    private void TogglePinQuery(QueryHistoryItem? item)
+    private void TogglePinQuery(object? parameter)
     {
-        if (item == null) return;
-        
+        if (parameter is not QueryHistoryItem item) return;
+
         _queryHistoryService.SetPinned(item.Id, !item.IsPinned);
         _ = _queryHistoryService.SaveAsync();
         RefreshQueryHistory();
     }
 
     [RelayCommand]
-    private void RemoveFromHistory(QueryHistoryItem? item)
+    private void RemoveFromHistory(object? parameter)
     {
-        if (item == null) return;
-        
+        if (parameter is not QueryHistoryItem item) return;
+
         _queryHistoryService.RemoveQuery(item.Id);
         _ = _queryHistoryService.SaveAsync();
         RefreshQueryHistory();
@@ -1336,6 +1580,10 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnSelectedConnectionChanged(GremlinConnectionMetadata? value)
     {
+        OnPropertyChanged(nameof(IsSelectedConnectionInMemory));
+        OnPropertyChanged(nameof(IsSelectedConnectionCosmosDb));
+        OnPropertyChanged(nameof(SelectedConnectionScenarioName));
+
         if (value is null)
         {
             return;
@@ -1361,11 +1609,51 @@ public partial class MainViewModel : ObservableObject
         EditDatabase = value.DatabaseName ?? string.Empty;
         EditGraph = value.GraphName ?? string.Empty;
 
-        // Load secret asynchronously and apply to current tab (always apply, even if playground is running)
-        _connectionLoadingTask = LoadSelectedConnectionSecretAsync(value.Id);
+        if (value.Kind == GremlinConnectionKind.InMemory)
+        {
+            // For InMemory connections, create or reuse a per-connection connector
+            _connectionLoadingTask = ApplyInMemoryConnectionAsync(value);
+        }
+        else
+        {
+            // Load secret asynchronously and apply to current tab (always apply, even if playground is running)
+            _connectionLoadingTask = LoadSelectedConnectionSecretAsync(value.Id);
+        }
 
         // Refresh history for the newly selected connection
         RefreshQueryHistory();
+
+        // Reset and reload statistics for the new connection
+        ResetAndRefreshStatistics();
+
+        // Update variable context for the new connection's overrides
+        RefreshActiveVariables();
+    }
+
+    private Task ApplyInMemoryConnectionAsync(GremlinConnectionMetadata metadata)
+    {
+        if (!_inMemoryConnectors.TryGetValue(metadata.Id, out var connector))
+        {
+            // Create a new InMemory connector with its scenario
+            var settings = new GremlinConnectionSettings(metadata, string.Empty);
+            connector = _connectorFactory.CreateConnector(settings);
+            _inMemoryConnectors[metadata.Id] = connector;
+        }
+
+        _activeConnector = connector;
+        EditSecret = string.Empty;
+
+        if (SelectedTab != null)
+        {
+            var settings = new GremlinConnectionSettings(metadata, string.Empty);
+            SelectedTab.ApplyInMemoryConnection(settings, connector);
+        }
+
+        StatusText = string.IsNullOrEmpty(metadata.ScenarioName)
+            ? $"Connected: {metadata.Name} (empty playground)"
+            : $"Connected: {metadata.Name} (scenario: {metadata.ScenarioName})";
+
+        return Task.CompletedTask;
     }
 
     private async Task LoadSelectedConnectionSecretAsync(string connectionId)
@@ -1396,7 +1684,14 @@ public partial class MainViewModel : ObservableObject
 
     private IGremlinLanguageConnector? GetActiveConnector()
     {
-        // Prefer playground if running
+        // Prefer InMemory connection if selected
+        if (SelectedConnection?.Kind == GremlinConnectionKind.InMemory
+            && _inMemoryConnectors.TryGetValue(SelectedConnection.Id, out var inMemoryConnector))
+        {
+            return inMemoryConnector;
+        }
+
+        // Fallback: legacy playground if running
         if (IsPlaygroundRunning && _playgroundService.Connector is not null)
         {
             return _playgroundService.Connector;
@@ -1547,24 +1842,109 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private VariableSetItemViewModel? _selectedVariableSet;
 
-    /// <summary>
-    /// Name for a new variable set being created.
-    /// </summary>
-    [ObservableProperty]
-    private string _newVariableSetName = string.Empty;
-
-    /// <summary>
-    /// JSON content for the currently selected or new variable set.
-    /// </summary>
-    [ObservableProperty]
-    private string _editVariableJson = "{\n  \n}";
-
     partial void OnSelectedVariableSetChanged(VariableSetItemViewModel? value)
     {
-        if (value != null)
+        SaveLastVariableSetPreference(value?.Id);
+        RefreshActiveVariables();
+    }
+
+    /// <summary>
+    /// Rebuilds the active variable context and pushes it to the editor's
+    /// autocomplete and tooltip provider. Merges global variables with
+    /// connection-specific overrides for the active connection.
+    /// </summary>
+    private void RefreshActiveVariables()
+    {
+        var variableSet = SelectedVariableSet?.Set;
+        if (variableSet == null)
         {
-            EditVariableJson = value.Json;
-            NewVariableSetName = value.Name;
+            GremlinCompletionProvider.SetActiveVariables(
+                Array.Empty<(string, string, bool)>());
+            return;
+        }
+
+        var connectionId = SelectedConnection?.Id;
+        var entries = new List<(string Key, string Value, bool IsConnectionScoped)>();
+
+        // Parse global variables
+        ParseJsonVariables(variableSet.Json, isConnectionScoped: false, entries);
+
+        // Parse connection-scoped variables (overrides globals with same key)
+        if (!string.IsNullOrWhiteSpace(connectionId)
+            && variableSet.ConnectionVariables != null
+            && variableSet.ConnectionVariables.TryGetValue(connectionId, out var connJson))
+        {
+            ParseJsonVariables(connJson, isConnectionScoped: true, entries);
+        }
+
+        GremlinCompletionProvider.SetActiveVariables(entries);
+    }
+
+    private static void ParseJsonVariables(
+        string? json,
+        bool isConnectionScoped,
+        List<(string Key, string Value, bool IsConnectionScoped)> entries)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                return;
+
+            foreach (var prop in doc.RootElement.EnumerateObject())
+            {
+                // If a connection-scoped variable overrides a global, remove the global
+                // and any nested paths under it
+                if (isConnectionScoped)
+                {
+                    entries.RemoveAll(e =>
+                        string.Equals(e.Key, prop.Name, StringComparison.Ordinal) ||
+                        e.Key.StartsWith(prop.Name + ".", StringComparison.Ordinal));
+                }
+
+                var value = prop.Value.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? prop.Value.GetString() ?? string.Empty
+                    : prop.Value.GetRawText();
+
+                entries.Add((prop.Name, value, isConnectionScoped));
+
+                // Recursively flatten nested objects into dotted-path entries
+                // so autocomplete can suggest paths like "server.host"
+                if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    FlattenJsonObject(prop.Value, prop.Name, isConnectionScoped, entries);
+                }
+            }
+        }
+        catch
+        {
+            // Ignore malformed JSON
+        }
+    }
+
+    private static void FlattenJsonObject(
+        System.Text.Json.JsonElement element,
+        string prefix,
+        bool isConnectionScoped,
+        List<(string Key, string Value, bool IsConnectionScoped)> entries)
+    {
+        foreach (var prop in element.EnumerateObject())
+        {
+            var key = $"{prefix}.{prop.Name}";
+
+            var value = prop.Value.ValueKind == System.Text.Json.JsonValueKind.String
+                ? prop.Value.GetString() ?? string.Empty
+                : prop.Value.GetRawText();
+
+            entries.Add((key, value, isConnectionScoped));
+
+            if (prop.Value.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                FlattenJsonObject(prop.Value, key, isConnectionScoped, entries);
+            }
         }
     }
 
@@ -1578,6 +1958,16 @@ public partial class MainViewModel : ObservableObject
             {
                 VariableSets.Add(new VariableSetItemViewModel(v));
             }
+
+            // Auto-select the last-used variable set (or the first available)
+            if (SelectedVariableSet is null && VariableSets.Count > 0)
+            {
+                var lastId = LoadLastVariableSetPreference();
+                var match = !string.IsNullOrWhiteSpace(lastId)
+                    ? VariableSets.FirstOrDefault(v => v.Id == lastId)
+                    : null;
+                SelectedVariableSet = match ?? VariableSets[0];
+            }
         }
         catch (Exception ex)
         {
@@ -1585,42 +1975,110 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    /// <summary>
-    /// Saves or updates a variable set.
-    /// </summary>
-    [RelayCommand]
-    private async Task SaveVariableSetAsync()
+    private static void SaveLastVariableSetPreference(string? variableSetId)
     {
-        var name = string.IsNullOrWhiteSpace(NewVariableSetName) ? "Untitled Variables" : NewVariableSetName.Trim();
-
         try
         {
-            // Validate JSON
-            System.Text.Json.JsonDocument.Parse(EditVariableJson);
+            if (string.IsNullOrWhiteSpace(variableSetId))
+            {
+                if (File.Exists(AppDataPaths.LastVariableSetPreferenceFilePath))
+                {
+                    File.Delete(AppDataPaths.LastVariableSetPreferenceFilePath);
+                }
+                return;
+            }
 
-            var id = SelectedVariableSet?.Id ?? Guid.NewGuid().ToString();
-            var variableSet = new QueryVariableSet(
-                id,
-                name,
-                EditVariableJson,
-                SelectedVariableSet?.Set.CreatedAt ?? DateTimeOffset.UtcNow,
-                DateTimeOffset.UtcNow);
-
-            await _variableStore.SaveAsync(variableSet).ConfigureAwait(true);
-            await LoadVariableSetsAsync().ConfigureAwait(true);
-
-            // Re-select the saved item
-            SelectedVariableSet = VariableSets.FirstOrDefault(v => v.Id == id);
-            StatusText = $"Saved variables: {name}";
+            File.WriteAllText(AppDataPaths.LastVariableSetPreferenceFilePath, variableSetId);
         }
-        catch (System.Text.Json.JsonException)
+        catch
         {
-            StatusText = "Invalid JSON in variable set";
+            // Ignore save errors
+        }
+    }
+
+    private static string? LoadLastVariableSetPreference()
+    {
+        try
+        {
+            if (!File.Exists(AppDataPaths.LastVariableSetPreferenceFilePath))
+                return null;
+
+            var id = File.ReadAllText(AppDataPaths.LastVariableSetPreferenceFilePath).Trim();
+            return string.IsNullOrWhiteSpace(id) ? null : id;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Opens the variable set editor dialog to create a new variable set.
+    /// </summary>
+    [RelayCommand]
+    private async Task NewVariableSetAsync()
+    {
+        try
+        {
+            var dialogVm = new VariableSetDialogViewModel(Connections.ToList());
+            var dialog = new VariableSetDialog(dialogVm);
+
+            var activeWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsActive) ?? System.Windows.Application.Current.MainWindow;
+            dialog.Owner = activeWindow;
+
+            if (dialog.ShowDialog() == true)
+            {
+                var result = dialogVm.BuildResult();
+                await _variableStore.SaveAsync(result).ConfigureAwait(true);
+                await LoadVariableSetsAsync().ConfigureAwait(true);
+                SelectedVariableSet = VariableSets.FirstOrDefault(v => v.Id == result.Id);
+                StatusText = $"Created variable set: {result.Name}";
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to save variable set");
-            StatusText = $"Error saving variables: {ex.Message}";
+            _logger.LogError(ex, "Failed to create variable set");
+            StatusText = $"Error creating variable set: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Opens the variable set editor dialog to edit the selected variable set.
+    /// </summary>
+    [RelayCommand]
+    private async Task EditVariableSetAsync()
+    {
+        if (SelectedVariableSet == null)
+        {
+            StatusText = "Select a variable set to edit";
+            return;
+        }
+
+        try
+        {
+            var dialogVm = new VariableSetDialogViewModel(Connections.ToList(), SelectedVariableSet.Set);
+            var dialog = new VariableSetDialog(dialogVm);
+
+            var activeWindow = System.Windows.Application.Current.Windows
+                .OfType<System.Windows.Window>()
+                .FirstOrDefault(w => w.IsActive) ?? System.Windows.Application.Current.MainWindow;
+            dialog.Owner = activeWindow;
+
+            if (dialog.ShowDialog() == true)
+            {
+                var result = dialogVm.BuildResult();
+                await _variableStore.SaveAsync(result).ConfigureAwait(true);
+                await LoadVariableSetsAsync().ConfigureAwait(true);
+                SelectedVariableSet = VariableSets.FirstOrDefault(v => v.Id == result.Id);
+                StatusText = $"Updated variable set: {result.Name}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to edit variable set");
+            StatusText = $"Error editing variable set: {ex.Message}";
         }
     }
 
@@ -1639,10 +2097,18 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var name = SelectedVariableSet.Name;
+
+            var result = System.Windows.MessageBox.Show(
+                $"Delete variable set '{name}'?",
+                "Confirm Delete",
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question);
+
+            if (result != System.Windows.MessageBoxResult.Yes)
+                return;
+
             await _variableStore.DeleteAsync(SelectedVariableSet.Id).ConfigureAwait(true);
             await LoadVariableSetsAsync().ConfigureAwait(true);
-            EditVariableJson = "{\n  \n}";
-            NewVariableSetName = string.Empty;
             StatusText = $"Deleted variables: {name}";
         }
         catch (Exception ex)
@@ -1653,7 +2119,9 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Applies the selected variable set to the current query by substituting ${var} tokens.
+    /// Validates variable resolution and previews the substituted query in the status bar.
+    /// The <c>${var}</c> tokens in the editor are preserved; actual substitution happens
+    /// at execution time so that history retains the original query template.
     /// </summary>
     [RelayCommand]
     private void ApplyVariables()
@@ -1672,13 +2140,24 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            var substituted = QueryVariableSubstitutor.Substitute(SelectedTab.QueryText, SelectedVariableSet.Json);
-            SelectedTab.QueryText = substituted;
-            StatusText = "Variables applied to query";
+            var mergedJson = SelectedVariableSet.Set.GetMergedJson(SelectedConnection?.Id);
+            var substituted = QueryVariableSubstitutor.Substitute(SelectedTab.QueryText, mergedJson);
+
+            if (substituted == SelectedTab.QueryText)
+            {
+                StatusText = "No ${var} tokens found in query";
+                return;
+            }
+
+            // Show a preview without modifying the editor text
+            var preview = substituted.Length > 120
+                ? substituted[..120] + "…"
+                : substituted;
+            StatusText = $"Preview: {preview}";
         }
         catch (Exception ex)
         {
-            StatusText = $"Error applying variables: {ex.Message}";
+            StatusText = $"Error resolving variables: {ex.Message}";
         }
     }
 
@@ -1773,6 +2252,44 @@ public partial class MainViewModel : ObservableObject
     #endregion
 
     #region Database Statistics
+
+    /// <summary>
+    /// Resets statistics on the current tab and triggers a background refresh
+    /// after the connection has been fully established.
+    /// </summary>
+    private void ResetAndRefreshStatistics()
+    {
+        if (SelectedTab == null) return;
+
+        // Clear stale statistics immediately
+        SelectedTab.HasStatistics = false;
+        SelectedTab.TotalVertexCount = 0;
+        SelectedTab.TotalEdgeCount = 0;
+        SelectedTab.VertexLabelCounts.Clear();
+        SelectedTab.EdgeLabelCounts.Clear();
+        SelectedTab.StatisticsStatusText = string.Empty;
+
+        // Wait for connection to be ready, then load stats
+        _ = RefreshStatisticsAfterConnectionAsync();
+    }
+
+    private async Task RefreshStatisticsAfterConnectionAsync()
+    {
+        try
+        {
+            // Wait for any pending connection loading to complete
+            if (_connectionLoadingTask != null)
+            {
+                await _connectionLoadingTask.ConfigureAwait(true);
+            }
+
+            await LoadDatabaseStatisticsAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-refresh statistics after connection change");
+        }
+    }
 
     /// <summary>
     /// Loads database statistics from the active connection.

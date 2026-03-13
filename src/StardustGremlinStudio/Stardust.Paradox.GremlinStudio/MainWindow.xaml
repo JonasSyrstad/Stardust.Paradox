@@ -34,7 +34,6 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
         <KeyBinding Key="S" Modifiers="Ctrl+Shift" Command="{Binding SaveQueryAsCommand}" />
         <KeyBinding Key="O" Modifiers="Ctrl" Command="{Binding OpenQueryCommand}" />
         <KeyBinding Key="F" Modifiers="Ctrl+Shift" Command="{Binding FormatQueryCommand}" />
-        <KeyBinding Key="E" Modifiers="Ctrl" Command="{Binding ExplainQueryCommand}" />
         <KeyBinding Key="P" Modifiers="Ctrl" Command="{Binding ResolveParametersCommand}" />
         <KeyBinding Key="Z" Modifiers="Ctrl" Command="{Binding UndoQueryCommand}" />
         <KeyBinding Key="Y" Modifiers="Ctrl" Command="{Binding RedoQueryCommand}" />
@@ -54,6 +53,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:ProgressToWidthConverter x:Key="ProgressToWidthConverter"/>
 <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
 <converters:EpochToDateTimeTooltipConverter x:Key="EpochToDateTimeTooltipConverter"/>
+<converters:SingleLineConverter x:Key="SingleLineConverter"/>
 
 <!-- Themed ToolTip Style -->
 <Style TargetType="ToolTip">
@@ -725,93 +725,115 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     </Grid>
                 </Border>
                 
-                <ScrollViewer Grid.Row="1" Margin="8" VerticalScrollBarVisibility="Auto" Background="{DynamicResource SecondaryBackgroundBrush}">
-                <StackPanel Orientation="Vertical">
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Connections" />
-                    <ListBox Margin="0,8,0,0" ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}" DisplayMemberPath="Name" Height="140"
-                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
+                <Grid Grid.Row="1" Margin="8" Background="{DynamicResource SecondaryBackgroundBrush}">
+                <Grid.RowDefinitions>
+                    <!-- Connections section -->
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="3*" MinHeight="60"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Snippets section -->
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="2*" MinHeight="60"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Variables section -->
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="2*" MinHeight="60"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <!-- Theme section -->
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Connections" />
+                    <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal" Margin="0,1">
+                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <StackPanel.ToolTip>
+                                        <StackPanel MaxWidth="300">
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,4"/>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                <Run Text="Type: "/><Run Text="{Binding Kind, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="InMemory">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <Run Text="Host: "/><Run Text="{Binding Host, Mode=OneWay}"/><Run Text=":"/><Run Text="{Binding Port, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="CosmosDb">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <Run Text="Database: "/><Run Text="{Binding DatabaseName, Mode=OneWay}"/>
+                                                <Run Text=" / Graph: "/><Run Text="{Binding GraphName, Mode=OneWay}"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Kind}" Value="InMemory">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                                <Run Text="Scenario: "/><Run Text="{Binding ScenarioName, Mode=OneWay, TargetNullValue='Empty playground'}"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </StackPanel.ToolTip>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,6,0,0">
                         <Button x:Name="GuideTarget_NewConnectionButton" Content="New" Command="{Binding NewConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" />
-                        <Button Content="Save" Command="{Binding SaveConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" />
-                        <Button Content="Test" Command="{Binding TestConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" />
+                        <Button Content="Edit" Command="{Binding EditConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" 
+                                ToolTip="Edit selected connection settings"/>
                         <Button Content="Delete" Command="{Binding DeleteConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="50" Margin="4,0,0,0" 
                                 ToolTip="Delete selected connection"/>
-                        <Button Content="Export" Command="{Binding ExportConnectionsCommand}" Style="{StaticResource CompactButtonStyle}" Width="52" Margin="4,0,0,0" />
+                        <Button Content="Clone" Command="{Binding CloneConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="48" Margin="4,0,0,0"
+                                ToolTip="Clone Cosmos DB connection to a different graph"
+                                Visibility="{Binding IsSelectedConnectionCosmosDb, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <Button Content="Reset" Command="{Binding ResetInMemoryConnectionCommand}" Style="{StaticResource CompactButtonStyle}" Width="48" Margin="4,0,0,0"
+                                ToolTip="Reset InMemory connection to initial state"
+                                Visibility="{Binding IsSelectedConnectionInMemory, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0">
+                        <Button Content="Export" Command="{Binding ExportConnectionsCommand}" Style="{StaticResource CompactButtonStyle}" Width="52" />
                         <Button Content="Import" Command="{Binding ImportConnectionsCommand}" Style="{StaticResource CompactButtonStyle}" Width="52" Margin="4,0,0,0" 
                                 ToolTip="Import connections from JSON file"/>
                     </StackPanel>
 
-                    <Grid Margin="0,10,0,0">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
+                    <Separator Grid.Row="4" Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Margin="0,0,8,6" />
-                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding EditConnectionName, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Kind" Margin="0,0,8,6" />
-                        <ComboBox Grid.Row="1" Grid.Column="1" ItemsSource="{Binding ConnectionKinds}" SelectedItem="{Binding EditConnectionKind}" Margin="0,0,0,6" />
-
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Host" Margin="0,0,8,6" />
-                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EditHost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Port" Margin="0,0,8,6" />
-                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EditPort, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Username" Margin="0,0,8,6" />
-                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding EditUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Secret" Margin="0,0,8,6" />
-                        <PasswordBox Grid.Row="5" Grid.Column="1" controls:PasswordBoxHelper.BoundPassword="{Binding EditSecret, Mode=TwoWay}" Margin="0,0,0,6"
-                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-
-                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Database" Margin="0,0,8,6" />
-                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding EditDatabase, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-
-                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Graph" Margin="0,0,8,0" />
-                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding EditGraph, UpdateSourceTrigger=PropertyChanged}"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-                    </Grid>
-
-                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
-
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Local Playground" />
-                    <Button x:Name="GuideTarget_StartPlaygroundButton" Margin="0,8,0,0" Content="Start" Command="{Binding StartPlaygroundCommand}" />
-                    <Button Margin="0,6,0,0" Content="Stop" Command="{Binding StopPlaygroundCommand}" />
-
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Scenarios" Margin="0,14,0,0" />
-                    <ComboBox Margin="0,8,0,0" ItemsSource="{Binding ScenarioNames}" SelectedItem="{Binding SelectedScenarioName}" />
-                    <Button Margin="0,6,0,0" Content="Load" Command="{Binding LoadScenarioCommand}" />
-                    <Button Margin="0,6,0,0" Content="Reset" Command="{Binding ResetScenarioCommand}" />
-
-                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
-
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Execution" />
-                    <Button Margin="0,8,0,0" Content="▶ Run (Ctrl+Enter)" Command="{Binding RunQueryCommand}" />
-                    <Button Margin="0,6,0,0" Content="■ Cancel (Esc)" Command="{Binding CancelCommand}" />
-
-                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
-
-                    <TextBlock x:Name="GuideTarget_SnippetsSection" FontSize="16" FontWeight="SemiBold" Text="Snippets" />
-                    <ListBox Margin="0,8,0,0" ItemsSource="{Binding Snippets}" SelectedItem="{Binding SelectedSnippet}" Height="120"
+                    <TextBlock Grid.Row="5" x:Name="GuideTarget_SnippetsSection" FontSize="16" FontWeight="SemiBold" Text="Snippets" />
+                    <ListBox Grid.Row="6" Margin="0,8,0,0" ItemsSource="{Binding Snippets}" SelectedItem="{Binding SelectedSnippet}"
                              Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
                              MouseDoubleClick="SnippetList_MouseDoubleClick">
                         <ListBox.ItemTemplate>
@@ -830,36 +852,43 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                    <StackPanel Grid.Row="7" Orientation="Horizontal" Margin="0,6,0,0">
                         <Button Content="Insert" Command="{Binding InsertSnippetCommand}" Style="{StaticResource CompactButtonStyle}" Width="50" ToolTip="Insert selected snippet (or double-click)"/>
                         <Button Content="Del" Command="{Binding DeleteSnippetCommand}" Style="{StaticResource CompactButtonStyle}" Width="36" Margin="4,0,0,0" ToolTip="Delete selected snippet"/>
                     </StackPanel>
 
-                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
+                    <Separator Grid.Row="8" Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
-                    <TextBlock x:Name="GuideTarget_VariablesSection" FontSize="16" FontWeight="SemiBold" Text="Variables" />
-                    <TextBlock Text="Use ${name} in queries" FontSize="10" Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic" Margin="0,2,0,0"/>
-                    <ListBox Margin="0,8,0,0" ItemsSource="{Binding VariableSets}" SelectedItem="{Binding SelectedVariableSet}" DisplayMemberPath="Name" Height="60"
-                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}" />
-                    <TextBox Margin="0,6,0,0" Text="{Binding NewVariableSetName, UpdateSourceTrigger=PropertyChanged}"
+                    <TextBlock Grid.Row="9" x:Name="GuideTarget_VariablesSection" FontSize="16" FontWeight="SemiBold" Text="Variables" />
+                    <TextBlock Grid.Row="10" Text="Use ${name} in queries" FontSize="10" Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic" Margin="0,2,0,0"/>
+                    <ListBox Grid.Row="11" Margin="0,8,0,0" ItemsSource="{Binding VariableSets}" SelectedItem="{Binding SelectedVariableSet}"
                              Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
-                             Padding="4,4" FontSize="11"/>
-                    <TextBox Margin="0,4,0,0" Text="{Binding EditVariableJson, UpdateSourceTrigger=PropertyChanged}"
-                             Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
-                             AcceptsReturn="True" TextWrapping="Wrap" Height="60" FontFamily="Consolas" FontSize="11"
-                             VerticalScrollBarVisibility="Auto"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
-                        <Button Content="Save" Command="{Binding SaveVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" ToolTip="Save variable set"/>
-                        <Button Content="Apply" Command="{Binding ApplyVariablesCommand}" Style="{StaticResource CompactButtonStyle}" Width="48" Margin="4,0,0,0" ToolTip="Substitute variables into query"/>
+                             MouseDoubleClick="VariableSetList_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="0,1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="11"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding VariableSummary}" FontSize="9" FontFamily="Consolas"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis" MaxWidth="220"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <StackPanel Grid.Row="12" Orientation="Horizontal" Margin="0,6,0,0">
+                        <Button Content="New" Command="{Binding NewVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" ToolTip="Create new variable set"/>
+                        <Button Content="Edit" Command="{Binding EditVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="44" Margin="4,0,0,0" ToolTip="Edit selected variable set"/>
                         <Button Content="Del" Command="{Binding DeleteVariableSetCommand}" Style="{StaticResource CompactButtonStyle}" Width="36" Margin="4,0,0,0" ToolTip="Delete selected variable set"/>
+                        <Button Content="Apply" Command="{Binding ApplyVariablesCommand}" Style="{StaticResource CompactButtonStyle}" Width="48" Margin="4,0,0,0" ToolTip="Preview variable substitution without modifying query"/>
                     </StackPanel>
 
-                    <Separator Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
+                    <Separator Grid.Row="13" Margin="0,14,0,14" Background="{DynamicResource BorderBrush}" />
 
-                    <TextBlock FontSize="16" FontWeight="SemiBold" Text="Theme" />
-                    <ComboBox x:Name="GuideTarget_ThemeDropdown" Margin="0,8,0,0" ItemsSource="{Binding ThemeModes}" SelectedItem="{Binding SelectedThemeMode}" />
-                </StackPanel>
-            </ScrollViewer>
+                    <TextBlock Grid.Row="14" FontSize="16" FontWeight="SemiBold" Text="Theme" />
+                    <ComboBox Grid.Row="15" x:Name="GuideTarget_ThemeDropdown" Margin="0,8,0,0" ItemsSource="{Binding ThemeModes}" SelectedItem="{Binding SelectedThemeMode}" />
+                </Grid>
             </Grid>
             
             <!-- GridSplitter for resizing - must be direct child of parent Grid -->
@@ -1025,13 +1054,6 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <TextBlock Text="Snippet" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </StackPanel>
                     </Button>
-                    <Button Command="{Binding DataContext.ExplainQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Explain Query (Ctrl+E)" Padding="8,4">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0"
-                                       Foreground="#DCDCAA"/>
-                            <TextBlock Text="Explain" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                        </StackPanel>
-                    </Button>
                     <Separator />
 
                     <!-- Query History Dropdown -->
@@ -1052,7 +1074,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="📌" Margin="0,0,4,0" FontSize="10"
                                                Visibility="{Binding IsPinned, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Query}" TextTrimming="CharacterEllipsis" 
+                                    <TextBlock Grid.Column="1" Text="{Binding Query, Converter={StaticResource SingleLineConverter}}" TextTrimming="CharacterEllipsis" 
                                                FontFamily="Consolas" FontSize="11" ToolTip="{Binding Query}"
                                                VerticalAlignment="Center"/>
                                     <Button Grid.Column="2" Padding="3,1" Margin="4,0,0,0" VerticalAlignment="Center"
@@ -2080,15 +2102,6 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         <TabItem x:Name="GuideTarget_ExplainTab" Header="Explain">
                             <DockPanel>
                                 <ToolBar DockPanel.Dock="Top" Background="{DynamicResource ToolBarBackgroundBrush}">
-                                    <Button Command="{Binding DataContext.ExplainQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
-                                            ToolTip="Explain current query (Ctrl+E)" Padding="8,4">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,0,6,0" 
-                                                       Foreground="#DCDCAA"/>
-                                            <TextBlock Text="Explain Query" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                                        </StackPanel>
-                                    </Button>
-                                    <Separator/>
                                     <Button Command="{Binding CopyExplanationToClipboardCommand}" 
                                             ToolTip="Copy explanation to clipboard" Padding="8,4">
                                         <StackPanel Orientation="Horizontal">

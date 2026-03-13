@@ -109,14 +109,40 @@ public enum GremlinCompletionKind
 }
 
 /// <summary>
-/// Provides Gremlin completion suggestions using <see cref="GremlinStepDatabase"/>.
+/// Provides Gremlin completion suggestions using <see cref="GremlinStepDatabase"/>
+/// and variable completions from the active variable set.
 /// </summary>
 public static class GremlinCompletionProvider
 {
     private static readonly List<GremlinCompletionData> AllCompletions = CreateCompletions();
 
+    private static readonly object VariableLock = new();
+    private static List<VariableCompletionData> _variableCompletions = new();
+
     /// <summary>
-    /// Gets completion suggestions for the given context.
+    /// Raw variable entries currently available. Used by the tooltip provider
+    /// to resolve <c>${key}</c> values on hover.
+    /// </summary>
+    public static IReadOnlyList<(string Key, string Value, bool IsConnectionScoped)> ActiveVariables { get; private set; }
+        = Array.Empty<(string, string, bool)>();
+
+    /// <summary>
+    /// Updates the active variable completions. Call when the selected variable
+    /// set or connection changes.
+    /// </summary>
+    public static void SetActiveVariables(IReadOnlyList<(string Key, string Value, bool IsConnectionScoped)> variables)
+    {
+        lock (VariableLock)
+        {
+            ActiveVariables = variables;
+            _variableCompletions = variables
+                .Select(v => new VariableCompletionData(v.Key, v.Value, v.IsConnectionScoped))
+                .ToList();
+        }
+    }
+
+    /// <summary>
+    /// Gets Gremlin step completion suggestions for the given context.
     /// </summary>
     public static IEnumerable<GremlinCompletionData> GetCompletions(string textBefore)
     {
@@ -132,6 +158,28 @@ public static class GremlinCompletionProvider
             .Where(c => c.Text.StartsWith(context, StringComparison.OrdinalIgnoreCase))
             .OrderBy(c => c.Priority)
             .ThenBy(c => c.Text);
+    }
+
+    /// <summary>
+    /// Gets variable completion suggestions. Called when the user types <c>$</c> or <c>${</c>.
+    /// </summary>
+    public static IEnumerable<VariableCompletionData> GetVariableCompletions(string prefix)
+    {
+        List<VariableCompletionData> snapshot;
+        lock (VariableLock)
+        {
+            snapshot = _variableCompletions;
+        }
+
+        if (string.IsNullOrEmpty(prefix))
+        {
+            return snapshot;
+        }
+
+        return snapshot
+            .Where(v => v.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(v => v.Priority)
+            .ThenBy(v => v.Text);
     }
 
     private static List<GremlinCompletionData> CreateCompletions()

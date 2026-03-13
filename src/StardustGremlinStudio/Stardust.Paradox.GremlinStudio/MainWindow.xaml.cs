@@ -1006,5 +1006,13 @@ public partial class MainWindow : Window
         }
     }
 
+    private void VariableSetList_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_viewModel.EditVariableSetCommand.CanExecute(null))
+        {
+            _viewModel.EditVariableSetCommand.Execute(null);
+        }
+    }
+
     #endregion
 }

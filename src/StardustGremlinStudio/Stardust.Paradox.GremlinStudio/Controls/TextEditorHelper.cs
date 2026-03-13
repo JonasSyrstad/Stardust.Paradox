@@ -343,7 +343,16 @@ public static class TextEditorHelper
             if (editor != null && GetCompletionWindow(editor) == null)
             {
                 e.Handled = true;
-                ShowCompletion(editor);
+                // If the caret is inside a ${...} variable token, show variable completion;
+                // otherwise show Gremlin step completion.
+                if (IsInsideVariableToken(editor))
+                {
+                    ShowVariableCompletion(editor);
+                }
+                else
+                {
+                    ShowCompletion(editor);
+                }
             }
         }
     }
@@ -363,9 +372,37 @@ public static class TextEditorHelper
         {
             if (!char.IsLetterOrDigit(e.Text[0]) && e.Text[0] != '_')
             {
+                // When a variable completion window is active, allow '.', '{'
+                // to pass through without triggering insertion so the user can
+                // type dotted-path variables or the old '${' pattern.
+                if (IsVariableCompletionWindow(completionWindow)
+                    && (e.Text[0] == '.' || e.Text[0] == '{'))
+                {
+                    return;
+                }
+
+                // When '$' is typed, the user is starting a variable token.
+                // Close any Gremlin step completion window so it doesn't block
+                // variable completion.
+                if (e.Text[0] == '$' && !IsVariableCompletionWindow(completionWindow))
+                {
+                    completionWindow.Close();
+                    return;
+                }
+
                 completionWindow.CompletionList.RequestInsertion(e);
             }
         }
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when the given completion window contains variable
+    /// completion items (as opposed to Gremlin step completions).
+    /// </summary>
+    private static bool IsVariableCompletionWindow(CompletionWindow window)
+    {
+        return window.CompletionList.CompletionData.Count > 0
+               && window.CompletionList.CompletionData[0] is VariableCompletionData;
     }
 
     private static void TextArea_TextEntered(object sender, TextCompositionEventArgs e)
@@ -381,7 +418,23 @@ public static class TextEditorHelper
         // Show completion after typing a dot
         if (e.Text == ".")
         {
-            ShowCompletion(editor);
+            // Inside a variable token, show variable completion for dotted
+            // paths like ${server.host} instead of Gremlin steps.
+            if (IsInsideVariableToken(editor))
+            {
+                ShowVariableCompletion(editor);
+            }
+            else
+            {
+                ShowCompletion(editor);
+            }
+            return;
+        }
+
+        // Show variable completion immediately when '$' is typed
+        if (e.Text == "$")
+        {
+            ShowVariableCompletion(editor);
         }
     }
 
@@ -417,6 +470,65 @@ public static class TextEditorHelper
 
         completionWindow.Closed += (s, args) => SetCompletionWindow(editor, null);
         completionWindow.Show();
+    }
+
+    /// <summary>
+    /// Shows a completion window with variable suggestions from the active variable set.
+    /// Triggered when the user types <c>$</c> or presses Tab inside a variable token.
+    /// Selecting a completion inserts the full <c>${key}</c> token (the <c>$</c> already
+    /// in the document is included by <see cref="VariableCompletionData.Complete"/>).
+    /// </summary>
+    private static void ShowVariableCompletion(TextEditor editor)
+    {
+        var existingWindow = GetCompletionWindow(editor);
+        if (existingWindow != null)
+        {
+            return;
+        }
+
+        var variableItems = GremlinCompletionProvider.GetVariableCompletions(string.Empty).ToList();
+        if (variableItems.Count == 0)
+        {
+            return;
+        }
+
+        var completionWindow = new CompletionWindow(editor.TextArea);
+        var data = completionWindow.CompletionList.CompletionData;
+
+        foreach (var item in variableItems)
+        {
+            data.Add(item);
+        }
+
+        SetCompletionWindow(editor, completionWindow);
+
+        completionWindow.Closed += (s, args) => SetCompletionWindow(editor, null);
+        completionWindow.Show();
+    }
+
+    /// <summary>
+    /// Checks whether the caret is inside an open variable token
+    /// (i.e. after <c>$</c> or <c>${</c> but before the closing <c>}</c>).
+    /// </summary>
+    private static bool IsInsideVariableToken(TextEditor editor)
+    {
+        var offset = editor.CaretOffset;
+        var text = editor.Text;
+
+        // Walk backwards from caret to find '$' or '${' without hitting '}' or line break
+        for (int i = offset - 1; i >= 0; i--)
+        {
+            if (text[i] == '$')
+                return true;
+            if (text[i] == '{' && i > 0 && text[i - 1] == '$')
+                return true;
+            if (text[i] == '}' || text[i] == '\n' || text[i] == '\r')
+                return false;
+            if (!char.IsLetterOrDigit(text[i]) && text[i] != '_' && text[i] != '.')
+                return false;
+        }
+
+        return false;
     }
 
     private static DispatcherTimer? _validationTimer;

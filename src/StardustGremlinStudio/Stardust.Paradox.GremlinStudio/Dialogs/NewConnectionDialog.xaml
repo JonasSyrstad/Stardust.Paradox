@@ -6,7 +6,7 @@
         xmlns:converters="clr-namespace:Stardust.Paradox.GremlinStudio.Converters"
         mc:Ignorable="d"
         Title="New Connection" 
-        Height="540" Width="550"
+        Height="600" Width="550"
         WindowStartupLocation="CenterOwner"
         WindowStyle="None"
         AllowsTransparency="False"
@@ -25,6 +25,7 @@
     <Window.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+        <converters:InverseBoolConverter x:Key="InverseBoolConverter"/>
         
         <!-- Modern RadioButton Style with proper contrast -->
         <Style x:Key="ModernRadioButtonStyle" TargetType="RadioButton">
@@ -172,7 +173,7 @@
                     <StackPanel Visibility="{Binding IsStep1, Converter={StaticResource BoolToVisibilityConverter}}">
                         <TextBlock Text="Select Connection Type:" FontWeight="SemiBold" Margin="0,0,0,12"
                                    Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                        
+
                         <RadioButton x:Name="CosmosDbRadio" 
                                      IsChecked="{Binding IsCosmosDb}" 
                                      GroupName="ConnectionType"
@@ -185,14 +186,26 @@
                                            Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                             </StackPanel>
                         </RadioButton>
-                        
+
                         <RadioButton IsChecked="{Binding IsGenericGremlin}" 
                                      GroupName="ConnectionType"
-                                     Style="{StaticResource ModernRadioButtonStyle}">
+                                     Style="{StaticResource ModernRadioButtonStyle}"
+                                     Margin="0,0,0,12">
                             <StackPanel>
                                 <TextBlock Text="Generic Gremlin Server" FontWeight="SemiBold"
                                            Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                                 <TextBlock Text="Connect to any Gremlin-compatible server (TinkerPop, JanusGraph, etc.)" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton IsChecked="{Binding IsInMemory}" 
+                                     GroupName="ConnectionType"
+                                     Style="{StaticResource ModernRadioButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Local Playground (InMemory)" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="Create a local in-memory graph database for learning and testing. Optionally start with a predefined scenario." 
                                            Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
                             </StackPanel>
                         </RadioButton>
@@ -257,7 +270,7 @@
                     <StackPanel Visibility="{Binding IsStep2Generic, Converter={StaticResource BoolToVisibilityConverter}}">
                         <TextBlock Text="Gremlin Server Settings:" FontWeight="SemiBold" Margin="0,0,0,12"
                                    Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                        
+
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -270,30 +283,68 @@
                                 <ColumnDefinition Width="100"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
-                            
+
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="Host:" Margin="0,0,8,8" VerticalAlignment="Center"
                                        Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Host, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                                      Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
-                            
+
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="Port:" Margin="0,0,8,8" VerticalAlignment="Center"
                                        Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding Port, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                                      Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
-                            
+
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Username:" Margin="0,0,8,8" VerticalAlignment="Center"
                                        Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                             <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8"
                                      Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
-                            
+
                             <TextBlock Grid.Row="3" Grid.Column="0" Text="Password:" Margin="0,0,8,8" VerticalAlignment="Center"
                                        Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                             <PasswordBox Grid.Row="3" Grid.Column="1" x:Name="PasswordBox" Margin="0,0,0,8"
                                          Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}"/>
-                            
+
                             <CheckBox Grid.Row="4" Grid.Column="1" Content="Use SSL" IsChecked="{Binding UseSsl}" Margin="0,4,0,0"
                                       Foreground="{DynamicResource PrimaryForegroundBrush}"/>
                         </Grid>
+                    </StackPanel>
+
+                    <!-- Step 2c: InMemory Playground -->
+                    <StackPanel Visibility="{Binding IsStep2InMemory, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="Playground Configuration:" FontWeight="SemiBold" Margin="0,0,0,12"
+                                   Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                        <TextBlock Text="Choose how to initialize your local graph database:" 
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                        <RadioButton IsChecked="{Binding UseEmptyPlayground}" 
+                                     GroupName="PlaygroundInit"
+                                     Style="{StaticResource ModernRadioButtonStyle}"
+                                     Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock Text="Empty Playground" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="Start with a blank graph. Add your own vertices and edges." 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <RadioButton IsChecked="{Binding UseEmptyPlayground, Converter={StaticResource InverseBoolConverter}}" 
+                                     GroupName="PlaygroundInit"
+                                     Style="{StaticResource ModernRadioButtonStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Predefined Scenario" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock Text="Start with sample data from a built-in scenario." 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+
+                                <TextBlock Text="Select Scenario:" Margin="0,12,0,4"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <ComboBox ItemsSource="{Binding AvailableScenarios}" 
+                                          SelectedItem="{Binding SelectedScenario}"
+                                          IsEnabled="{Binding UseEmptyPlayground, Converter={StaticResource InverseBoolConverter}}"
+                                          Margin="0,0,0,4"/>
+                            </StackPanel>
+                        </RadioButton>
                     </StackPanel>
                     
                     <!-- Step 3: Connection Name -->

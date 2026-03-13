@@ -9,6 +9,7 @@ using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Editor;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
 
@@ -212,6 +213,28 @@ public partial class QueryTabViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Applies an InMemory connection with a pre-created connector.
+    /// The tab uses the provided connector directly and tracks it as a regular connection.
+    /// </summary>
+    public void ApplyInMemoryConnection(GremlinConnectionSettings settings, IGremlinLanguageConnector connector)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(connector);
+
+        ConnectionSettings = settings;
+        _activeConnector = connector;
+        IsUsingPlayground = false;
+        PlaygroundScenarioName = null;
+        _playgroundConnector = null;
+
+        TabName = settings.Metadata.Name;
+
+        OnPropertyChanged(nameof(ConnectionDisplayName));
+        OnPropertyChanged(nameof(ConnectionMetadata));
+        OnPropertyChanged(nameof(HasConnection));
+    }
+
+    /// <summary>
     /// Gets the active connector for this tab.
     /// </summary>
     public IGremlinLanguageConnector? GetActiveConnector()
@@ -233,6 +256,7 @@ public partial class QueryTabViewModel : ObservableObject
     partial void OnQueryTextChanged(string value)
     {
         IsDirty = true;
+        QueryExplanation = string.Empty;
     }
 
     [ObservableProperty]
@@ -633,6 +657,17 @@ public partial class QueryTabViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRunQuery))]
     private async Task RunQueryAsync()
     {
+        await ExecuteQueryAsync(resolvedQuery: null);
+    }
+
+    /// <summary>
+    /// Executes the current query. When <paramref name="resolvedQuery"/> is provided,
+    /// it is sent to the server while the original <see cref="QueryText"/> (containing
+    /// <c>${var}</c> tokens) is preserved in history. The resolved query appears in the
+    /// execution log.
+    /// </summary>
+    public async Task ExecuteQueryAsync(string? resolvedQuery = null)
+    {
         if (string.IsNullOrWhiteSpace(QueryText))
         {
             StatusText = "Enter a query first";
@@ -645,6 +680,11 @@ public partial class QueryTabViewModel : ObservableObject
             StatusText = "No active connection. Start the playground or select a connection.";
             return;
         }
+
+        // The original query (may contain ${var} tokens) is kept for history.
+        // The resolved query (variables substituted) is used for execution and log.
+        var originalQuery = QueryText;
+        var queryToExecute = resolvedQuery ?? QueryText;
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
@@ -665,8 +705,6 @@ public partial class QueryTabViewModel : ObservableObject
             SchemaTreeItems.Clear();
             SchemaCodePreview = string.Empty;
 
-            var queryToExecute = QueryText;
-
             var result = await _queryExecutor.ExecuteAsync(
                 connector,
                 queryToExecute,
@@ -680,7 +718,7 @@ public partial class QueryTabViewModel : ObservableObject
                 ? $"RU: {result.RequestUnits.Value:F2}"
                 : string.Empty;
 
-            // Record execution in session log
+            // Record execution in session log (uses the resolved/executed query via the result)
             ExecutionLog.Insert(0, ExecutionLogEntry.FromResult(result));
 
             if (result.IsSuccess)
@@ -689,7 +727,8 @@ public partial class QueryTabViewModel : ObservableObject
                 LastResultCountText = $"Results: {result.ResultCount}";
                 StatusText = $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
 
-                _queryHistoryService.AddQuery(QueryText, ConnectionMetadata?.Id);
+                // History stores the original query (with ${var} tokens)
+                _queryHistoryService.AddQuery(originalQuery, ConnectionMetadata?.Id);
                 _ = _queryHistoryService.SaveAsync();
                 _refreshMainHistory();
             }
@@ -705,6 +744,12 @@ public partial class QueryTabViewModel : ObservableObject
             PopulateResultViews(result.IsSuccess ? result.ResultJson : null);
             IsDirty = false;
 
+            // Auto-generate query explanation from the original query template
+            if (result.IsSuccess && !string.IsNullOrWhiteSpace(originalQuery))
+            {
+                QueryExplanation = GremlinQueryExplainer.Explain(originalQuery);
+            }
+
             // If user is currently viewing schema mode, run a fresh discovery for the new results
             if (IsSchemaExplorerMode && result.IsSuccess)
             {
@@ -714,7 +759,7 @@ public partial class QueryTabViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             stopwatch.Stop();
-            ExecutionLog.Insert(0, ExecutionLogEntry.Cancelled(QueryText, stopwatch.Elapsed));
+            ExecutionLog.Insert(0, ExecutionLogEntry.Cancelled(queryToExecute, stopwatch.Elapsed));
             StatusText = "Query cancelled";
             LastRequestUnitsText = string.Empty;
             LastResultCountText = string.Empty;
@@ -724,7 +769,7 @@ public partial class QueryTabViewModel : ObservableObject
         catch (Exception ex)
         {
             stopwatch.Stop();
-            ExecutionLog.Insert(0, ExecutionLogEntry.Error(QueryText, stopwatch.Elapsed, ex.Message));
+            ExecutionLog.Insert(0, ExecutionLogEntry.Error(queryToExecute, stopwatch.Elapsed, ex.Message));
             _logger.LogError(ex, "Failed to execute query");
             StatusText = "Query error";
             _updateMainStatus(StatusText);

@@ -30,5 +30,7 @@ public static class AppDataPaths
 
     public static string VariablesFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "variables.json");
 
+    public static string LastVariableSetPreferenceFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "last-variable-set.txt");
+
     public static string WelcomeGuideFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "welcome-guide.json");
 }

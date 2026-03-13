@@ -64,6 +64,19 @@ public class GremlinTooltipProvider
             return;
         }
 
+        // First, check if hovering over a ${variable} token
+        var variableKey = GetVariableTokenAtOffset(offset);
+        if (variableKey != null)
+        {
+            var resolved = ResolveVariable(variableKey);
+            if (resolved != null)
+            {
+                ClosePopup();
+                ShowVariableTooltip(variableKey, resolved.Value.Value, resolved.Value.IsConnectionScoped, e);
+                return;
+            }
+        }
+
         var stepName = GetStepNameAtOffset(offset);
         if (stepName == null)
             return;
@@ -349,5 +362,155 @@ public class GremlinTooltipProvider
         }
 
         return panel;
+    }
+
+    /// <summary>
+    /// Extracts the variable key from a <c>${key}</c> token at the given offset.
+    /// Returns <c>null</c> if the offset is not inside a variable token.
+    /// </summary>
+    private string? GetVariableTokenAtOffset(int offset)
+    {
+        var doc = _editor.Document;
+        if (offset < 0 || offset >= doc.TextLength)
+            return null;
+
+        var text = doc.Text;
+
+        // Walk backwards from offset to find '${'
+        int braceOpen = -1;
+        for (int i = offset; i >= 1; i--)
+        {
+            if (text[i] == '{' && text[i - 1] == '$')
+            {
+                braceOpen = i;
+                break;
+            }
+
+            // Stop if we pass a '}' (we're past the token)
+            if (text[i] == '}')
+                break;
+        }
+
+        if (braceOpen < 0)
+            return null;
+
+        // Walk forward to find '}'
+        int braceClose = -1;
+        for (int i = braceOpen + 1; i < text.Length; i++)
+        {
+            if (text[i] == '}')
+            {
+                braceClose = i;
+                break;
+            }
+
+            // Stop if we hit something invalid for a variable key
+            if (text[i] == '\n' || text[i] == '\r')
+                break;
+        }
+
+        if (braceClose < 0)
+            return null;
+
+        // Confirm the offset is within the token bounds ($ to })
+        if (offset < braceOpen - 1 || offset > braceClose)
+            return null;
+
+        var key = text.Substring(braceOpen + 1, braceClose - braceOpen - 1);
+        return string.IsNullOrWhiteSpace(key) ? null : key;
+    }
+
+    /// <summary>
+    /// Looks up a variable key in the active variable context.
+    /// </summary>
+    private static (string Value, bool IsConnectionScoped)? ResolveVariable(string key)
+    {
+        var variables = GremlinCompletionProvider.ActiveVariables;
+        foreach (var v in variables)
+        {
+            if (string.Equals(v.Key, key, StringComparison.Ordinal))
+            {
+                return (v.Value, v.IsConnectionScoped);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Shows a tooltip popup for a resolved <c>${key}</c> variable.
+    /// </summary>
+    private void ShowVariableTooltip(string key, string value, bool isConnectionScoped, MouseEventArgs e)
+    {
+        var scope = isConnectionScoped ? "connection" : "global";
+        var accentBrush = GetBrush("AccentBrush");
+        var primaryFg = GetBrush("PrimaryForegroundBrush");
+        var secondaryFg = GetBrush("SecondaryForegroundBrush");
+
+        var panel = new StackPanel { MaxWidth = 400 };
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = $"variable ({scope})",
+            FontSize = 10,
+            Foreground = accentBrush,
+            Margin = new Thickness(0, 0, 0, 4)
+        });
+
+        var nameBlock = new TextBlock
+        {
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 13,
+            Foreground = primaryFg
+        };
+        nameBlock.Inlines.Add(new Run("${") { Foreground = secondaryFg });
+        nameBlock.Inlines.Add(new Run(key) { FontWeight = FontWeights.Bold });
+        nameBlock.Inlines.Add(new Run("}") { Foreground = secondaryFg });
+        panel.Children.Add(nameBlock);
+
+        panel.Children.Add(new Border
+        {
+            Height = 1,
+            Background = GetBrush("BorderBrush"),
+            Margin = new Thickness(0, 6, 0, 6)
+        });
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = value,
+            FontFamily = new FontFamily("Consolas"),
+            FontSize = 12,
+            Foreground = new SolidColorBrush(Color.FromRgb(0xCE, 0x91, 0x78)), // #CE9178 string color
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        var border = new Border
+        {
+            Child = panel,
+            Background = GetBrush("TertiaryBackgroundBrush"),
+            BorderBrush = GetBrush("BorderBrush"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 8, 10, 8),
+            MaxWidth = 420,
+            Effect = new System.Windows.Media.Effects.DropShadowEffect
+            {
+                BlurRadius = 8,
+                ShadowDepth = 2,
+                Opacity = 0.4,
+                Color = Colors.Black
+            }
+        };
+
+        _popup = new Popup
+        {
+            Child = border,
+            Placement = PlacementMode.Mouse,
+            AllowsTransparency = true,
+            StaysOpen = false,
+            IsOpen = true
+        };
+
+        e.Handled = true;
     }
 }

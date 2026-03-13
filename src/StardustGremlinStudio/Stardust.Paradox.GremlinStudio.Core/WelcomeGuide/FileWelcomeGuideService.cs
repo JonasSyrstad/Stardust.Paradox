@@ -233,9 +233,9 @@ public sealed class FileWelcomeGuideService : IWelcomeGuideService
             new WelcomeGuideStep(
                 "playground",
                 "Local Playground",
-                "Start a local in-memory graph database for experimentation without a remote server. Load built-in scenarios for sample data.",
+                "Create an InMemory connection to start a local graph database for experimentation. Use the New button and choose 'Local Playground' to load built-in scenarios or start with an empty graph.",
                 "1.0.0",
-                "GuideTarget_StartPlaygroundButton",
+                "GuideTarget_NewConnectionButton",
                 GuideNavigationAction.EnsureSettingsPanelOpen,
                 BubbleArrowSide.Left),
 

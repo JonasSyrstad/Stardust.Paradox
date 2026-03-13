@@ -33,7 +33,9 @@ public static class QueryVariableSubstitutor
 
         return current.ValueKind switch
         {
-            JsonValueKind.String => current.GetString() ?? string.Empty,
+            // Wrap strings in single quotes for valid Gremlin syntax,
+            // escaping any embedded single quotes with a backslash.
+            JsonValueKind.String => "'" + (current.GetString() ?? string.Empty).Replace("'", "\\'") + "'",
             JsonValueKind.Number => current.GetRawText(),
             JsonValueKind.True => "true",
             JsonValueKind.False => "false",
