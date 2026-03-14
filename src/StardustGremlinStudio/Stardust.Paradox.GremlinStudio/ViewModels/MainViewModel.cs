@@ -159,12 +159,16 @@ public partial class MainViewModel : ObservableObject
 
     private void RefreshQueryHistory()
     {
+        RefreshQueryHistoryForConnection(SelectedTab?.ConnectionMetadata?.Id);
+    }
+
+    private void RefreshQueryHistoryForConnection(string? connectionId)
+    {
         // Guard: prevent ComboBox auto-selection from resetting QueryText
         // when the collection changes.
         _isRefreshingHistory = true;
         try
         {
-            var connectionId = SelectedTab?.ConnectionMetadata?.Id;
             var items = _queryHistoryService.GetHistory(connectionId);
 
             // Update the existing collection in-place rather than replacing it.
@@ -1621,7 +1625,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         // Refresh history for the newly selected connection
-        RefreshQueryHistory();
+        RefreshQueryHistoryForConnection(value.Id);
 
         // Reset and reload statistics for the new connection
         ResetAndRefreshStatistics();
