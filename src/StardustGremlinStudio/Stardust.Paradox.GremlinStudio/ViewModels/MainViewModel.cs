@@ -10,6 +10,7 @@ using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
+using Stardust.Paradox.GremlinStudio.Core.McpInstall;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
 using Stardust.Paradox.GremlinStudio.Core.Snippets;
@@ -41,6 +42,7 @@ public partial class MainViewModel : ObservableObject
     private readonly IThemeService _themeService;
     private readonly ICosmosDbDiscoveryService _discoveryService;
     private readonly IAgentSkillsDownloadService _agentSkillsDownloadService;
+    private readonly IMcpServerInstallService _mcpInstallService;
     private readonly IWelcomeGuideService _welcomeGuideService;
     private readonly IQuerySnippetStore _snippetStore;
     private readonly IQueryVariableStore _variableStore;
@@ -71,6 +73,7 @@ public partial class MainViewModel : ObservableObject
         ICosmosDbDiscoveryService discoveryService,
         IUpdateService updateService,
         IAgentSkillsDownloadService agentSkillsDownloadService,
+        IMcpServerInstallService mcpInstallService,
         IWelcomeGuideService welcomeGuideService,
         IQuerySnippetStore snippetStore,
         IQueryVariableStore variableStore,
@@ -89,6 +92,7 @@ public partial class MainViewModel : ObservableObject
         _themeService = themeService;
         _discoveryService = discoveryService;
         _agentSkillsDownloadService = agentSkillsDownloadService;
+        _mcpInstallService = mcpInstallService;
         _welcomeGuideService = welcomeGuideService;
         _snippetStore = snippetStore;
         _variableStore = variableStore;
@@ -1509,6 +1513,81 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             SelectedTab.IsDownloadingSkills = false;
+        }
+    }
+
+    [RelayCommand]
+    private void InstallMcpForRepo()
+    {
+        if (SelectedTab == null)
+        {
+            StatusText = "No active tab";
+            return;
+        }
+
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Select a solution or repository root folder",
+            Multiselect = false
+        };
+
+        if (dialog.ShowDialog() != true)
+            return;
+
+        var result = _mcpInstallService.InstallForSolutionOrRepo(dialog.FolderName);
+        if (result.IsSuccess)
+        {
+            SelectedTab.McpInstallStatusText = $"\u2705 Installed to {result.ConfigFilePath}";
+            StatusText = "MCP server config installed for repo";
+        }
+        else
+        {
+            SelectedTab.McpInstallStatusText = $"\u274C {result.ErrorMessage}";
+            StatusText = $"MCP install failed: {result.ErrorMessage}";
+        }
+    }
+
+    [RelayCommand]
+    private void InstallMcpForVisualStudio()
+    {
+        if (SelectedTab == null)
+        {
+            StatusText = "No active tab";
+            return;
+        }
+
+        var result = _mcpInstallService.InstallForVisualStudioGlobal();
+        if (result.IsSuccess)
+        {
+            SelectedTab.McpInstallStatusText = $"\u2705 Installed to {result.ConfigFilePath}";
+            StatusText = "MCP server installed globally for Visual Studio";
+        }
+        else
+        {
+            SelectedTab.McpInstallStatusText = $"\u274C {result.ErrorMessage}";
+            StatusText = $"MCP install failed: {result.ErrorMessage}";
+        }
+    }
+
+    [RelayCommand]
+    private void InstallMcpForVsCode()
+    {
+        if (SelectedTab == null)
+        {
+            StatusText = "No active tab";
+            return;
+        }
+
+        var result = _mcpInstallService.InstallForVsCodeGlobal();
+        if (result.IsSuccess)
+        {
+            SelectedTab.McpInstallStatusText = $"\u2705 Installed to {result.ConfigFilePath}";
+            StatusText = "MCP server installed globally for VS Code";
+        }
+        else
+        {
+            SelectedTab.McpInstallStatusText = $"\u274C {result.ErrorMessage}";
+            StatusText = $"MCP install failed: {result.ErrorMessage}";
         }
     }
 

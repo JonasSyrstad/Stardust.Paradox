@@ -567,6 +567,16 @@ public partial class QueryTabViewModel : ObservableObject
 
     #endregion
 
+    #region MCP Server Install
+
+    /// <summary>
+    /// Status text shown during or after MCP server install.
+    /// </summary>
+    [ObservableProperty]
+    private string _mcpInstallStatusText = "";
+
+    #endregion
+
     #region Database Statistics
 
     /// <summary>

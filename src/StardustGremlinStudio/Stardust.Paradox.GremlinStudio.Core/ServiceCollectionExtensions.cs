@@ -3,6 +3,7 @@ using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
+using Stardust.Paradox.GremlinStudio.Core.McpInstall;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
 using Stardust.Paradox.GremlinStudio.Core.Snippets;
@@ -58,6 +59,9 @@ public static class ServiceCollectionExtensions
         // Snippets and variables
         services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();
         services.AddSingleton<IQueryVariableStore, FileQueryVariableStore>();
+
+        // MCP server installation
+        services.AddSingleton<IMcpServerInstallService, McpServerInstallService>();
 
         return services;
     }

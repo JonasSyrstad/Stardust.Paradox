@@ -1934,7 +1934,35 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                        Visibility="{Binding IsExporting, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                                             
                                             <Separator Margin="0,4,0,16" Background="{DynamicResource BorderBrush}"/>
-                                            
+
+                                            <!-- MCP Server Install -->
+                                            <TextBlock Text="MCP Server (Copilot Integration)" FontSize="14" FontWeight="SemiBold" 
+                                                       Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"/>
+                                            <TextBlock TextWrapping="Wrap" FontSize="11" Margin="0,0,0,8"
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                                Install the Gremlin Studio MCP server so GitHub Copilot can execute queries, discover schemas, and export data from your graph databases.
+                                            </TextBlock>
+
+                                            <Button Content="📁 Install for Solution/Repo..." 
+                                                    Command="{Binding DataContext.InstallMcpForRepoCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    ToolTip="Creates .mcp.json and .vscode/mcp.json in a chosen folder"
+                                                    Padding="8,6" Margin="0,0,0,4"/>
+                                            <Button Content="🟣 Install for Visual Studio (Global)" 
+                                                    Command="{Binding DataContext.InstallMcpForVisualStudioCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    ToolTip="Writes to %USERPROFILE%/.mcp.json — available in all solutions"
+                                                    Padding="8,6" Margin="0,0,0,4"/>
+                                            <Button Content="🔵 Install for VS Code (Global)" 
+                                                    Command="{Binding DataContext.InstallMcpForVsCodeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    ToolTip="Adds to VS Code user settings — available in all workspaces"
+                                                    Padding="8,6" Margin="0,0,0,8"/>
+
+                                            <TextBlock Text="{Binding McpInstallStatusText}" FontSize="11"
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                                       TextWrapping="Wrap" Margin="0,0,0,12"
+                                                       Visibility="{Binding McpInstallStatusText, Converter={StaticResource NullToCollapsedConverter}}"/>
+
+                                            <Separator Margin="0,4,0,16" Background="{DynamicResource BorderBrush}"/>
+
                                             <TextBlock Text="Instructions" FontWeight="SemiBold" Foreground="#0078D4" Margin="0,0,0,8"/>
                                             <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
                                                 <Run>1. Run a query that returns vertices/edges</Run>

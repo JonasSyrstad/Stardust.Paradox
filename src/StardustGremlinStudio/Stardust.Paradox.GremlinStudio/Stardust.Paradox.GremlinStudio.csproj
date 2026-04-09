@@ -14,6 +14,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Stardust.Paradox.GremlinStudio.Core\Stardust.Paradox.GremlinStudio.Core.csproj" />
+    <ProjectReference Include="..\Stardust.Paradox.GremlinStudio.McpServer\Stardust.Paradox.GremlinStudio.McpServer.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <Private>false</Private>
+    </ProjectReference>
   </ItemGroup>
 
   <ItemGroup>
@@ -43,9 +47,9 @@
     <Authors>Jonas Syrstad</Authors>
     <Description>A modern, feature-rich query tool for Gremlin-based graph databases including Azure Cosmos DB and Apache TinkerPop.</Description>
     <Copyright>Copyright © 2024 Jonas Syrstad. All rights reserved.</Copyright>
-    <Version>1.8.1</Version>
-    <FileVersion>1.8.1.0</FileVersion>
-    <AssemblyVersion>1.8.1.0</AssemblyVersion>
+    <Version>1.9.0</Version>
+    <FileVersion>1.9.0.0</FileVersion>
+    <AssemblyVersion>1.9.0.0</AssemblyVersion>
     
     <!-- Application Icon -->
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
@@ -71,6 +75,29 @@
     <Resource Include="Resources\splash7.png" />
     <Resource Include="Resources\splash8.png" />
   </ItemGroup>
+
+  <!-- Copy MCP server executable alongside GremlinStudio output -->
+  <Target Name="CopyMcpServer" AfterTargets="Build">
+    <PropertyGroup>
+      <McpServerOutputDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net8.0\win-x64\</McpServerOutputDir>
+    </PropertyGroup>
+    <Copy SourceFiles="$(McpServerOutputDir)GremlinStudioMcp.exe"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(McpServerOutputDir)GremlinStudioMcp.exe')" />
+  </Target>
+
+  <Target Name="CopyMcpServerOnPublish" AfterTargets="Publish">
+    <PropertyGroup>
+      <McpServerPublishDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net8.0\win-x64\publish\</McpServerPublishDir>
+    </PropertyGroup>
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\Stardust.Paradox.GremlinStudio.McpServer\Stardust.Paradox.GremlinStudio.McpServer.csproj&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true"
+          Condition="!Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
+    <Copy SourceFiles="$(McpServerPublishDir)GremlinStudioMcp.exe"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
+  </Target>
 
 </Project>
 

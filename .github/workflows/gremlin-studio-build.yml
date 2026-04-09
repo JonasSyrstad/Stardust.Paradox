@@ -17,6 +17,7 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj'
+  MCP_PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio.McpServer/Stardust.Paradox.GremlinStudio.McpServer.csproj'
   APP_ID: 'GremlinStudio'
 
 jobs:
@@ -38,6 +39,16 @@ jobs:
     - name: Build
       run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
 
+    - name: Publish MCP Server (Self-contained Single File)
+      run: |
+        dotnet publish ${{ env.MCP_PROJECT_PATH }} -c Release -o ./publish/mcp-server `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true
+
     - name: Publish (Self-contained Single File - for standalone distribution)
       run: |
         dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish/win-x64-single `
@@ -47,6 +58,7 @@ jobs:
           -p:PublishReadyToRun=true `
           -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:EnableCompressionInSingleFile=true
+        Copy-Item ./publish/mcp-server/GremlinStudioMcp.exe ./publish/win-x64-single/
 
     - name: Publish (Self-contained for Velopack auto-update)
       run: |
@@ -55,6 +67,7 @@ jobs:
           --self-contained true `
           -p:PublishSingleFile=false `
           -p:PublishReadyToRun=true
+        Copy-Item ./publish/mcp-server/GremlinStudioMcp.exe ./publish/win-x64-velopack/
 
     - name: Install Velopack CLI
       run: |

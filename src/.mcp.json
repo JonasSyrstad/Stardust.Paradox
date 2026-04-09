@@ -1,0 +1,14 @@
+{
+  "inputs": [],
+  "servers": {
+    "GremlinStudio": {
+      "type": "stdio",
+      "command": "dotnet",
+      "args": [
+        "run",
+        "--project",
+        "StardustGremlinStudio\\Stardust.Paradox.GremlinStudio.McpServer\\Stardust.Paradox.GremlinStudio.McpServer.csproj"
+      ]
+    }
+  }
+}

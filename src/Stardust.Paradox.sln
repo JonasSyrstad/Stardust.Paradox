@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.2.11408.102 d18.0
+VisualStudioVersion = 18.2.11408.102
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Stardust.Paradox.Data", "Stardust.Paradox.Data\Stardust.Paradox.Data.csproj", "{D6AE37AA-AFEC-4CBE-8CE5-AB8887BE4ACD}"
 EndProject
@@ -47,6 +47,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Installer", "Installer", "{
 		StardustGremlinStudio\Installer\GremlinStudio.iss = StardustGremlinStudio\Installer\GremlinStudio.iss
 		StardustGremlinStudio\Installer\README.md = StardustGremlinStudio\Installer\README.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Stardust.Paradox.GremlinStudio.McpServer", "StardustGremlinStudio\Stardust.Paradox.GremlinStudio.McpServer\Stardust.Paradox.GremlinStudio.McpServer.csproj", "{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -238,6 +240,18 @@ Global
 		{FFD21832-CFEF-4CA6-953F-9B4956E3493D}.Release|x64.Build.0 = Release|Any CPU
 		{FFD21832-CFEF-4CA6-953F-9B4956E3493D}.Release|x86.ActiveCfg = Release|Any CPU
 		{FFD21832-CFEF-4CA6-953F-9B4956E3493D}.Release|x86.Build.0 = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|x64.Build.0 = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Debug|x86.Build.0 = Debug|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|x64.ActiveCfg = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|x64.Build.0 = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|x86.ActiveCfg = Release|Any CPU
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -247,6 +261,7 @@ Global
 		{E7FFABCD-AE11-4010-8088-E662A0FEC05B} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 		{FFD21832-CFEF-4CA6-953F-9B4956E3493D} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 		{418E7173-AAD3-4CC4-912A-8906001F24B6} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
+		{A6A67FE8-735B-4D3F-A9DB-CC9391B16620} = {44D04B6D-11CF-CFF9-8F5A-64702D10A371}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {FD602EDD-5C83-460A-8598-6066DF9A2C17}
