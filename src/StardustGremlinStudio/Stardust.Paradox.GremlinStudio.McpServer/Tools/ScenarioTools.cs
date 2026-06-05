@@ -33,7 +33,7 @@ public sealed class ScenarioTools
         _queryExecutor = queryExecutor;
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "list_scenarios"), Description(
         "Lists all available InMemory playground scenarios. " +
         "Scenarios provide pre-populated graph data for testing and exploration. " +
         "These can be loaded into InMemory connections or used as test fixtures.")]
@@ -47,7 +47,7 @@ public sealed class ScenarioTools
         }).ToList();
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "export_scenario"), Description(
         "Exports graph data from a connection as a scenario file. " +
         "First runs a query to select vertices, then fetches related edges, " +
         "and exports the data as JSON (compatible with InMemory scenario loader) or C# code. " +

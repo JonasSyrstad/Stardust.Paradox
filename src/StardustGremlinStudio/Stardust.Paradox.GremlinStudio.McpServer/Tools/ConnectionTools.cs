@@ -17,7 +17,7 @@ public sealed class ConnectionTools
         _connectionStore = connectionStore;
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "list_connections"), Description(
         "Lists all saved Gremlin database connections in Gremlin Studio. " +
         "Returns connection names, types (CosmosDb/GremlinServer/InMemory), hosts, and identifiers.")]
     public async Task<IReadOnlyList<ConnectionSummary>> ListConnections()
@@ -38,7 +38,7 @@ public sealed class ConnectionTools
         }).ToList();
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "get_connection_details"), Description(
         "Gets detailed information about a specific Gremlin connection by its name or ID. " +
         "Returns full connection metadata including host, port, database, graph, SSL, and pool settings.")]
     public async Task<ConnectionDetails?> GetConnectionDetails(

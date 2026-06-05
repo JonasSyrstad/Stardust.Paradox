@@ -25,10 +25,10 @@ public sealed class QueryTools
         _queryExecutor = queryExecutor;
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "execute_gremlin_query"), Description(
         "Executes a Gremlin query against a saved connection in Gremlin Studio. " +
         "Returns the query results as JSON along with execution metadata (duration, result count, RU cost for Cosmos DB). " +
-        "Use 'ListConnections' first to find available connection names.")]
+        "Use 'list_connections' first to find available connection names.")]
     public async Task<QueryToolResult> ExecuteGremlinQuery(
         [Description("The name or ID of the saved connection to execute against.")] string connectionName,
         [Description("The Gremlin query to execute (e.g. 'g.V().limit(10)', 'g.V().hasLabel(\"person\").count()').")] string query)

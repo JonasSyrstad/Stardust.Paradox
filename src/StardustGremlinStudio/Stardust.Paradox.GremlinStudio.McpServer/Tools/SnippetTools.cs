@@ -23,7 +23,7 @@ public sealed class SnippetTools
         _connectionStore = connectionStore;
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "list_snippets"), Description(
         "Lists all saved Gremlin query snippets in Gremlin Studio. " +
         "Snippets are reusable named queries that users have saved for quick access.")]
     public async Task<IReadOnlyList<SnippetSummary>> ListSnippets()
@@ -40,7 +40,7 @@ public sealed class SnippetTools
         }).ToList();
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "get_snippet"), Description(
         "Gets a specific saved query snippet by name or ID. " +
         "Returns the full snippet including query text and tags.")]
     public async Task<SnippetSummary?> GetSnippet(
@@ -67,7 +67,7 @@ public sealed class SnippetTools
         };
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "list_query_history"), Description(
         "Lists recent query history from Gremlin Studio. " +
         "Shows previously executed queries with their connection context and execution timestamps. " +
         "Optionally filter by connection name or ID.")]

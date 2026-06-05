@@ -7,6 +7,9 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Stardust.Paradox.GremlinStudio.McpServer</RootNamespace>
     <AssemblyName>GremlinStudioMcp</AssemblyName>
+    <Version>1.9.3</Version>
+    <FileVersion>1.9.3.0</FileVersion>
+    <AssemblyVersion>1.9.3.0</AssemblyVersion>
 
     <!-- Publishing Settings -->
     <PublishSingleFile>true</PublishSingleFile>

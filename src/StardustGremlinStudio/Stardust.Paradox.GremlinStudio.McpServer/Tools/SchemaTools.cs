@@ -28,7 +28,7 @@ public sealed class SchemaTools
         _schemaExport = schemaExport;
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "discover_graph_schema"), Description(
         "Discovers the graph schema for a saved connection. " +
         "Returns vertex labels, edge labels, their properties, and relationships. " +
         "Useful for understanding the graph structure before writing queries.")]
@@ -92,7 +92,7 @@ public sealed class SchemaTools
         }
     }
 
-    [McpServerTool, Description(
+    [McpServerTool(Name = "export_schema_as_code"), Description(
         "Exports the graph schema as C# entity interfaces compatible with Stardust.Paradox ORM. " +
         "Discovers the schema first, then generates interface code with vertex/edge annotations.")]
     public async Task<SchemaCodeExportResult> ExportSchemaAsCode(
