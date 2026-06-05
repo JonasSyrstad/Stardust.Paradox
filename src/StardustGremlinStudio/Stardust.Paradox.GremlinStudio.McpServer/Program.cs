@@ -2,6 +2,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
+
+// Migrate any legacy settings before building the host.
+// The MCP server runs as a standalone process and may start before the GUI app has ever migrated.
+using (var migrationLoggerFactory = LoggerFactory.Create(b => b.AddConsole().SetMinimumLevel(LogLevel.Warning)))
+{
+    LegacySettingsMigration.MigrateIfNeeded(migrationLoggerFactory.CreateLogger("McpServer"));
+}
 
 var builder = Host.CreateApplicationBuilder(args);
 
