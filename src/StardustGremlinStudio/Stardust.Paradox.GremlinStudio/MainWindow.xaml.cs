@@ -1015,4 +1015,89 @@ public partial class MainWindow : Window
     }
 
     #endregion
+
+    #region Execution Log Copy
+
+    private void ExecutionLogDataGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            if (sender is not DataGrid dataGrid) return;
+            if (dataGrid.CurrentItem is not Core.Execution.ExecutionLogEntry logEntry) return;
+
+            // If a specific cell is selected, copy that cell's value; otherwise copy the query
+            var currentCell = dataGrid.CurrentCell;
+            if (currentCell.Column != null)
+            {
+                var cellValue = GetLogCellValue(logEntry, currentCell.Column);
+                if (cellValue != null)
+                {
+                    Clipboard.SetText(cellValue);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            Clipboard.SetText(logEntry.Query);
+            e.Handled = true;
+        }
+    }
+
+    private void LogCopyCell_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+        if (dataGrid.CurrentItem is not Core.Execution.ExecutionLogEntry logEntry) return;
+
+        var currentCell = dataGrid.CurrentCell;
+        if (currentCell.Column != null)
+        {
+            var cellValue = GetLogCellValue(logEntry, currentCell.Column);
+            Clipboard.SetText(cellValue ?? string.Empty);
+        }
+    }
+
+    private void LogCopyQuery_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+        if (dataGrid.CurrentItem is not Core.Execution.ExecutionLogEntry logEntry) return;
+
+        Clipboard.SetText(logEntry.Query);
+    }
+
+    private void LogCopyRow_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem menuItem) return;
+        if (menuItem.Parent is not ContextMenu contextMenu) return;
+        if (contextMenu.PlacementTarget is not DataGrid dataGrid) return;
+        if (dataGrid.CurrentItem is not Core.Execution.ExecutionLogEntry logEntry) return;
+
+        var text = string.Join("\t",
+            logEntry.Timestamp.ToString("HH:mm:ss"),
+            logEntry.Query,
+            $"{logEntry.Duration.TotalMilliseconds:F0}ms",
+            logEntry.ResultCount.ToString(),
+            logEntry.RequestUnits?.ToString("F2") ?? "",
+            logEntry.ErrorMessage ?? "");
+        Clipboard.SetText(text);
+    }
+
+    private static string? GetLogCellValue(Core.Execution.ExecutionLogEntry logEntry, DataGridColumn column)
+    {
+        return column.Header?.ToString() switch
+        {
+            "Time" => logEntry.Timestamp.ToString("HH:mm:ss"),
+            "Query" => logEntry.Query,
+            "Duration" => $"{logEntry.Duration.TotalMilliseconds:F0}ms",
+            "Results" => logEntry.ResultCount.ToString(),
+            "RU" => logEntry.RequestUnits?.ToString("F2") ?? "",
+            "Error" => logEntry.ErrorMessage ?? "",
+            _ => null
+        };
+    }
+
+    #endregion
 }

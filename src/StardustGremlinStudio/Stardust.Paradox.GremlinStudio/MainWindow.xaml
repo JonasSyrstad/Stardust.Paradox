@@ -2070,15 +2070,18 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                VerticalAlignment="Center" Margin="4,0"
                                                Foreground="{DynamicResource SecondaryForegroundBrush}" FontSize="12"/>
                                 </ToolBar>
-                                <DataGrid ItemsSource="{Binding ExecutionLog}"
+                                <DataGrid x:Name="ExecutionLogDataGrid"
+                                          ItemsSource="{Binding ExecutionLog}"
                                           SelectedItem="{Binding SelectedLogEntry}"
                                           AutoGenerateColumns="False"
                                           IsReadOnly="True"
                                           CanUserAddRows="False"
                                           CanUserDeleteRows="False"
                                           GridLinesVisibility="Horizontal"
-                                          SelectionUnit="FullRow"
+                                          SelectionUnit="CellOrRowHeader"
                                           SelectionMode="Single"
+                                          ClipboardCopyMode="ExcludeHeader"
+                                          PreviewKeyDown="ExecutionLogDataGrid_PreviewKeyDown"
                                           RowBackground="{DynamicResource PrimaryBackgroundBrush}"
                                           Foreground="{DynamicResource PrimaryForegroundBrush}"
                                           AlternatingRowBackground="{DynamicResource SecondaryBackgroundBrush}"
@@ -2090,6 +2093,13 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                           FontSize="11"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Auto">
+                                    <DataGrid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Copy Cell" Click="LogCopyCell_Click" InputGestureText="Ctrl+C"/>
+                                            <MenuItem Header="Copy Query" Click="LogCopyQuery_Click"/>
+                                            <MenuItem Header="Copy Row" Click="LogCopyRow_Click"/>
+                                        </ContextMenu>
+                                    </DataGrid.ContextMenu>
                                     <DataGrid.Columns>
                                         <DataGridTemplateColumn Header="" Width="24" CanUserResize="False">
                                             <DataGridTemplateColumn.CellTemplate>
