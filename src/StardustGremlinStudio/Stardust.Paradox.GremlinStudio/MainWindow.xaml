@@ -54,6 +54,12 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 <converters:BoolToStatusColorConverter x:Key="BoolToStatusColorConverter"/>
 <converters:EpochToDateTimeTooltipConverter x:Key="EpochToDateTimeTooltipConverter"/>
 <converters:SingleLineConverter x:Key="SingleLineConverter"/>
+<converters:FirstTermGroupConverter x:Key="FirstTermGroupConverter"/>
+<CollectionViewSource x:Key="GroupedConnections" Source="{Binding Connections}">
+    <CollectionViewSource.GroupDescriptions>
+        <PropertyGroupDescription PropertyName="Name" Converter="{StaticResource FirstTermGroupConverter}"/>
+    </CollectionViewSource.GroupDescriptions>
+</CollectionViewSource>
 
 <!-- Themed ToolTip Style -->
 <Style TargetType="ToolTip">
@@ -750,8 +756,32 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" FontSize="16" FontWeight="SemiBold" Text="Connections" />
-                    <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding Connections}" SelectedItem="{Binding SelectedConnection}"
+                    <ListBox Grid.Row="1" Margin="0,8,0,0" ItemsSource="{Binding Source={StaticResource GroupedConnections}}" SelectedItem="{Binding SelectedConnection}"
                              Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}" BorderBrush="{DynamicResource BorderBrush}">
+                        <ListBox.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="GroupItem">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="GroupItem">
+                                                    <Expander IsExpanded="True" Margin="0,0,0,2"
+                                                              Foreground="{DynamicResource PrimaryForegroundBrush}">
+                                                        <Expander.Header>
+                                                            <TextBlock FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}">
+                                                                <Run Text="{Binding Name, Mode=OneWay}"/>
+                                                                <Run Text="{Binding ItemCount, Mode=OneWay, StringFormat=' ({0})'}" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                                            </TextBlock>
+                                                        </Expander.Header>
+                                                        <ItemsPresenter Margin="8,0,0,0"/>
+                                                    </Expander>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ListBox.GroupStyle>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal" Margin="0,1">
