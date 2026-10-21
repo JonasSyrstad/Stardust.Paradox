@@ -293,7 +293,13 @@ public partial class MainViewModel : ObservableObject
         if (value != null && SelectedTab != null)
         {
             SelectedTab.QueryText = value.Query;
-            SelectedHistoryItem = null;
+            Controls.TextEditorHelper.FocusEditor();
+
+            // Reset after the ComboBox finishes its selection update; a synchronous reset is
+            // ignored by the binding engine, leaving the item selected so re-picking it is a no-op.
+            System.Windows.Application.Current?.Dispatcher.BeginInvoke(
+                () => SelectedHistoryItem = null,
+                System.Windows.Threading.DispatcherPriority.Background);
         }
     }
 

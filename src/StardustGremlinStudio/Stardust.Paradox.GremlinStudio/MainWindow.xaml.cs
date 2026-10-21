@@ -1019,8 +1019,28 @@ public partial class MainWindow : Window
     {
         if (sender is not DataGrid grid) return;
         var cell = FindAncestor<DataGridCell>(e.OriginalSource as DependencyObject);
-        var value = cell?.Content is TextBlock tb ? tb.Text : null;
-        var header = cell?.Column?.Header?.ToString();
+        var rowView = (cell?.DataContext ?? grid.CurrentItem) as DataRowView;
+
+        // Make the right-clicked cell current so Copy/Edit act on it
+        if (cell?.Column != null && rowView != null)
+        {
+            grid.CurrentCell = new DataGridCellInfo(rowView, cell.Column);
+            if (grid.SelectionUnit != DataGridSelectionUnit.FullRow)
+            {
+                grid.SelectedCells.Clear();
+                grid.SelectedCells.Add(grid.CurrentCell);
+            }
+        }
+
+        // Header may be a styled StackPanel; SortMemberPath holds the real column name
+        var columnName = cell?.Column?.SortMemberPath;
+        string? value = null;
+        if (rowView != null && !string.IsNullOrEmpty(columnName) && rowView.Row.Table.Columns.Contains(columnName))
+        {
+            var raw = rowView[columnName];
+            value = raw is DBNull ? null : raw?.ToString();
+        }
+
         var menu = new ContextMenu();
 
         void Add(string text, Action action, bool enabled = true)
@@ -1031,24 +1051,138 @@ public partial class MainWindow : Window
         }
 
         var hasValue = !string.IsNullOrEmpty(value);
-        Add("Copy value", () => CopyText(value!), hasValue);
-        Add("Copy row", () =>
-        {
-            if (grid.SelectedItem != null || cell != null)
-            {
-                var row = FindAncestor<DataGridRow>(cell);
-                var cells = grid.Columns.Select(c => (c.GetCellContent(row?.Item ?? grid.SelectedItem) as TextBlock)?.Text ?? string.Empty);
-                CopyText(string.Join("\t", cells));
-            }
-        });
+        var hasRow = rowView != null;
+        var copyCell = new MenuItem { Header = "Copy Cell", InputGestureText = "Ctrl+C", IsEnabled = hasValue };
+        copyCell.Click += CopyCell_Click;
+        menu.Items.Add(copyCell);
+        var copyRow = new MenuItem { Header = "Copy Row", IsEnabled = hasRow };
+        copyRow.Click += CopyRow_Click;
+        menu.Items.Add(copyRow);
         menu.Items.Add(new Separator());
-        var escaped = value?.Replace("\\", "\\\\").Replace("'", "\\'");
-        var isId = string.Equals(header, "id", StringComparison.OrdinalIgnoreCase);
-        Add("Query vertex by this id", () => SetEditorQuery($"g.V('{escaped}')"), hasValue && isId);
-        Add("Query outgoing neighbours", () => SetEditorQuery($"g.V('{escaped}').out()"), hasValue && isId);
-        Add("Query incoming neighbours", () => SetEditorQuery($"g.V('{escaped}').in()"), hasValue && isId);
-        Add($"Filter by {header} = value", () => SetEditorQuery($"g.V().has('{header}', '{escaped}')"), hasValue && !isId && !string.IsNullOrEmpty(header));
+        var editRow = new MenuItem { Header = "Edit Row", InputGestureText = "F2", IsEnabled = hasRow };
+        editRow.Click += EditRow_Click;
+        menu.Items.Add(editRow);
+        menu.Items.Add(new Separator());
+
+        var columns = rowView?.Row.Table.Columns;
+        var isEdge = columns != null && (columns.Contains("inV") || columns.Contains("outV"));
+        var source = isEdge ? "g.E" : "g.V";
+        var elementId = GetColumnValue(rowView, "id");
+        var escapedId = EscapeGremlin(elementId);
+        var hasId = !string.IsNullOrEmpty(elementId);
+        var isIdColumn = string.Equals(columnName, "id", StringComparison.OrdinalIgnoreCase);
+
+        Add(isEdge ? "Query edge by id" : "Query vertex by id", () => SetEditorQuery($"{source}('{escapedId}')"), hasId);
+        if (isEdge)
+        {
+            Add("Query out vertex", () => SetEditorQuery($"g.E('{escapedId}').outV()"), hasId);
+            Add("Query in vertex", () => SetEditorQuery($"g.E('{escapedId}').inV()"), hasId);
+        }
+        else
+        {
+            Add("Query outgoing neighbours", () => SetEditorQuery($"g.V('{escapedId}').out()"), hasId);
+            Add("Query incoming neighbours", () => SetEditorQuery($"g.V('{escapedId}').in()"), hasId);
+        }
+
+        var isLabelColumn = string.Equals(columnName, "label", StringComparison.OrdinalIgnoreCase);
+        var canFilter = hasValue && !isIdColumn && !string.IsNullOrEmpty(columnName)
+            && (isLabelColumn || (_viewModel.SelectedTab?.ColumnIsProperty.TryGetValue(columnName!, out var isProp) != true || isProp));
+        var filterQuery = isLabelColumn
+            ? $"{source}().hasLabel('{EscapeGremlin(value)}')"
+            : $"{source}().has('{EscapeGremlin(columnName)}', '{EscapeGremlin(value)}')";
+        Add(canFilter ? $"Filter by {columnName} = value" : "Filter by value", () => SetEditorQuery(filterQuery), canFilter);
         grid.ContextMenu = menu;
+    }
+
+    private static string? GetColumnValue(DataRowView? rowView, string columnName)
+    {
+        if (rowView == null || !rowView.Row.Table.Columns.Contains(columnName)) return null;
+        var raw = rowView[columnName];
+        return raw is DBNull ? null : raw?.ToString();
+    }
+
+    private static string EscapeGremlin(string? value) =>
+        (value ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
+
+    private void HistoryPopup_Opened(object? sender, EventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.Popup { Child: { } child }) return;
+        Dispatcher.BeginInvoke(
+            () => FindDescendant<TextBox>(child)?.Focus(),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void HistorySearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not DependencyObject source) return;
+        var popup = FindLogicalAncestor<System.Windows.Controls.Primitives.Popup>(source);
+        var list = popup?.Child is { } child ? FindDescendant<ListBox>(child) : null;
+        if (list == null || list.Items.Count == 0) return;
+
+        if (e.Key == Key.Down)
+        {
+            list.SelectedIndex = 0;
+            (list.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem)?.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            LoadHistoryItem(list, list.Items[0] as Core.History.QueryHistoryItem);
+            e.Handled = true;
+        }
+    }
+
+    private void HistoryList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        // Let the pin/remove buttons inside an item handle their own clicks
+        var origin = e.OriginalSource as DependencyObject;
+        if (FindAncestor<System.Windows.Controls.Primitives.ButtonBase>(origin) != null) return;
+        if (FindAncestor<ListBoxItem>(origin)?.DataContext is Core.History.QueryHistoryItem item)
+        {
+            LoadHistoryItem((DependencyObject)sender, item);
+            e.Handled = true;
+        }
+    }
+
+    private void HistoryList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is ListBox { SelectedItem: Core.History.QueryHistoryItem item } list)
+        {
+            LoadHistoryItem(list, item);
+            e.Handled = true;
+        }
+    }
+
+    private void LoadHistoryItem(DependencyObject source, Core.History.QueryHistoryItem? item)
+    {
+        if (item == null) return;
+        SetEditorQuery(item.Query);
+        if (FindLogicalAncestor<System.Windows.Controls.Primitives.Popup>(source) is { } popup)
+        {
+            popup.IsOpen = false;
+        }
+        Controls.TextEditorHelper.FocusEditor();
+    }
+
+    private static T? FindLogicalAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current != null)
+        {
+            if (current is T match) return match;
+            current = LogicalTreeHelper.GetParent(current)
+                ?? (current is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(current) : null);
+        }
+        return null;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is { } nested) return nested;
+        }
+        return null;
     }
 
     private void SetEditorQuery(string query)
