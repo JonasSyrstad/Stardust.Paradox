@@ -57,6 +57,7 @@ public partial class App : Application
                 // Register update service
                 services.AddSingleton<IUpdateService, UpdateService>();
 
+                services.AddSingleton<AccountViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
             })

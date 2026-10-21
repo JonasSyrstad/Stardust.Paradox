@@ -3,15 +3,19 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Stardust Gremlin Studio - Free Open Source Gremlin IDE &amp; DBA Tool</title>
-  <meta name="description" content="Stardust Gremlin Studio is a free, open source Gremlin IDE and query tool for Azure Cosmos DB Gremlin API, Apache TinkerPop and JanusGraph. Graph visualization, IntelliSense, local playground and MCP server.">
+  <title>Stardust Gremlin Studio - Free Gremlin IDE &amp; Cosmos DB Tool</title>
+  <meta name="description" content="Stardust Gremlin Studio is a free, open-source IDE and database administration tool for Gremlin, Apache TinkerPop, JanusGraph, and Azure Cosmos DB.">
   <meta name="keywords" content="gremlin ide, gremlin query tool, cosmos db graph explorer, tinkerpop gui, janusgraph client, graph database ide, gremlin visualization">
   <link rel="canonical" href="https://jonassyrstad.github.io/Stardust.Paradox/">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Stardust Gremlin Studio - Free Gremlin IDE">
-  <meta property="og:description" content="Write, run and visualize Gremlin queries against Cosmos DB, TinkerPop and JanusGraph.">
+  <meta property="og:title" content="Stardust Gremlin Studio">
+  <meta property="og:description" content="The free, open source Gremlin IDE for Azure Cosmos DB and TinkerPop.">
+  <meta property="og:site_name" content="Stardust Gremlin Studio">
   <meta property="og:url" content="https://jonassyrstad.github.io/Stardust.Paradox/">
+  <meta property="og:image" content="https://jonassyrstad.github.io/Stardust.Paradox/images/main-window.png">
+  <meta property="og:image:alt" content="Stardust Gremlin Studio query editor with graph visualization">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://jonassyrstad.github.io/Stardust.Paradox/images/main-window.png">
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -19,7 +23,7 @@
     "name": "Stardust Gremlin Studio",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Windows 10, Windows 11",
-    "softwareVersion": "1.10.0"
+    "softwareVersion": "1.10.0",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "downloadUrl": "https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest",
     "codeRepository": "https://github.com/JonasSyrstad/Stardust.Paradox",
@@ -51,6 +55,7 @@
     <p>The free, open source Gremlin IDE for Azure Cosmos DB, Apache TinkerPop and JanusGraph.</p>
     <a class="btn" href="https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest">Download for Windows</a>
     <a class="btn secondary" href="https://github.com/JonasSyrstad/Stardust.Paradox/tree/HEAD/src/StardustGremlinStudio">View on GitHub</a>
+    <a class="btn secondary" href="guide.html">User Guide</a>
   </header>
 
   <section>
@@ -75,11 +80,11 @@
       <div class="card"><h3>Multi-database</h3><p>Connect to Azure Cosmos DB Gremlin API, Apache TinkerPop Gremlin Server, JanusGraph and other Gremlin-compatible databases.</p></div>
       <div class="card"><h3>Intelligent editor</h3><p>Syntax highlighting, auto-completion (Ctrl+Space), tooltips and real-time validation for Gremlin queries.</p></div>
       <div class="card"><h3>Graph visualization</h3><p>Interactive graph explorer with drag-and-drop nodes, zoom/pan and edge highlighting. Also JSON, table and tree views.</p></div>
-      <div class="card"><h3>Local playground</h3><p>Built-in in-memory graph database with sample scenarios, including the classic TinkerPop "Modern" graph.</p></div>
+      <div class="card"><h3>Local playground</h3><p>Built-in in-memory graph database with sample scenarios such as a social network, e-commerce and organization hierarchy.</p></div>
       <div class="card"><h3>Schema discovery &amp; export</h3><p>Discover vertex/edge labels and properties, export scenarios as JSON or C#, generate Stardust.Paradox entities.</p></div>
       <div class="card"><h3>RU cost &amp; history</h3><p>See Cosmos DB request charges, keep query history and saved snippets.</p></div>
       <div class="card"><h3>AI ready (MCP)</h3><p>MCP server lets AI assistants such as GitHub Copilot query your graphs and discover schema.</p></div>
-      <div class="card"><h3>Secure</h3><p>Credentials encrypted locally with Windows DPAPI. No telemetry of your data.</p></div>
+      <div class="card"><h3>Secure</h3><p>Credentials encrypted locally with Windows DPAPI.</p></div>
     </div>
   </section>
 
@@ -113,6 +118,7 @@ dotnet run</code></pre>
   </section>
 
   <footer>
+    <a href="guide.html">User Guide</a> &middot;
     Part of <a href="https://github.com/JonasSyrstad/Stardust.Paradox">Stardust.Paradox</a> - an Entity Framework-style ORM for Gremlin.
   </footer>
 </body>

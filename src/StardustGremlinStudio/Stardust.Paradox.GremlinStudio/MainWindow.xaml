@@ -684,6 +684,215 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </StackPanel>
                     </Border>
                 </Popup>
+                <!-- Account (GitHub sign-in, feedback, issues) -->
+                <Button x:Name="AccountButton" Style="{StaticResource CaptionButtonStyle}"
+                        DataContext="{Binding Account}"
+                        Command="{Binding ToggleAccountMenuCommand}"
+                        ToolTip="{Binding DisplayName}">
+                    <Grid Width="22" Height="22">
+                        <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                        <Ellipse Width="20" Height="20" Stroke="{DynamicResource BorderBrush}" StrokeThickness="1"
+                                 Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Ellipse.Fill>
+                                <ImageBrush ImageSource="{Binding Avatar}" Stretch="UniformToFill"/>
+                            </Ellipse.Fill>
+                        </Ellipse>
+                    </Grid>
+                </Button>
+                <Popup PlacementTarget="{Binding ElementName=AccountButton}" Placement="Bottom"
+                       StaysOpen="False" AllowsTransparency="True"
+                       DataContext="{Binding Account}"
+                       IsOpen="{Binding IsAccountMenuOpen, Mode=TwoWay}">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="16" Width="300" Margin="0,4,0,0">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="12" ShadowDepth="4" Opacity="0.3" Color="Black"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <!-- Profile header -->
+                            <Grid Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid Width="40" Height="40" Margin="0,0,12,0">
+                                    <Ellipse Fill="{DynamicResource TertiaryBackgroundBrush}"/>
+                                    <TextBlock Text="&#xE77B;" FontFamily="Segoe MDL2 Assets" FontSize="18"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                               Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                    <Ellipse Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Ellipse.Fill>
+                                            <ImageBrush ImageSource="{Binding Avatar}" Stretch="UniformToFill"/>
+                                        </Ellipse.Fill>
+                                    </Ellipse>
+                                </Grid>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Run Text="@"/><Run Text="{Binding Login, Mode=OneWay}"/>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Sign in -->
+                            <StackPanel Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                <Button Content="Sign in with GitHub" Command="{Binding SignInCommand}" Padding="10,8"
+                                        Background="{DynamicResource AccentBrush}" Foreground="White"
+                                        Visibility="{Binding IsSigningIn, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                <StackPanel Visibility="{Binding IsSigningIn, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Enter this code on github.com:" FontSize="12"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                                    <TextBox Text="{Binding DeviceUserCode, Mode=OneWay}" IsReadOnly="True" FontSize="20"
+                                             FontFamily="Consolas" HorizontalContentAlignment="Center" Margin="0,6"
+                                             Background="{DynamicResource TertiaryBackgroundBrush}"
+                                             Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                             BorderBrush="{DynamicResource BorderBrush}"/>
+                                    <Button Content="Cancel" Command="{Binding CancelSignInCommand}" Padding="10,6"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
+                                       Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                       Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
+
+                            <Separator Margin="0,12"/>
+
+                            <!-- User centric actions -->
+                            <StackPanel>
+                                <StackPanel.Resources>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                                        <Setter Property="Cursor" Value="Hand"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="8,6">
+                                                        <ContentPresenter HorizontalAlignment="Left"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonHoverBrush}"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsEnabled" Value="False">
+                                                            <Setter TargetName="Bd" Property="Opacity" Value="0.45"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </StackPanel.Resources>
+                                <Button Command="{Binding OpenFeedbackCommand}" CommandParameter="Bug" IsEnabled="{Binding IsSignedIn}" ToolTipService.ShowOnDisabled="True" ToolTip="Sign in with GitHub to report issues">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xEBE8;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="Report an issue"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenFeedbackCommand}" CommandParameter="Feature request" IsEnabled="{Binding IsSignedIn}" ToolTipService.ShowOnDisabled="True" ToolTip="Sign in with GitHub to suggest features">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE82F;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="Suggest a feature"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenFeedbackCommand}" CommandParameter="Feedback" IsEnabled="{Binding IsSignedIn}" ToolTipService.ShowOnDisabled="True" ToolTip="Sign in with GitHub to send feedback">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xED15;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="Send feedback"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenMyIssuesCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE71D;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="My reported issues"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenReleaseNotesCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE789;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="What's new"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding OpenDocumentationCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE897;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="Documentation"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Command="{Binding StarRepositoryCommand}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE734;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                        <TextBlock Text="Star on GitHub"/>
+                                    </StackPanel>
+                                </Button>
+                                <StackPanel Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Separator Margin="0,8"/>
+                                    <Button Command="{Binding OpenProfileCommand}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xE779;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                            <TextBlock Text="View GitHub profile"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Command="{Binding SignOutCommand}">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="&#xF3B1;" FontFamily="Segoe MDL2 Assets" Margin="0,2,10,0"/>
+                                            <TextBlock Text="Sign out"/>
+                                        </StackPanel>
+                                    </Button>
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+                <!-- Feedback form -->
+                <Popup PlacementTarget="{Binding ElementName=AccountButton}" Placement="Bottom"
+                       StaysOpen="True" AllowsTransparency="True"
+                       DataContext="{Binding Account}"
+                       IsOpen="{Binding IsFeedbackOpen, Mode=TwoWay}">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="8" Padding="16" Width="420" Margin="0,4,0,0">
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="12" ShadowDepth="4" Opacity="0.3" Color="Black"/>
+                        </Border.Effect>
+                        <StackPanel>
+                            <TextBlock Text="Send to GitHub" FontWeight="SemiBold" FontSize="14"
+                                       Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,12"/>
+                            <ComboBox ItemsSource="{Binding FeedbackKinds}" SelectedItem="{Binding FeedbackKind}" Margin="0,0,0,8"/>
+                            <TextBlock Text="Title" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                            <TextBox Text="{Binding FeedbackTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="4"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}"/>
+                            <TextBlock Text="Description" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
+                            <TextBox Text="{Binding FeedbackDescription, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="4"
+                                     AcceptsReturn="True" TextWrapping="Wrap" Height="140" VerticalScrollBarVisibility="Auto"
+                                     Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}"/>
+                            <CheckBox IsChecked="{Binding IncludeDiagnostics}" Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                      Content="Include app/OS diagnostics (no connection or query data)"/>
+                            <TextBlock Text="{Binding DiagnosticsPreview, Mode=OneWay}" FontFamily="Consolas" FontSize="11" Margin="20,4,0,8"
+                                       Foreground="{DynamicResource MutedForegroundBrush}"
+                                       Visibility="{Binding IncludeDiagnostics, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                       Text="You must be signed in with GitHub to send feedback. Use the account menu to sign in."
+                                       Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,8"
+                                       Foreground="{DynamicResource ErrorBrush}"
+                                       Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                <Button Content="Cancel" Command="{Binding CloseFeedbackCommand}" Padding="12,6" Margin="0,0,8,0"/>
+                                <Button Content="Submit" Command="{Binding SubmitFeedbackCommand}" Padding="12,6"
+                                        IsEnabled="{Binding IsSignedIn}"
+                                        Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </Popup>
                 <Button x:Name="MinimizeButton" Content="&#xE949;" Style="{StaticResource CaptionButtonStyle}" Click="MinimizeButton_Click" ToolTip="Minimize"/>
                 <Button x:Name="MaximizeButton" Content="&#xE739;" Style="{StaticResource CaptionButtonStyle}" Click="MaximizeButton_Click" ToolTip="Maximize"/>
                 <Button x:Name="CloseButton" Content="&#xE106;" Style="{StaticResource CloseButtonStyle}" Click="CloseButton_Click" ToolTip="Close"/>

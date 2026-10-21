@@ -56,6 +56,15 @@ public static class ServiceCollectionExtensions
         // Welcome guide
         services.AddSingleton<IWelcomeGuideService, FileWelcomeGuideService>();
 
+        // GitHub account and feedback
+        services.AddSingleton(new GitHub.GitHubOptions());
+        services.AddHttpClient(nameof(GitHub.GitHubAccountService));
+        services.AddSingleton<GitHub.IGitHubAccountService>(sp => new GitHub.GitHubAccountService(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(GitHub.GitHubAccountService)),
+            sp.GetRequiredService<ISecureSecretStore>(),
+            sp.GetRequiredService<GitHub.GitHubOptions>(),
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GitHub.GitHubAccountService>>()));
+
         // Snippets and variables
         services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();
         services.AddSingleton<IQueryVariableStore, FileQueryVariableStore>();
