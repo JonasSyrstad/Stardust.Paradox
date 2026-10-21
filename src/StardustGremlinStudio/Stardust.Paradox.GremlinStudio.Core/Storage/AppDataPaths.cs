@@ -32,5 +32,11 @@ public static class AppDataPaths
 
     public static string LastVariableSetPreferenceFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "last-variable-set.txt");
 
+    public static string CollapsedConnectionGroupsFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "collapsed-connection-groups.txt");
+
     public static string WelcomeGuideFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "welcome-guide.json");
+
+    public static string SessionFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "session.json");
+
+    public static string WindowLayoutFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "window-layout.json");
 }

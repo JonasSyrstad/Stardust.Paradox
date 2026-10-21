@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+ï»¿using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -148,6 +148,10 @@ public partial class MainViewModel : ObservableObject
         _connectionLoadingTask = LoadConnectionsAsync();
         await _connectionLoadingTask.ConfigureAwait(true);
 
+        await RestoreSessionAsync().ConfigureAwait(true);
+
+        await EnsureStatisticsLoadedAsync().ConfigureAwait(true);
+
         await LoadQueryHistoryAsync().ConfigureAwait(true);
         await LoadSnippetsAsync().ConfigureAwait(true);
         await LoadVariableSetsAsync().ConfigureAwait(true);
@@ -187,6 +191,7 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             _isRefreshingHistory = false;
+            OnPropertyChanged(nameof(FilteredQueryHistory));
         }
     }
 
@@ -211,7 +216,12 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     partial void OnSelectedTabChanged(QueryTabViewModel? oldValue, QueryTabViewModel? newValue)
     {
+        OnPropertyChanged(nameof(WindowTitle));
         if (newValue == null) return;
+
+        RunQueryCommand.NotifyCanExecuteChanged();
+        RunSelectionCommand.NotifyCanExecuteChanged();
+        CancelCommand.NotifyCanExecuteChanged();
 
         // Sync connection panel with the tab's connection
         if (newValue.ConnectionMetadata != null)
@@ -245,6 +255,20 @@ public partial class MainViewModel : ObservableObject
 
         // Refresh history for the new tab's connection
         RefreshQueryHistory();
+
+        PublishCompletionLabels(newValue);
+        _ = EnsureStatisticsLoadedAsync();
+    }
+
+    private static void PublishCompletionLabels(QueryTabViewModel? tab)
+    {
+        var sample = tab?.SchemaSample ?? Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample.Empty;
+        GremlinCompletionProvider.SetActiveSchema(new Stardust.Paradox.GremlinStudio.Core.Completion.GremlinCompletionSchema(
+            tab?.VertexLabelCounts.Select(l => (l.Label, l.Count)) ?? [],
+            tab?.EdgeLabelCounts.Select(l => (l.Label, l.Count)) ?? [],
+            sample.VertexPropertyKeys,
+            sample.EdgePropertyKeys,
+            sample.EdgeConnections));
     }
 
     private bool _isSyncingTabConnection;
@@ -278,6 +302,24 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private GremlinConnectionMetadata? _selectedConnection;
+
+    /// <summary>
+    /// Free-text filter applied to the connection list.
+    /// </summary>
+    [ObservableProperty]
+    private string _connectionFilter = string.Empty;
+
+    /// <summary>
+    /// Returns true when the connection matches the current <see cref="ConnectionFilter"/>.
+    /// </summary>
+    public bool MatchesConnectionFilter(GremlinConnectionMetadata connection)
+    {
+        if (string.IsNullOrWhiteSpace(ConnectionFilter)) return true;
+        var filter = ConnectionFilter.Trim();
+        return connection.Name.Contains(filter, StringComparison.OrdinalIgnoreCase)
+            || (connection.Host?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false)
+            || connection.Kind.ToString().Contains(filter, StringComparison.OrdinalIgnoreCase);
+    }
 
     private bool _isLoadingConnections;
 
@@ -505,16 +547,147 @@ public partial class MainViewModel : ObservableObject
     /// Closes the specified tab.
     /// </summary>
     [RelayCommand]
-    private void CloseTab(QueryTabViewModel? tab)
+    private async Task CloseTabAsync(QueryTabViewModel? tab)
     {
-        if (tab == null || QueryTabs.Count <= 1) return;
+        tab ??= SelectedTab;
+        if (tab == null) return;
+
+        if (!await ConfirmDiscardAsync(tab).ConfigureAwait(true)) return;
 
         var index = QueryTabs.IndexOf(tab);
         QueryTabs.Remove(tab);
 
+        if (QueryTabs.Count == 0)
+        {
+            CreateNewTab(tab.ConnectionSettings);
+            return;
+        }
+
         // Select adjacent tab
         if (index >= QueryTabs.Count) index = QueryTabs.Count - 1;
         if (index >= 0) SelectedTab = QueryTabs[index];
+    }
+
+    /// <summary>
+    /// Asks the user what to do with unsaved changes in a tab.
+    /// Returns false when the user cancels.
+    /// </summary>
+    private async Task<bool> ConfirmDiscardAsync(QueryTabViewModel tab)
+    {
+        if (!tab.HasUnsavedChanges) return true;
+
+        SelectedTab = tab;
+        var result = Dialogs.ThemedMessageBox.Show(
+            $"Save changes to '{tab.TabName}' before closing?",
+            "Unsaved Changes",
+            System.Windows.MessageBoxButton.YesNoCancel,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result == System.Windows.MessageBoxResult.Cancel) return false;
+        if (result == System.Windows.MessageBoxResult.No) return true;
+
+        await SaveQueryAsync().ConfigureAwait(true);
+        return !tab.IsDirty;
+    }
+
+    /// <summary>
+    /// Called when the main window is closing. File-backed tabs with unsaved edits
+    /// prompt the user; all open tabs are persisted so they are restored on next launch.
+    /// Returns false when the user cancels closing.
+    /// </summary>
+    public async Task<bool> PrepareForShutdownAsync()
+    {
+        foreach (var tab in QueryTabs.Where(t => !string.IsNullOrEmpty(t.QueryFilePath)).ToList())
+        {
+            if (!await ConfirmDiscardAsync(tab).ConfigureAwait(true)) return false;
+        }
+
+        SaveSession();
+        return true;
+    }
+
+    /// <summary>
+    /// True when a file-backed tab has unsaved edits and closing requires a prompt.
+    /// </summary>
+    public bool HasUnsavedFileTabs =>
+        QueryTabs.Any(t => !string.IsNullOrEmpty(t.QueryFilePath) && t.HasUnsavedChanges);
+
+    /// <summary>
+    /// Persists open tabs so they can be restored on next launch.
+    /// </summary>
+    public void SaveSessionState()
+    {
+        foreach (var tab in QueryTabs)
+        {
+            if (tab.IsExecuting && tab.CancelCommand.CanExecute(null)) tab.CancelCommand.Execute(null);
+        }
+        SaveSession();
+    }
+
+    private sealed record SessionTab(string QueryText, string? FilePath, string? ConnectionId, string TabName, bool IsDirty);
+
+    private void SaveSession()
+    {
+        try
+        {
+            var tabs = QueryTabs.Select(t => new SessionTab(
+                t.QueryText, t.QueryFilePath, t.ConnectionMetadata?.Id, t.TabName, t.IsDirty)).ToList();
+            File.WriteAllText(AppDataPaths.SessionFilePath, Newtonsoft.Json.JsonConvert.SerializeObject(tabs));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save session");
+        }
+    }
+
+    private async Task RestoreSessionAsync()
+    {
+        try
+        {
+            if (!File.Exists(AppDataPaths.SessionFilePath)) return;
+
+            var tabs = Newtonsoft.Json.JsonConvert.DeserializeObject<List<SessionTab>>(
+                await File.ReadAllTextAsync(AppDataPaths.SessionFilePath).ConfigureAwait(true));
+            if (tabs == null || tabs.Count == 0) return;
+
+            var initialTab = QueryTabs.Count == 1 && !QueryTabs[0].HasUnsavedChanges ? QueryTabs[0] : null;
+
+            foreach (var saved in tabs)
+            {
+                GremlinConnectionSettings? settings = null;
+                var metadata = Connections.FirstOrDefault(c => c.Id == saved.ConnectionId);
+                if (metadata != null && metadata.Kind != GremlinConnectionKind.InMemory)
+                {
+                    try
+                    {
+                        settings = await _connectionStore.GetConnectionWithSecretAsync(metadata.Id).ConfigureAwait(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to restore connection for tab {TabName}", saved.TabName);
+                    }
+                }
+
+                var tab = CreateNewTab(settings);
+                tab.QueryText = saved.QueryText;
+                tab.QueryFilePath = saved.FilePath;
+                if (string.IsNullOrEmpty(saved.FilePath) && settings == null)
+                {
+                    tab.TabName = saved.TabName;
+                }
+                tab.IsDirty = saved.IsDirty;
+            }
+
+            if (initialTab != null)
+            {
+                QueryTabs.Remove(initialTab);
+                SelectedTab = QueryTabs.FirstOrDefault();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to restore session");
+        }
     }
 
     private QueryTabViewModel CreateNewTab(GremlinConnectionSettings? connectionSettings = null)
@@ -547,6 +720,21 @@ public partial class MainViewModel : ObservableObject
         {
             tab.UsePlaygroundConnector(_playgroundService.Connector, LoadedScenarioName);
         }
+
+        tab.PropertyChanged += (_, e) =>
+        {
+            if (tab == SelectedTab && e.PropertyName is nameof(QueryTabViewModel.TabName)
+                    or nameof(QueryTabViewModel.HasUnsavedChanges) or nameof(QueryTabViewModel.ConnectionDisplayName))
+            {
+                OnPropertyChanged(nameof(WindowTitle));
+            }
+            if (e.PropertyName == nameof(QueryTabViewModel.IsExecuting))
+            {
+                RunQueryCommand.NotifyCanExecuteChanged();
+                RunSelectionCommand.NotifyCanExecuteChanged();
+                CancelCommand.NotifyCanExecuteChanged();
+            }
+        };
 
         QueryTabs.Add(tab);
         SelectedTab = tab;
@@ -615,7 +803,7 @@ public partial class MainViewModel : ObservableObject
         try
         {
             // Confirm deletion
-            var result = System.Windows.MessageBox.Show(
+            var result = Dialogs.ThemedMessageBox.Show(
                 $"Are you sure you want to delete the connection '{connectionName}'?",
                 "Delete Connection",
                 System.Windows.MessageBoxButton.YesNo,
@@ -1105,23 +1293,276 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRunQuery))]
     private async Task RunQueryAsync()
     {
+        await RunQueryCoreAsync(queryOverride: null).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Executes only the selected text in the query editor (falls back to the full query).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRunQuery))]
+    private async Task RunSelectionAsync()
+    {
+        var selection = Controls.TextEditorHelper.GetActiveSelection();
+        await RunQueryCoreAsync(string.IsNullOrWhiteSpace(selection) ? null : selection).ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Executes the statement under the caret (blank-line or semicolon separated).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanRunQuery))]
+    private async Task RunStatementAsync()
+    {
+        var statement = Controls.TextEditorHelper.GetActiveStatement();
+        await RunQueryCoreAsync(string.IsNullOrWhiteSpace(statement) ? null : statement).ConfigureAwait(true);
+    }
+
+    #region History panel
+
+    /// <summary>
+    /// Free-text filter for the history list.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredQueryHistory))]
+    private string _historySearchText = string.Empty;
+
+    /// <summary>
+    /// When true, only failed queries are shown in the history list.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredQueryHistory))]
+    private bool _showFailedHistoryOnly;
+
+    /// <summary>
+    /// History filtered by <see cref="HistorySearchText"/> and <see cref="ShowFailedHistoryOnly"/>.
+    /// </summary>
+    public IEnumerable<QueryHistoryItem> FilteredQueryHistory => QueryHistory
+        .Where(h => !ShowFailedHistoryOnly || !h.LastSucceeded)
+        .Where(h => string.IsNullOrWhiteSpace(HistorySearchText)
+                    || h.Query.Contains(HistorySearchText.Trim(), StringComparison.OrdinalIgnoreCase)
+                    || (h.DisplayName?.Contains(HistorySearchText.Trim(), StringComparison.OrdinalIgnoreCase) ?? false))
+        .ToList();
+
+    [RelayCommand]
+    private async Task RerunHistoryItemAsync(QueryHistoryItem? item)
+    {
+        if (item == null || SelectedTab == null) return;
+        SelectedTab.QueryText = item.Query;
+        if (CanRunQuery()) await RunQueryCoreAsync(null).ConfigureAwait(true);
+    }
+
+    [RelayCommand]
+    private void OpenHistoryItemInNewTab(QueryHistoryItem? item)
+    {
+        if (item == null) return;
+        var tab = CreateNewTab(SelectedTab?.ConnectionSettings);
+        tab.QueryText = item.Query;
+    }
+
+    /// <summary>
+    /// Copies the current tab's query and result into a new tab so it can be compared with later runs.
+    /// </summary>
+    [RelayCommand]
+    private void PinResult()
+    {
+        var source = SelectedTab;
+        if (source == null || string.IsNullOrEmpty(source.ResultJson))
+        {
+            StatusText = "No result to pin";
+            return;
+        }
+
+        var tab = CreateNewTab(source.ConnectionSettings);
+        tab.TabName = $"ðŸ“Œ {source.TabName} {DateTime.Now:HH:mm:ss}";
+        tab.QueryText = source.QueryText;
+        tab.ResultJson = source.ResultJson;
+        tab.LastResultCountText = source.LastResultCountText;
+        tab.LastResultCount = source.LastResultCount;
+        tab.LastDurationText = source.LastDurationText;
+        tab.LastRequestUnitsText = source.LastRequestUnitsText;
+        StatusText = "Result pinned to new tab";
+    }
+
+    /// <summary>
+    /// Opens a searchable list of all application commands.
+    /// </summary>
+    [RelayCommand]
+    private void ShowCommandPalette()
+    {
+        var entries = GetType().GetProperties()
+            .Where(p => p.Name.EndsWith("Command", StringComparison.Ordinal)
+                        && typeof(System.Windows.Input.ICommand).IsAssignableFrom(p.PropertyType)
+                        && p.Name != nameof(ShowCommandPaletteCommand))
+            .Select(p => new Dialogs.CommandPaletteEntry(
+                Humanize(p.Name[..^"Command".Length]),
+                (System.Windows.Input.ICommand)p.GetValue(this)!))
+            .OrderBy(e => e.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var dialog = new Dialogs.CommandPaletteWindow(entries) { Owner = System.Windows.Application.Current?.MainWindow };
+        if (dialog.ShowDialog() == true && dialog.SelectedEntry is { } entry)
+        {
+            var parameter = entry.Command.CanExecute(null) ? null : SelectedTab;
+            if (entry.Command.CanExecute(parameter))
+            {
+                entry.Command.Execute(parameter);
+            }
+            else
+            {
+                StatusText = $"'{entry.Title}' is not available right now";
+            }
+        }
+    }
+
+    private static string Humanize(string name) =>
+        System.Text.RegularExpressions.Regex.Replace(name, "(?<=[a-z0-9])(?=[A-Z])", " ");
+
+    #endregion
+
+    #region Tab management
+
+    [RelayCommand]
+    private void RenameTab(QueryTabViewModel? tab)
+    {
+        tab ??= SelectedTab;
+        if (tab == null) return;
+        var dialog = new Dialogs.SnippetNameDialog { Owner = System.Windows.Application.Current?.MainWindow };
+        dialog.Configure("Rename Tab", "Enter a new name for this tab:", "Rename");
+        dialog.SetSuggestedName(tab.TabName);
+        if (dialog.ShowDialog() == true && !string.IsNullOrWhiteSpace(dialog.SnippetName))
+        {
+            tab.TabName = dialog.SnippetName.Trim();
+        }
+    }
+
+    [RelayCommand]
+    private void DuplicateTab(QueryTabViewModel? tab)
+    {
+        tab ??= SelectedTab;
+        if (tab == null) return;
+        var copy = CreateNewTab(tab.ConnectionSettings);
+        copy.QueryText = tab.QueryText;
+        copy.TabName = $"{tab.TabName} (copy)";
+    }
+
+    [RelayCommand]
+    private async Task CloseOtherTabsAsync(QueryTabViewModel? tab)
+    {
+        tab ??= SelectedTab;
+        if (tab == null) return;
+        foreach (var other in QueryTabs.Where(t => t != tab).ToList())
+        {
+            if (!await ConfirmDiscardAsync(other).ConfigureAwait(true)) return;
+            QueryTabs.Remove(other);
+        }
+        SelectedTab = tab;
+    }
+
+    [RelayCommand]
+    private async Task CloseTabsToRightAsync(QueryTabViewModel? tab)
+    {
+        tab ??= SelectedTab;
+        if (tab == null) return;
+        var index = QueryTabs.IndexOf(tab);
+        foreach (var other in QueryTabs.Skip(index + 1).ToList())
+        {
+            if (!await ConfirmDiscardAsync(other).ConfigureAwait(true)) return;
+            QueryTabs.Remove(other);
+        }
+        SelectedTab = tab;
+    }
+
+    #endregion
+
+    #region Window title / connection status
+
+    /// <summary>
+    /// Window title including the active tab and connection.
+    /// </summary>
+    public string WindowTitle => SelectedTab == null
+        ? "Stardust Gremlin Studio"
+        : $"{SelectedTab.TabName}{(SelectedTab.HasUnsavedChanges ? " *" : string.Empty)} - {SelectedTab.ConnectionDisplayName} - Stardust Gremlin Studio";
+
+    /// <summary>
+    /// Result of the last explicit connection test, shown next to the connection name.
+    /// </summary>
+    [ObservableProperty]
+    private string _connectionStatusText = string.Empty;
+
+    /// <summary>
+    /// True when the last connection test succeeded; null when untested.
+    /// </summary>
+    [ObservableProperty]
+    private bool? _isConnectionHealthy;
+
+    [RelayCommand]
+    private async Task TestSelectedConnectionAsync(GremlinConnectionMetadata? connection)
+    {
+        connection ??= SelectedConnection;
+        if (connection == null)
+        {
+            StatusText = "Select a connection to test";
+            return;
+        }
+
+        if (connection.Kind == GremlinConnectionKind.InMemory)
+        {
+            IsConnectionHealthy = true;
+            ConnectionStatusText = "In-memory (always available)";
+            StatusText = ConnectionStatusText;
+            return;
+        }
+
+        try
+        {
+            ConnectionStatusText = "Testingï¿½";
+            IsConnectionHealthy = null;
+            var settings = await _connectionStore.GetConnectionWithSecretAsync(connection.Id).ConfigureAwait(true);
+            if (settings == null)
+            {
+                IsConnectionHealthy = false;
+                ConnectionStatusText = "Connection settings not found";
+                return;
+            }
+
+            var result = await _connectionTester.TestConnectionAsync(settings).ConfigureAwait(true);
+            IsConnectionHealthy = result.IsSuccess;
+            ConnectionStatusText = result.IsSuccess
+                ? $"Connected ({result.Latency.TotalMilliseconds:F0} ms)"
+                : $"Failed: {result.Message}";
+            StatusText = $"{connection.Name}: {ConnectionStatusText}";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to test connection {Name}", connection.Name);
+            IsConnectionHealthy = false;
+            ConnectionStatusText = $"Error: {ex.Message}";
+            StatusText = ConnectionStatusText;
+        }
+    }
+
+    #endregion
+
+    private async Task RunQueryCoreAsync(string? queryOverride)
+    {
         if (SelectedTab == null)
         {
             StatusText = "No active tab";
             return;
         }
 
+        var sourceQuery = queryOverride ?? SelectedTab.QueryText;
+
         // Resolve variable substitutions before execution.
         // The original query (with ${var} tokens) is kept for history;
         // the resolved query is used for execution and the log.
         string? resolvedQuery = null;
-        if (SelectedVariableSet != null && !string.IsNullOrWhiteSpace(SelectedTab.QueryText))
+        if (SelectedVariableSet != null && !string.IsNullOrWhiteSpace(sourceQuery))
         {
             try
             {
                 var mergedJson = SelectedVariableSet.Set.GetMergedJson(SelectedConnection?.Id);
-                var substituted = QueryVariableSubstitutor.Substitute(SelectedTab.QueryText, mergedJson);
-                if (substituted != SelectedTab.QueryText)
+                var substituted = QueryVariableSubstitutor.Substitute(sourceQuery, mergedJson);
+                if (substituted != sourceQuery)
                 {
                     resolvedQuery = substituted;
                 }
@@ -1130,19 +1571,68 @@ public partial class MainViewModel : ObservableObject
             {
                 _logger.LogWarning(ex, "Failed to resolve variables");
                 StatusText = $"Variable resolution failed: {ex.Message}";
+                SelectedTab.ValidationMessage = $"Variable resolution failed: {ex.Message}";
                 return;
             }
         }
 
-        await SelectedTab.ExecuteQueryAsync(resolvedQuery);
+        await SelectedTab.ExecuteQueryAsync(resolvedQuery, queryOverride);
     }
+
+    #region Keyboard Navigation Commands
+
+    /// <summary>
+    /// Raised when the connection list should receive keyboard focus.
+    /// </summary>
+    public event EventHandler? FocusConnectionsRequested;
+
+    [RelayCommand]
+    private void FocusConnections() => FocusConnectionsRequested?.Invoke(this, EventArgs.Empty);
+
+    [RelayCommand]
+    private void NextTab() => MoveTabSelection(1);
+
+    [RelayCommand]
+    private void PreviousTab() => MoveTabSelection(-1);
+
+    private void MoveTabSelection(int delta)
+    {
+        if (QueryTabs.Count == 0) return;
+        var index = SelectedTab == null ? 0 : QueryTabs.IndexOf(SelectedTab);
+        index = (index + delta + QueryTabs.Count) % QueryTabs.Count;
+        SelectedTab = QueryTabs[index];
+    }
+
+    /// <summary>
+    /// Switches the result view (0 = JSON, 1 = Table, 2 = next view, ...).
+    /// </summary>
+    [RelayCommand]
+    private void SelectResultView(object? parameter)
+    {
+        if (SelectedTab == null) return;
+        if (int.TryParse(parameter?.ToString(), out var index) && index >= 0)
+        {
+            SelectedTab.SelectedResultViewIndex = index;
+        }
+    }
+
+    [RelayCommand]
+    private void ShowFind() => Controls.TextEditorHelper.ShowFind();
+
+    [RelayCommand]
+    private void ShowReplace() => Controls.TextEditorHelper.ShowReplace();
+
+    #endregion
 
     private bool CanRunQuery() => SelectedTab != null && !SelectedTab.IsExecuting;
 
-    [RelayCommand]
+    private bool CanCancel() => SelectedTab?.IsExecuting == true;
+
+    [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {
-        SelectedTab?.CancelCommand.Execute(null);
+        if (SelectedTab?.IsExecuting != true) return;
+        SelectedTab.CancelCommand.Execute(null);
         StatusText = "Cancelling...";
     }
 
@@ -1467,13 +1957,13 @@ public partial class MainViewModel : ObservableObject
 
         if (!resolution.IsGitRepo)
         {
-            System.Windows.MessageBox.Show(
+            Dialogs.ThemedMessageBox.Show(
                 resolution.ErrorMessage ?? "The selected folder is not inside a git repository.",
                 "Not a Git Repository",
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
 
-            StatusText = "Download cancelled — not a git repository";
+            StatusText = "Download cancelled ï¿½ not a git repository";
             return;
         }
 
@@ -2181,7 +2671,7 @@ public partial class MainViewModel : ObservableObject
         {
             var name = SelectedVariableSet.Name;
 
-            var result = System.Windows.MessageBox.Show(
+            var result = Dialogs.ThemedMessageBox.Show(
                 $"Delete variable set '{name}'?",
                 "Confirm Delete",
                 System.Windows.MessageBoxButton.YesNo,
@@ -2234,7 +2724,7 @@ public partial class MainViewModel : ObservableObject
 
             // Show a preview without modifying the editor text
             var preview = substituted.Length > 120
-                ? substituted[..120] + "…"
+                ? substituted[..120] + "ï¿½"
                 : substituted;
             StatusText = $"Preview: {preview}";
         }
@@ -2302,7 +2792,7 @@ public partial class MainViewModel : ObservableObject
 
         if (!ParameterizedQueryResolver.IsParameterizedQuery(SelectedTab.QueryText))
         {
-            StatusText = "No parameterized query detected – expected __pN tokens followed by a JSON block";
+            StatusText = "No parameterized query detected ï¿½ expected __pN tokens followed by a JSON block";
             return;
         }
 
@@ -2335,6 +2825,44 @@ public partial class MainViewModel : ObservableObject
     #endregion
 
     #region Database Statistics
+
+    /// <summary>
+    /// Loads statistics for the selected tab if it has a connection but no statistics yet.
+    /// Used on startup/session restore and when switching tabs.
+    /// </summary>
+    private async Task EnsureStatisticsLoadedAsync()
+    {
+        try
+        {
+            if (_connectionLoadingTask != null)
+            {
+                await _connectionLoadingTask.ConfigureAwait(true);
+            }
+
+            var tab = SelectedTab;
+            if (tab == null || tab.HasStatistics || tab.IsLoadingStatistics || tab.GetActiveConnector() == null)
+            {
+                return;
+            }
+
+            await LoadDatabaseStatisticsAsync().ConfigureAwait(true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-load statistics");
+        }
+    }
+
+    /// <summary>
+    /// Replaces the selected tab's query with a label lookup.
+    /// </summary>
+    internal void QueryByLabel(string label, bool isEdge)
+    {
+        if (SelectedTab == null || string.IsNullOrEmpty(label)) return;
+        var escaped = label.Replace("\\", "\\\\").Replace("'", "\\'");
+        SelectedTab.QueryText = $"g.{(isEdge ? "E" : "V")}().hasLabel('{escaped}')";
+        StatusText = $"Query set to {(isEdge ? "edges" : "vertices")} with label '{label}'";
+    }
 
     /// <summary>
     /// Resets statistics on the current tab and triggers a background refresh
@@ -2403,7 +2931,7 @@ public partial class MainViewModel : ObservableObject
         {
             tab.IsLoadingStatistics = true;
 
-            // Phase 1: counts — these are fast single-value queries
+            // Phase 1: counts ï¿½ these are fast single-value queries
             tab.StatisticsStatusText = "Loading vertex count...";
             var vCountResult = await _queryExecutor.ExecuteAsync(connector, "g.V().count()", cancellationToken: cts.Token).ConfigureAwait(true);
             tab.TotalVertexCount = vCountResult.IsSuccess ? ParseCount(vCountResult.ResultJson) : 0;
@@ -2418,7 +2946,7 @@ public partial class MainViewModel : ObservableObject
 
             // Show counts immediately so the user sees progress
             tab.HasStatistics = true;
-            tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges — loading labels...";
+            tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges ï¿½ loading labels...";
 
             // Phase 2: label distributions.
             // For Cosmos DB, use a hybrid approach:
@@ -2430,7 +2958,7 @@ public partial class MainViewModel : ObservableObject
                 tab.StatisticsStatusText = "Loading labels (SQL API)...";
                 try
                 {
-                    // Run vertex and edge label loading concurrently — pure SQL API, no Gremlin
+                    // Run vertex and edge label loading concurrently ï¿½ pure SQL API, no Gremlin
                     var vertexTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: false, cts.Token);
                     var edgeTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: true, cts.Token);
 
@@ -2484,9 +3012,23 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
+            tab.SchemaSample = await Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSampler
+                .SampleAsync(
+                    _queryExecutor,
+                    connector,
+                    tab.VertexLabelCounts.OrderByDescending(l => l.Count).Select(l => l.Label),
+                    tab.EdgeLabelCounts.OrderByDescending(l => l.Count).Select(l => l.Label),
+                    _logger,
+                    cts.Token).ConfigureAwait(true);
+
+            if (ReferenceEquals(tab, SelectedTab))
+            {
+                PublishCompletionLabels(tab);
+            }
+
             if (errors.Count > 0)
             {
-                tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges (partial — {errors.Count} query failed)";
+                tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges (partial - {errors.Count} query failed)";
                 StatusText = $"Statistics loaded with errors: {string.Join("; ", errors)}";
             }
             else
@@ -2498,7 +3040,7 @@ public partial class MainViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Database statistics query timed out");
-            tab.StatisticsStatusText = "Timed out — try again or check connection";
+            tab.StatisticsStatusText = "Timed out ï¿½ try again or check connection";
             StatusText = "Statistics query timed out";
         }
         catch (Exception ex)
@@ -2549,7 +3091,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Loads label counts entirely via SQL API — no Gremlin required.
+    /// Loads label counts entirely via SQL API ï¿½ no Gremlin required.
     /// Uses per-partition GROUP BY queries, then merges results client-side.
     /// </summary>
     private async Task<List<LabelCountItem>> LoadLabelCountsViaSqlApiAsync(

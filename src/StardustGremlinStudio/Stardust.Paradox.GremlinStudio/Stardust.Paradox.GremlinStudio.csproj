@@ -21,17 +21,18 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="AvalonEdit" Version="6.3.0.90" />
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-    <PackageReference Include="DocumentFormat.OpenXml" Version="3.4.1" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
-    <PackageReference Include="Velopack" Version="0.0.1298" />
+    <PackageReference Include="AvalonEdit" Version="6.3.1.120" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.5.1" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.13" />
+    <PackageReference Include="System.Private.Uri" Version="4.3.2" />
+    <PackageReference Include="Velopack" Version="1.2.161" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows10.0.22000.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22000.0</TargetFramework>
     <RootNamespace>Stardust.Paradox.GremlinStudio</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -47,9 +48,9 @@
     <Authors>Jonas Syrstad</Authors>
     <Description>A modern, feature-rich query tool for Gremlin-based graph databases including Azure Cosmos DB and Apache TinkerPop.</Description>
     <Copyright>Copyright © 2024 Jonas Syrstad. All rights reserved.</Copyright>
-    <Version>1.9.5</Version>
-    <FileVersion>1.9.5.0</FileVersion>
-    <AssemblyVersion>1.9.5.0</AssemblyVersion>
+    <Version>1.10.0</Version>
+    <FileVersion>1.10.0.0</FileVersion>
+    <AssemblyVersion>1.10.0.0</AssemblyVersion>
     
     <!-- Application Icon -->
     <ApplicationIcon>Resources\icon.ico</ApplicationIcon>
@@ -79,24 +80,17 @@
   <!-- Copy MCP server executable alongside GremlinStudio output -->
   <Target Name="CopyMcpServer" AfterTargets="Build">
     <PropertyGroup>
-      <McpServerOutputDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net8.0\win-x64\</McpServerOutputDir>
+      <McpServerOutputDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net10.0\win-x64\</McpServerOutputDir>
     </PropertyGroup>
-    <Copy SourceFiles="$(McpServerOutputDir)GremlinStudioMcp.exe"
-          DestinationFolder="$(OutputPath)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(McpServerOutputDir)GremlinStudioMcp.exe')" />
+    <Copy SourceFiles="$(McpServerOutputDir)GremlinStudioMcp.exe" DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" Condition="Exists('$(McpServerOutputDir)GremlinStudioMcp.exe')" />
   </Target>
 
   <Target Name="CopyMcpServerOnPublish" AfterTargets="Publish">
     <PropertyGroup>
-      <McpServerPublishDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net8.0\win-x64\publish\</McpServerPublishDir>
+      <McpServerPublishDir>..\Stardust.Paradox.GremlinStudio.McpServer\bin\$(Configuration)\net10.0\win-x64\publish\</McpServerPublishDir>
     </PropertyGroup>
-    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\Stardust.Paradox.GremlinStudio.McpServer\Stardust.Paradox.GremlinStudio.McpServer.csproj&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true"
-          Condition="!Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
-    <Copy SourceFiles="$(McpServerPublishDir)GremlinStudioMcp.exe"
-          DestinationFolder="$(PublishDir)"
-          SkipUnchangedFiles="true"
-          Condition="Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
+    <Exec Command="dotnet publish &quot;$(MSBuildThisFileDirectory)..\Stardust.Paradox.GremlinStudio.McpServer\Stardust.Paradox.GremlinStudio.McpServer.csproj&quot; -c $(Configuration) -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true" Condition="!Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
+    <Copy SourceFiles="$(McpServerPublishDir)GremlinStudioMcp.exe" DestinationFolder="$(PublishDir)" SkipUnchangedFiles="true" Condition="Exists('$(McpServerPublishDir)GremlinStudioMcp.exe')" />
   </Target>
 
 </Project>

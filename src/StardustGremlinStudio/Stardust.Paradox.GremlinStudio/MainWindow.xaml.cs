@@ -19,7 +19,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel;
 
     private static readonly Converters.EpochToDateTimeTooltipConverter _epochTooltipConverter = new();
-    
+
     /// <summary>
     /// Cached reference to the GraphCanvasBorder element.
     /// </summary>
@@ -40,7 +40,7 @@ public partial class MainWindow : Window
         {
             if (_graphCanvasBorder != null)
                 return _graphCanvasBorder;
-            
+
             // Search the visual tree for the named element
             _graphCanvasBorder = FindVisualChild<Border>(this, "GraphCanvasBorder");
             return _graphCanvasBorder;
@@ -52,54 +52,175 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = viewModel;
         DataContext = viewModel;
-        
+        HookEditorNavigation(viewModel);
+
         // Update maximize button icon and handle maximize bounds
         StateChanged += OnWindowStateChanged;
-        
+
         // Subscribe to settings panel toggle event
         _viewModel.ToggleSettingsPanelRequested += (s, e) => ToggleSettingsPanel();
-        
+
         // Subscribe to welcome guide step navigation
         _viewModel.WelcomeGuide.StepNavigationRequested += OnGuideStepNavigationRequested;
-        
+
+        _viewModel.FocusConnectionsRequested += (_, _) =>
+        {
+            ExpandButton_Click(this, new RoutedEventArgs());
+            if (FindName("ConnectionFilterBox") is TextBox filterBox)
+            {
+                filterBox.Focus();
+                filterBox.SelectAll();
+            }
+        };
+
+        if (FindResource("GroupedConnections") is CollectionViewSource connectionsView)
+        {
+            connectionsView.Filter += (_, e) =>
+                e.Accepted = e.Item is Core.Connections.GremlinConnectionMetadata c && _viewModel.MatchesConnectionFilter(c);
+            _viewModel.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(MainViewModel.ConnectionFilter))
+                    connectionsView.View?.Refresh();
+            };
+        }
+
         // Hook into window messages for proper multi-monitor maximize support
         SourceInitialized += OnSourceInitialized;
+
+        RestoreWindowLayout();
+        Closing += OnWindowClosing;
     }
-    
+
+    private bool _shutdownConfirmed;
+    private bool _shutdownInProgress;
+
+    private async void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        if (_shutdownConfirmed) return;
+
+        // Fast path: nothing needs a prompt, so persist synchronously and let the window close.
+        if (!_viewModel.HasUnsavedFileTabs)
+        {
+            _viewModel.SaveSessionState();
+            SaveWindowLayout();
+            _shutdownConfirmed = true;
+            return;
+        }
+
+        e.Cancel = true;
+        if (_shutdownInProgress) return;
+        _shutdownInProgress = true;
+
+        var canClose = true;
+        try
+        {
+            canClose = await _viewModel.PrepareForShutdownAsync();
+            if (canClose) SaveWindowLayout();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Shutdown preparation failed: {ex}");
+        }
+        finally
+        {
+            _shutdownInProgress = false;
+        }
+
+        if (!canClose) return;
+
+        _shutdownConfirmed = true;
+        // Close() cannot be called re-entrantly while the Closing event is still on the stack.
+        await Dispatcher.InvokeAsync(Close, System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private sealed record WindowLayout(double Left, double Top, double Width, double Height, bool Maximized, double LeftPanelWidth);
+
+    private void RestoreWindowLayout()
+    {
+        try
+        {
+            var path = Core.Storage.AppDataPaths.WindowLayoutFilePath;
+            if (!System.IO.File.Exists(path)) return;
+
+            var layout = System.Text.Json.JsonSerializer.Deserialize<WindowLayout>(System.IO.File.ReadAllText(path));
+            if (layout == null || layout.Width < 400 || layout.Height < 300) return;
+
+            // Only restore position when it is still on a visible screen
+            var virtualRect = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
+            if (virtualRect.IntersectsWith(new Rect(layout.Left, layout.Top, layout.Width, layout.Height)))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Left = layout.Left;
+                Top = layout.Top;
+            }
+
+            Width = layout.Width;
+            Height = layout.Height;
+            if (layout.Maximized) WindowState = WindowState.Maximized;
+
+            if (layout.LeftPanelWidth >= LeftPanelColumn.MinWidth && layout.LeftPanelWidth <= LeftPanelColumn.MaxWidth)
+            {
+                LeftPanelColumn.Width = new GridLength(layout.LeftPanelWidth);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to restore window layout: {ex.Message}");
+        }
+    }
+
+    private void SaveWindowLayout()
+    {
+        try
+        {
+            var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
+            var panelWidth = LeftPanelColumn.ActualWidth > 0 ? LeftPanelColumn.ActualWidth : 280;
+            var layout = new WindowLayout(bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+                WindowState == WindowState.Maximized, panelWidth);
+            System.IO.File.WriteAllText(Core.Storage.AppDataPaths.WindowLayoutFilePath,
+                System.Text.Json.JsonSerializer.Serialize(layout));
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to save window layout: {ex.Message}");
+        }
+    }
+
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
         UpdateMaximizeRestoreButton();
-        
+
         // When maximizing, adjust bounds to the current screen's work area
         if (WindowState == WindowState.Maximized)
         {
             AdjustMaximizedBounds();
         }
     }
-    
+
     private void AdjustMaximizedBounds()
     {
         var handle = new WindowInteropHelper(this).Handle;
         var monitor = MonitorFromWindow(handle, MONITOR_DEFAULTTONEAREST);
-        
+
         if (monitor != nint.Zero)
         {
             var monitorInfo = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
             if (GetMonitorInfo(monitor, ref monitorInfo))
             {
                 var workArea = monitorInfo.rcWork;
-                
+
                 // Get DPI scale for this window
                 var source = PresentationSource.FromVisual(this);
                 double dpiX = source?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
                 double dpiY = source?.CompositionTarget?.TransformToDevice.M22 ?? 1.0;
-                
+
                 // Convert screen pixels to WPF device-independent units
                 double width = (workArea.right - workArea.left) / dpiX;
                 double height = (workArea.bottom - workArea.top) / dpiY;
                 double left = workArea.left / dpiX;
                 double top = workArea.top / dpiY;
-                
+
                 // Set MaxWidth/MaxHeight to constrain the window
                 MaxWidth = width;
                 MaxHeight = height;
@@ -109,7 +230,7 @@ public partial class MainWindow : Window
 
 
     #region Multi-Monitor Maximize Support
-    
+
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
         var handle = new WindowInteropHelper(this).Handle;
@@ -141,7 +262,7 @@ public partial class MainWindow : Window
                 // Get DPI for the window to properly scale values
                 uint dpi = GetDpiForWindow(hwnd);
                 double dpiScale = dpi / 96.0;
-                
+
                 // rcWork is the work area (excludes taskbar)
                 // rcMonitor is the full monitor area
                 var rcWorkArea = monitorInfo.rcWork;
@@ -150,15 +271,15 @@ public partial class MainWindow : Window
                 // Calculate work area dimensions
                 int workWidth = rcWorkArea.right - rcWorkArea.left;
                 int workHeight = rcWorkArea.bottom - rcWorkArea.top;
-                
+
                 // Set the maximized position relative to the monitor's work area
                 mmi.ptMaxPosition.x = rcWorkArea.left - rcMonitorArea.left;
                 mmi.ptMaxPosition.y = rcWorkArea.top - rcMonitorArea.top;
-                
+
                 // Set the maximized size to the work area size
                 mmi.ptMaxSize.x = workWidth;
                 mmi.ptMaxSize.y = workHeight;
-                
+
                 // Also set track size to prevent issues with resizing
                 mmi.ptMaxTrackSize.x = workWidth;
                 mmi.ptMaxTrackSize.y = workHeight;
@@ -169,7 +290,7 @@ public partial class MainWindow : Window
     }
 
     #region Win32 Interop
-    
+
     private const int WM_GETMINMAXINFO = 0x0024;
     private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
 
@@ -178,7 +299,7 @@ public partial class MainWindow : Window
 
     [DllImport("user32.dll")]
     private static extern bool GetMonitorInfo(nint hMonitor, ref MONITORINFO lpmi);
-    
+
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(nint hwnd);
 
@@ -216,10 +337,10 @@ public partial class MainWindow : Window
         public RECT rcWork;
         public uint dwFlags;
     }
-    
+
     #endregion
-    
-    
+
+
     #endregion
 
     /// <summary>
@@ -229,7 +350,7 @@ public partial class MainWindow : Window
     {
         var leftPanel = FindName("LeftPanel") as FrameworkElement;
         if (leftPanel == null) return;
-        
+
         if (leftPanel.Visibility == Visibility.Visible)
         {
             CollapseButton_Click(this, new RoutedEventArgs());
@@ -249,10 +370,10 @@ public partial class MainWindow : Window
         for (int i = 0; i < childCount; i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            
+
             if (child is T element && element.Name == name)
                 return element;
-            
+
             var found = FindVisualChild<T>(child, name);
             if (found != null)
                 return found;
@@ -307,7 +428,7 @@ public partial class MainWindow : Window
             var indicator = new TextBlock
             {
                 Text = isProperty ? "●" : "◆",
-                Foreground = isProperty 
+                Foreground = isProperty
                     ? new SolidColorBrush(Color.FromRgb(86, 156, 214))  // Blue for properties
                     : new SolidColorBrush(Color.FromRgb(78, 201, 176)), // Green for instance values
                 FontWeight = FontWeights.Bold,
@@ -511,18 +632,18 @@ public partial class MainWindow : Window
         var leftPanelColumn = FindName("LeftPanelColumn") as ColumnDefinition;
         var expandButton = FindName("ExpandButton") as Button;
         var panelSplitter = FindName("PanelSplitter") as GridSplitter;
-        
+
         if (leftPanel == null || leftPanelColumn == null || expandButton == null)
             return;
 
         // Save current width before collapsing
         _lastLeftPanelWidth = leftPanelColumn.Width;
-        
+
         // Collapse the left panel
         leftPanel.Visibility = Visibility.Collapsed;
         leftPanelColumn.Width = new GridLength(0);
         leftPanelColumn.MinWidth = 0;
-        
+
         // Hide splitter, show expand button
         if (panelSplitter != null)
             panelSplitter.Visibility = Visibility.Collapsed;
@@ -536,7 +657,7 @@ public partial class MainWindow : Window
         var leftPanelColumn = FindName("LeftPanelColumn") as ColumnDefinition;
         var expandButton = FindName("ExpandButton") as Button;
         var panelSplitter = FindName("PanelSplitter") as GridSplitter;
-        
+
         if (leftPanel == null || leftPanelColumn == null || expandButton == null)
             return;
 
@@ -544,7 +665,7 @@ public partial class MainWindow : Window
         leftPanel.Visibility = Visibility.Visible;
         leftPanelColumn.MinWidth = 200;
         leftPanelColumn.Width = _lastLeftPanelWidth;
-        
+
         // Show splitter, hide expand button
         if (panelSplitter != null)
             panelSplitter.Visibility = Visibility.Visible;
@@ -556,7 +677,7 @@ public partial class MainWindow : Window
         if (sender is Button button && button.DataContext is ViewModels.TreeNodeViewModel node)
         {
             node.ToggleExpandCollapseAll();
-            
+
             // Force the TreeView to update by finding and updating all TreeViewItems
             e.Handled = true;
         }
@@ -575,13 +696,20 @@ public partial class MainWindow : Window
             var border = GraphCanvasBorder;
             if (border == null) return;
 
+            if (e.ClickCount == 2)
+            {
+                vm.SelectedTab?.ExpandGraphNodeCommand.Execute(node);
+                e.Handled = true;
+                return;
+            }
+
             // Select the node
             vm.SelectGraphNodeCommand.Execute(node);
 
             // Start dragging
             var startPoint = e.GetPosition(border);
             StartNodeDrag(node, startPoint);
-            
+
             e.Handled = true;
         }
     }
@@ -594,11 +722,19 @@ public partial class MainWindow : Window
     private double _dragStartTranslateX;
     private double _dragStartTranslateY;
 
+    private void GraphCanvasBorder_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (DataContext is ViewModels.MainViewModel { SelectedTab: { } tab })
+        {
+            tab.GraphViewportSize = e.NewSize;
+        }
+    }
+
     private void GraphCanvas_MouseDown(object sender, MouseButtonEventArgs e)
     {
         var border = sender as Border;
         if (border == null) return;
-        
+
         var vm = DataContext as ViewModels.MainViewModel;
         if (vm?.SelectedTab == null) return;
 
@@ -632,7 +768,7 @@ public partial class MainWindow : Window
         {
             var deltaX = currentPoint.X - _dragStartPoint.X;
             var deltaY = currentPoint.Y - _dragStartPoint.Y;
-            
+
             vm.SelectedTab.GraphPanX = _dragStartTranslateX + deltaX;
             vm.SelectedTab.GraphPanY = _dragStartTranslateY + deltaY;
         }
@@ -670,7 +806,7 @@ public partial class MainWindow : Window
         if (vm?.SelectedTab == null) return;
 
         const double panSpeed = 30.0;
-        
+
         if (Keyboard.Modifiers == ModifierKeys.Control)
         {
             // Ctrl+Scroll = Zoom
@@ -742,6 +878,184 @@ public partial class MainWindow : Window
                 vm.SelectedTab = tab;
             }
             e.Handled = true;
+        }
+    }
+
+    private void TabHeader_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == MouseButton.Middle
+            && sender is FrameworkElement element
+            && element.DataContext is ViewModels.QueryTabViewModel tab
+            && DataContext is ViewModels.MainViewModel vm
+            && tab.CanClose)
+        {
+            vm.CloseTabCommand.Execute(tab);
+            e.Handled = true;
+        }
+    }
+
+    private ViewModels.QueryTabViewModel? _errorNavigationTab;
+
+    private void HookEditorNavigation(ViewModels.MainViewModel vm)
+    {
+        Controls.TextEditorHelper.ActiveCaretMoved += (_, pos) =>
+        {
+            if (vm.SelectedTab != null) vm.SelectedTab.CaretPositionText = $"Ln {pos.Line}, Col {pos.Column}";
+        };
+
+        vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName != nameof(ViewModels.MainViewModel.SelectedTab)) return;
+            if (_errorNavigationTab != null) _errorNavigationTab.NavigateToPositionRequested -= OnNavigateToPositionRequested;
+            _errorNavigationTab = vm.SelectedTab;
+            if (_errorNavigationTab != null) _errorNavigationTab.NavigateToPositionRequested += OnNavigateToPositionRequested;
+        };
+        _errorNavigationTab = vm.SelectedTab;
+        if (_errorNavigationTab != null) _errorNavigationTab.NavigateToPositionRequested += OnNavigateToPositionRequested;
+    }
+
+    private void OnNavigateToPositionRequested(object? sender, (int Line, int Column) pos) =>
+            Controls.TextEditorHelper.NavigateTo(pos.Line, pos.Column);
+
+    #endregion
+
+    #region Statistics label lists
+
+    private static ViewModels.LabelCountItem? GetStatsItem(object? source) =>
+        FindAncestor<DataGridRow>(source as DependencyObject)?.Item as ViewModels.LabelCountItem;
+
+    private static T? FindAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current != null && current is not T)
+        {
+            current = current is System.Windows.Media.Visual or System.Windows.Media.Media3D.Visual3D
+                ? System.Windows.Media.VisualTreeHelper.GetParent(current)
+                : LogicalTreeHelper.GetParent(current);
+        }
+        return current as T;
+    }
+
+    private static void CopyText(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return;
+        try
+        {
+            Clipboard.SetText(text);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            // Clipboard can be temporarily locked by another process.
+        }
+    }
+
+    private static string BuildLabelQuery(string label, bool isEdge) =>
+        $"g.{(isEdge ? "E" : "V")}().hasLabel('{label.Replace("\\", "\\\\").Replace("'", "\\'")}')";
+
+    private void StatsLabelGrid_MouseDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not DataGrid grid || DataContext is not ViewModels.MainViewModel vm) return;
+        var item = GetStatsItem(e.OriginalSource);
+        if (item == null) return;
+        vm.QueryByLabel(item.Label, isEdge: Equals(grid.Tag, "E"));
+        e.Handled = true;
+    }
+
+    private void StatsLabelGrid_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not DataGrid grid || grid.SelectedItem is not ViewModels.LabelCountItem item) return;
+        if (e.Key == Key.C && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            CopyText(item.Label);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter && DataContext is ViewModels.MainViewModel vm)
+        {
+            vm.QueryByLabel(item.Label, isEdge: Equals(grid.Tag, "E"));
+            e.Handled = true;
+        }
+    }
+
+    private void StatsLabelGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not DataGrid grid) return;
+        var item = GetStatsItem(e.OriginalSource) ?? grid.SelectedItem as ViewModels.LabelCountItem;
+        if (item == null)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        grid.SelectedItem = item;
+        var isEdge = Equals(grid.Tag, "E");
+        var query = BuildLabelQuery(item.Label, isEdge);
+        var menu = new ContextMenu();
+
+        var copyLabel = new MenuItem { Header = "Copy label", InputGestureText = "Ctrl+C" };
+        copyLabel.Click += (_, _) => CopyText(item.Label);
+        menu.Items.Add(copyLabel);
+
+        var copyQuery = new MenuItem { Header = "Copy query", ToolTip = query };
+        copyQuery.Click += (_, _) => CopyText(query);
+        menu.Items.Add(copyQuery);
+
+        menu.Items.Add(new Separator());
+
+        var useQuery = new MenuItem { Header = "Use in query editor", InputGestureText = "Double-click" };
+        useQuery.Click += (_, _) => (DataContext as ViewModels.MainViewModel)?.QueryByLabel(item.Label, isEdge);
+        menu.Items.Add(useQuery);
+
+        grid.ContextMenu = menu;
+    }
+
+    private void GraphLegendItem_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2 || sender is not FrameworkElement { DataContext: ViewModels.GraphNodeViewModel node }) return;
+        if (string.IsNullOrEmpty(node.Label) || DataContext is not ViewModels.MainViewModel vm) return;
+        vm.QueryByLabel(node.Label, isEdge: false);
+        e.Handled = true;
+    }
+
+    private void ResultGrid_ContextMenuOpening(object sender, ContextMenuEventArgs e)
+    {
+        if (sender is not DataGrid grid) return;
+        var cell = FindAncestor<DataGridCell>(e.OriginalSource as DependencyObject);
+        var value = cell?.Content is TextBlock tb ? tb.Text : null;
+        var header = cell?.Column?.Header?.ToString();
+        var menu = new ContextMenu();
+
+        void Add(string text, Action action, bool enabled = true)
+        {
+            var mi = new MenuItem { Header = text, IsEnabled = enabled };
+            mi.Click += (_, _) => action();
+            menu.Items.Add(mi);
+        }
+
+        var hasValue = !string.IsNullOrEmpty(value);
+        Add("Copy value", () => CopyText(value!), hasValue);
+        Add("Copy row", () =>
+        {
+            if (grid.SelectedItem != null || cell != null)
+            {
+                var row = FindAncestor<DataGridRow>(cell);
+                var cells = grid.Columns.Select(c => (c.GetCellContent(row?.Item ?? grid.SelectedItem) as TextBlock)?.Text ?? string.Empty);
+                CopyText(string.Join("\t", cells));
+            }
+        });
+        menu.Items.Add(new Separator());
+        var escaped = value?.Replace("\\", "\\\\").Replace("'", "\\'");
+        var isId = string.Equals(header, "id", StringComparison.OrdinalIgnoreCase);
+        Add("Query vertex by this id", () => SetEditorQuery($"g.V('{escaped}')"), hasValue && isId);
+        Add("Query outgoing neighbours", () => SetEditorQuery($"g.V('{escaped}').out()"), hasValue && isId);
+        Add("Query incoming neighbours", () => SetEditorQuery($"g.V('{escaped}').in()"), hasValue && isId);
+        Add($"Filter by {header} = value", () => SetEditorQuery($"g.V().has('{header}', '{escaped}')"), hasValue && !isId && !string.IsNullOrEmpty(header));
+        grid.ContextMenu = menu;
+    }
+
+    private void SetEditorQuery(string query)
+    {
+        if (DataContext is ViewModels.MainViewModel { SelectedTab: { } tab })
+        {
+            tab.QueryText = query;
         }
     }
 

@@ -148,7 +148,9 @@ public class BoolToLabelBackgroundConverter : IValueConverter
 
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        return value is true ? SelectedBackground : NormalBackground;
+        if (value is true) return SelectedBackground;
+        return System.Windows.Application.Current?.TryFindResource("GraphLabelBackgroundBrush") as System.Windows.Media.Brush
+            ?? NormalBackground;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

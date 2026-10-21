@@ -73,16 +73,27 @@ public partial class App : Application
         await Dispatcher.InvokeAsync(() =>
         {
             var window = _host.Services.GetRequiredService<MainWindow>();
+            MainWindow = window;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
             window.Show();
             splash.Close();
         });
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    protected override void OnExit(ExitEventArgs e)
     {
         if (_host is not null)
         {
-            await _host.StopAsync().ConfigureAwait(false);
+            // Bounded, synchronous stop: async void OnExit lets the process exit mid-stop
+            // and a hosted service that ignores cancellation could otherwise hang shutdown.
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(3));
+                Task.Run(() => _host.StopAsync(cts.Token)).Wait(TimeSpan.FromSeconds(4));
+            }
+            catch (AggregateException)
+            {
+            }
             _host.Dispose();
         }
 

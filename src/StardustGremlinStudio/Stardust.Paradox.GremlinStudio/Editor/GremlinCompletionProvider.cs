@@ -1,3 +1,4 @@
+﻿using Stardust.Paradox.GremlinStudio.Core.Completion;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -43,6 +44,14 @@ public class GremlinCompletionData : ICompletionData
         if (_definition.Kind == GremlinCompletionKind.TraversalSource)
         {
             textArea.Document.Replace(completionSegment, Text);
+            return;
+        }
+
+        // Don't duplicate parentheses when completing an existing call such as "ha|s(...)"
+        var nextOffset = completionSegment.EndOffset;
+        if (nextOffset < textArea.Document.TextLength && textArea.Document.GetCharAt(nextOffset) == '(')
+        {
+            textArea.Document.Replace(completionSegment, _definition.Name);
             return;
         }
 
@@ -151,7 +160,7 @@ public static class GremlinCompletionProvider
 
         if (string.IsNullOrEmpty(context))
         {
-            return AllCompletions;
+            return AllCompletions.OrderBy(c => c.Text, StringComparer.OrdinalIgnoreCase);
         }
 
         return AllCompletions
@@ -180,6 +189,61 @@ public static class GremlinCompletionProvider
             .Where(v => v.Text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .OrderBy(v => v.Priority)
             .ThenBy(v => v.Text);
+    }
+
+    private static readonly object LabelLock = new();
+    private static GremlinCompletionSchema _schema = GremlinCompletionSchema.Empty;
+
+    /// <summary>
+    /// Updates the schema (labels, per-label property keys and edge topology) used for
+    /// context-aware label and property completion.
+    /// </summary>
+    public static void SetActiveSchema(GremlinCompletionSchema schema)
+    {
+        ArgumentNullException.ThrowIfNull(schema);
+        lock (LabelLock)
+        {
+            _schema = schema;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether the caret is in a label or property-key argument and returns the
+    /// candidates valid for that step, argument position and traversal state.
+    /// </summary>
+    public static GremlinArgumentCompletion? GetArgumentCompletion(string textBefore)
+    {
+        GremlinCompletionSchema schema;
+        lock (LabelLock)
+        {
+            schema = _schema;
+        }
+        return GremlinCompletionAnalyzer.Analyze(textBefore, schema);
+    }
+
+    /// <summary>
+    /// Builds completion items for an argument context. Labels are listed before property keys.
+    /// </summary>
+    public static IReadOnlyList<ICompletionData> GetArgumentCompletionItems(GremlinArgumentCompletion context)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        GremlinCompletionSchema schema;
+        lock (LabelLock)
+        {
+            schema = _schema;
+        }
+
+        var wrap = !context.HasOpenQuote;
+        var labels = context.VertexLabels
+            .Select(l => new LabelCompletionData(l, false, schema.VertexLabels.GetValueOrDefault(l), wrap))
+            .Concat(context.EdgeLabels.Select(l => new LabelCompletionData(l, true, schema.EdgeLabels.GetValueOrDefault(l), wrap)))
+            .OrderBy(r => r.Priority)
+            .ThenBy(r => r.Text, StringComparer.OrdinalIgnoreCase);
+
+        return context.StepLabels.Select(s => (ICompletionData)new PropertyKeyCompletionData(s, wrap, isStepLabel: true))
+            .Concat(labels)
+            .Concat(context.PropertyKeys.Select(k => new PropertyKeyCompletionData(k, wrap)))
+            .ToList();
     }
 
     private static List<GremlinCompletionData> CreateCompletions()

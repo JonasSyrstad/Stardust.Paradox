@@ -20,6 +20,12 @@ public interface IQueryHistoryService
     void AddQuery(string query, string? connectionId = null);
 
     /// <summary>
+    /// Adds or updates a query in the history together with the outcome of its execution.
+    /// Failed queries are recorded too so users can return to and fix them.
+    /// </summary>
+    void RecordExecution(string query, string? connectionId, bool succeeded, double? durationMs, double? requestUnits);
+
+    /// <summary>
     /// Pins or unpins a query in the history.
     /// </summary>
     /// <param name="id">The history item ID.</param>

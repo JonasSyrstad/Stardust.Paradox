@@ -45,12 +45,15 @@ public class FileQueryHistoryService : IQueryHistoryService
     }
 
     public void AddQuery(string query, string? connectionId = null)
+        => RecordExecution(query, connectionId, succeeded: true, durationMs: null, requestUnits: null);
+
+    public void RecordExecution(string query, string? connectionId, bool succeeded, double? durationMs, double? requestUnits)
     {
         if (string.IsNullOrWhiteSpace(query))
             return;
 
         var normalizedQuery = query.Trim();
-        
+
         _lock.EnterWriteLock();
         try
         {
@@ -58,10 +61,13 @@ public class FileQueryHistoryService : IQueryHistoryService
             var existing = _history.FirstOrDefault(h => 
                 string.Equals(h.Query, normalizedQuery, StringComparison.OrdinalIgnoreCase) &&
                 string.Equals(h.ConnectionId, connectionId, StringComparison.Ordinal));
-            
+
             if (existing != null)
             {
                 existing.LastExecuted = DateTime.UtcNow;
+                existing.LastSucceeded = succeeded;
+                existing.LastDurationMs = durationMs;
+                existing.LastRequestUnits = requestUnits;
             }
             else
             {
@@ -69,7 +75,10 @@ public class FileQueryHistoryService : IQueryHistoryService
                 {
                     Query = normalizedQuery,
                     ConnectionId = connectionId,
-                    LastExecuted = DateTime.UtcNow
+                    LastExecuted = DateTime.UtcNow,
+                    LastSucceeded = succeeded,
+                    LastDurationMs = durationMs,
+                    LastRequestUnits = requestUnits
                 });
 
                 // Remove oldest non-pinned entries if over limit

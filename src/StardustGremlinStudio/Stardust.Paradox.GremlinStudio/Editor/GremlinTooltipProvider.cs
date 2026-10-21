@@ -18,13 +18,35 @@ namespace Stardust.Paradox.GremlinStudio.Editor;
 public class GremlinTooltipProvider
 {
     private readonly TextEditor _editor;
+    private static readonly TimeSpan LeaveGracePeriod = TimeSpan.FromMilliseconds(250);
+
+    private readonly System.Windows.Threading.DispatcherTimer _leaveTimer;
     private Popup? _popup;
     private bool _closing;
+    private int _tokenStart;
+    private int _tokenEnd;
 
     public GremlinTooltipProvider(TextEditor editor)
     {
         _editor = editor;
+        _leaveTimer = new System.Windows.Threading.DispatcherTimer { Interval = LeaveGracePeriod };
+        _leaveTimer.Tick += (_, _) =>
+        {
+            _leaveTimer.Stop();
+            if (!IsPointerOverTokenOrPopup())
+                ClosePopup();
+        };
     }
+
+    /// <summary>
+    /// Gets or sets a callback that returns true when tooltips must not be shown (e.g. while completion is open).
+    /// </summary>
+    public Func<bool>? IsSuppressed { get; set; }
+
+    /// <summary>
+    /// Closes the tooltip if it is open.
+    /// </summary>
+    public void Close() => ClosePopup();
 
     /// <summary>
     /// Installs this tooltip provider on the editor.
@@ -32,7 +54,9 @@ public class GremlinTooltipProvider
     public void Install()
     {
         _editor.TextArea.TextView.MouseHover += OnMouseHover;
-        _editor.TextArea.TextView.MouseHoverStopped += OnMouseHoverStopped;
+        _editor.TextArea.TextView.MouseMove += OnMouseMove;
+        _editor.TextArea.TextView.MouseLeave += OnMouseLeave;
+        _editor.TextArea.PreviewKeyDown += OnPreviewKeyDown;
     }
 
     /// <summary>
@@ -41,12 +65,20 @@ public class GremlinTooltipProvider
     public void Uninstall()
     {
         _editor.TextArea.TextView.MouseHover -= OnMouseHover;
-        _editor.TextArea.TextView.MouseHoverStopped -= OnMouseHoverStopped;
+        _editor.TextArea.TextView.MouseMove -= OnMouseMove;
+        _editor.TextArea.TextView.MouseLeave -= OnMouseLeave;
+        _editor.TextArea.PreviewKeyDown -= OnPreviewKeyDown;
         ClosePopup();
     }
 
     private void OnMouseHover(object? sender, MouseEventArgs e)
     {
+        if (IsSuppressed?.Invoke() == true)
+        {
+            ClosePopup();
+            return;
+        }
+
         var textView = _editor.TextArea.TextView;
         var pos = textView.GetPositionFloor(
             e.GetPosition(textView) + textView.ScrollOffset);
@@ -72,12 +104,16 @@ public class GremlinTooltipProvider
             if (resolved != null)
             {
                 ClosePopup();
+                var text = _editor.Document.Text;
+                _tokenStart = Math.Max(0, text.LastIndexOf("${", Math.Min(offset + 1, text.Length - 1), StringComparison.Ordinal));
+                var close = text.IndexOf('}', _tokenStart);
+                _tokenEnd = close < 0 ? text.Length : close + 1;
                 ShowVariableTooltip(variableKey, resolved.Value.Value, resolved.Value.IsConnectionScoped, e);
                 return;
             }
         }
 
-        var stepName = GetStepNameAtOffset(offset);
+        var stepName = GetStepNameAtOffset(offset, out var stepStart, out var stepEnd);
         if (stepName == null)
             return;
 
@@ -86,6 +122,8 @@ public class GremlinTooltipProvider
             return;
 
         ClosePopup();
+        _tokenStart = stepStart;
+        _tokenEnd = stepEnd;
 
         var content = BuildTooltipContent(def);
 
@@ -107,21 +145,79 @@ public class GremlinTooltipProvider
             }
         };
 
+        OpenPopup(border);
+        e.Handled = true;
+    }
+
+    private void OpenPopup(Border border)
+    {
+        border.MouseLeave += (_, _) => ScheduleCloseCheck();
+        border.MouseEnter += (_, _) => _leaveTimer.Stop();
+
         _popup = new Popup
         {
             Child = border,
+            PlacementTarget = _editor.TextArea.TextView,
             Placement = PlacementMode.Mouse,
             AllowsTransparency = true,
             StaysOpen = false,
             IsOpen = true
         };
-
-        e.Handled = true;
     }
 
-    private void OnMouseHoverStopped(object? sender, MouseEventArgs e)
+    private void OnMouseMove(object? sender, MouseEventArgs e)
+    {
+        if (_popup == null)
+            return;
+
+        if (IsPointerOverToken())
+            _leaveTimer.Stop();
+        else
+            ScheduleCloseCheck();
+    }
+
+    private void OnMouseLeave(object? sender, MouseEventArgs e)
+    {
+        if (_popup != null)
+            ScheduleCloseCheck();
+    }
+
+    private void OnPreviewKeyDown(object? sender, KeyEventArgs e)
     {
         ClosePopup();
+    }
+
+    private void ScheduleCloseCheck()
+    {
+        if (_popup == null || _leaveTimer.IsEnabled)
+            return;
+        _leaveTimer.Start();
+    }
+
+    private bool IsPointerOverTokenOrPopup() =>
+        _popup?.Child is UIElement child && child.IsMouseOver || IsPointerOverToken();
+
+    private bool IsPointerOverToken()
+    {
+        var textView = _editor.TextArea.TextView;
+        if (!textView.IsMouseOver)
+            return false;
+
+        var pos = textView.GetPosition(Mouse.GetPosition(textView) + textView.ScrollOffset);
+        if (pos == null)
+            return false;
+
+        int offset;
+        try
+        {
+            offset = _editor.Document.GetOffset(pos.Value.Location);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return false;
+        }
+
+        return offset >= _tokenStart && offset <= _tokenEnd;
     }
 
     private void ClosePopup()
@@ -130,6 +226,7 @@ public class GremlinTooltipProvider
             return;
 
         _closing = true;
+        _leaveTimer.Stop();
         try
         {
             if (_popup != null)
@@ -148,14 +245,12 @@ public class GremlinTooltipProvider
     /// <summary>
     /// Extracts the Gremlin step name at the given document offset.
     /// </summary>
-    private string? GetStepNameAtOffset(int offset)
+    private string? GetStepNameAtOffset(int offset, out int start, out int end)
     {
         var doc = _editor.Document;
+        start = end = offset;
         if (offset < 0 || offset >= doc.TextLength)
             return null;
-
-        int start = offset;
-        int end = offset;
 
         while (start > 0 && IsIdentifierChar(doc.GetCharAt(start - 1)))
         {
@@ -502,15 +597,7 @@ public class GremlinTooltipProvider
             }
         };
 
-        _popup = new Popup
-        {
-            Child = border,
-            Placement = PlacementMode.Mouse,
-            AllowsTransparency = true,
-            StaysOpen = false,
-            IsOpen = true
-        };
-
+        OpenPopup(border);
         e.Handled = true;
     }
 }

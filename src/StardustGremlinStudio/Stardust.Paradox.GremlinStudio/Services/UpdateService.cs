@@ -1,4 +1,4 @@
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Velopack;
 using Velopack.Sources;
@@ -167,7 +167,7 @@ public sealed class UpdateService : IUpdateService
                 // Show a message instead of actually restarting
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    System.Windows.MessageBox.Show(
+                    Dialogs.ThemedMessageBox.Show(
                         $"Simulated update to v{_availableUpdate.Version} complete!\n\n" +
                         "In a real scenario, the application would restart now.\n\n" +
                         "Set SimulateUpdateAvailable = false in UpdateService.cs to disable this test mode.",

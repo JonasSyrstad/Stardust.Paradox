@@ -31,6 +31,16 @@ public partial class SnippetNameDialog : Window
         SnippetNameTextBox.Text = name;
     }
 
+    /// <summary>
+    /// Customizes the dialog for other name prompts (e.g. renaming a tab).
+    /// </summary>
+    public void Configure(string title, string prompt, string acceptText)
+    {
+        Title = title;
+        PromptTextBlock.Text = prompt;
+        SaveButton.Content = acceptText;
+    }
+
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
         var name = SnippetNameTextBox.Text?.Trim();

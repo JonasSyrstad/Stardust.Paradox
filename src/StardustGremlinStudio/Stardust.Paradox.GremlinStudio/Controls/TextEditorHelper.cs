@@ -139,6 +139,93 @@ public static class TextEditorHelper
         }
     }
 
+    /// <summary>
+    /// Gets the selected text in the active Gremlin editor, or an empty string.
+    /// </summary>
+    public static string GetActiveSelection() => _activeGremlinEditor?.SelectedText ?? string.Empty;
+
+    /// <summary>
+    /// Gets the statement under the caret in the active editor. Statements are separated
+    /// by blank lines or semicolons.
+    /// </summary>
+    public static string GetActiveStatement()
+    {
+        var editor = _activeGremlinEditor;
+        if (editor == null) return string.Empty;
+        return GetStatementAt(editor.Text, editor.CaretOffset);
+    }
+
+    /// <summary>
+    /// Extracts the statement surrounding <paramref name="offset"/> from <paramref name="text"/>.
+    /// </summary>
+    public static string GetStatementAt(string text, int offset)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+        offset = Math.Clamp(offset, 0, text.Length);
+        var separator = new System.Text.RegularExpressions.Regex(@"(\r?\n[ \t]*){2,}|;");
+        var start = 0;
+        foreach (System.Text.RegularExpressions.Match m in separator.Matches(text))
+        {
+            if (m.Index + m.Length <= offset)
+            {
+                start = m.Index + m.Length;
+                continue;
+            }
+            if (m.Index >= offset || m.Index + m.Length > offset)
+            {
+                return text[start..m.Index].Trim();
+            }
+        }
+        return text[start..].Trim();
+    }
+
+    /// <summary>
+    /// Moves the caret of the active editor to a 1-based line/column and focuses it.
+    /// </summary>
+    public static void NavigateTo(int line, int column)
+    {
+        var editor = _activeGremlinEditor;
+        if (editor == null) return;
+        line = Math.Clamp(line, 1, editor.Document.LineCount);
+        var docLine = editor.Document.GetLineByNumber(line);
+        column = Math.Clamp(column, 1, docLine.Length + 1);
+        editor.TextArea.Caret.Line = line;
+        editor.TextArea.Caret.Column = column;
+        editor.ScrollTo(line, column);
+        editor.Focus();
+    }
+
+    /// <summary>
+    /// Raised when the caret of the active editor moves (line, column).
+    /// </summary>
+    public static event EventHandler<(int Line, int Column)>? ActiveCaretMoved;
+
+    internal static void RaiseCaretMoved(TextEditor editor) =>
+        ActiveCaretMoved?.Invoke(editor, (editor.TextArea.Caret.Line, editor.TextArea.Caret.Column));
+
+    /// <summary>
+    /// Opens the find panel on the active Gremlin editor.
+    /// </summary>
+    public static void ShowFind()
+    {
+        if (_activeGremlinEditor is null) return;
+        GetOrCreateFindReplacePanel(_activeGremlinEditor).ShowFind(_activeGremlinEditor);
+    }
+
+    /// <summary>
+    /// Opens the find-and-replace panel on the active Gremlin editor.
+    /// </summary>
+    public static void ShowReplace()
+    {
+        if (_activeGremlinEditor is null) return;
+        GetOrCreateFindReplacePanel(_activeGremlinEditor).ShowReplace(_activeGremlinEditor);
+    }
+
+    /// <summary>
+    /// Moves keyboard focus to the active Gremlin editor.
+    /// </summary>
+    public static void FocusEditor() => _activeGremlinEditor?.Focus();
+
     private static void OnBoundTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is not TextEditor editor)
@@ -228,7 +315,10 @@ public static class TextEditorHelper
                 oldProvider.Uninstall();
             }
 
-            var tooltipProvider = new GremlinTooltipProvider(editor);
+            var tooltipProvider = new GremlinTooltipProvider(editor)
+            {
+                IsSuppressed = () => GetCompletionWindow(editor) != null
+            };
             tooltipProvider.Install();
             editor.SetValue(TooltipProviderProperty, tooltipProvider);
 
@@ -238,9 +328,24 @@ public static class TextEditorHelper
 
             // Bind Ctrl+F and Ctrl+H to custom FindReplacePanel
             editor.PreviewKeyDown += Editor_OpenFindReplace;
+
+            editor.TextArea.Caret.PositionChanged -= Caret_PositionChanged;
+            editor.TextArea.Caret.PositionChanged += Caret_PositionChanged;
+
+            GremlinEditorEnhancements.Get(editor)?.Uninstall();
+            var enhancements = GremlinEditorEnhancements.Install(editor);
+            enhancements.IsCompletionOpen = () => GetCompletionWindow(editor) != null;
+            enhancements.PairInserted += c =>
+            {
+                if (c is '(' or '\'' or '"')
+                {
+                    TryShowLabelOrPropertyCompletion(editor);
+                }
+            };
         }
         else
         {
+            GremlinEditorEnhancements.Get(editor)?.Uninstall();
             editor.GotFocus -= Editor_TrackActive;
             if (_activeGremlinEditor == editor)
             {
@@ -253,6 +358,7 @@ public static class TextEditorHelper
             editor.TextArea.KeyDown -= TextArea_KeyDown;
             editor.TextChanged -= Editor_ValidateOnChange;
             editor.PreviewKeyDown -= Editor_OpenFindReplace;
+            editor.TextArea.Caret.PositionChanged -= Caret_PositionChanged;
 
             // Uninstall hover tooltip provider
             if (editor.GetValue(TooltipProviderProperty) is GremlinTooltipProvider provider)
@@ -260,6 +366,14 @@ public static class TextEditorHelper
                 provider.Uninstall();
                 editor.SetValue(TooltipProviderProperty, null);
             }
+        }
+    }
+
+    private static void Caret_PositionChanged(object? sender, EventArgs e)
+    {
+        if (_activeGremlinEditor is { } editor && sender == editor.TextArea.Caret)
+        {
+            RaiseCaretMoved(editor);
         }
     }
 
@@ -336,15 +450,34 @@ public static class TextEditorHelper
             return;
         }
 
-        // Tab for completion (when no completion window is open)
-        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None)
+        var editor = textArea.GetService(typeof(TextEditor)) as TextEditor;
+        if (editor == null) return;
+
+        // Ctrl+Space / Ctrl+J: explicitly show completion (Visual Studio behavior)
+        if ((e.Key == Key.Space || e.Key == Key.J) && Keyboard.Modifiers == ModifierKeys.Control)
         {
-            var editor = textArea.GetService(typeof(TextEditor)) as TextEditor;
-            if (editor != null && GetCompletionWindow(editor) == null)
+            e.Handled = true;
+            GetCompletionWindow(editor)?.Close();
+            if (IsInsideVariableToken(editor))
+            {
+                ShowVariableCompletion(editor);
+            }
+            else
+            {
+                ShowCompletion(editor);
+            }
+            return;
+        }
+
+        // Tab only opens completion when the caret directly follows an identifier or '.';
+        // otherwise Tab behaves normally (indentation).
+        if (e.Key == Key.Tab && Keyboard.Modifiers == ModifierKeys.None && GetCompletionWindow(editor) == null)
+        {
+            var offset = editor.CaretOffset;
+            var prev = offset > 0 ? editor.Text[offset - 1] : '\0';
+            if (IsIdentifierChar(prev) || prev == '.' || prev == '$')
             {
                 e.Handled = true;
-                // If the caret is inside a ${...} variable token, show variable completion;
-                // otherwise show Gremlin step completion.
                 if (IsInsideVariableToken(editor))
                 {
                     ShowVariableCompletion(editor);
@@ -390,8 +523,75 @@ public static class TextEditorHelper
                     return;
                 }
 
-                completionWindow.CompletionList.RequestInsertion(e);
+                // Label lists: ')' and ',' commit; a quote commits only when we are inside an
+                // already-open string (closing it). Anything else closes the list.
+                if (completionWindow.CompletionList.CompletionData.FirstOrDefault() is LabelCompletionData or PropertyKeyCompletionData)
+                {
+                    var first = completionWindow.CompletionList.CompletionData[0];
+                    var wraps = first is LabelCompletionData l ? l.WrapsInQuotes : ((PropertyKeyCompletionData)first).WrapsInQuotes;
+                    var selected = completionWindow.CompletionList.SelectedItem;
+                    var isQuote = e.Text[0] is '\'' or '"';
+                    if (selected != null && (e.Text[0] is ')' or ',' || (isQuote && !wraps)))
+                    {
+                        completionWindow.CompletionList.RequestInsertion(e);
+                    }
+                    else
+                    {
+                        completionWindow.Close();
+                    }
+                    return;
+                }
+
+                // Visual Studio-like commit characters: '(' and '.' commit; other punctuation
+                // and whitespace simply close the list without inserting.
+                if (e.Text[0] is '(' or '.')
+                {
+                    if (completionWindow.CompletionList.SelectedItem == null)
+                    {
+                        completionWindow.Close();
+                        return;
+                    }
+
+                    completionWindow.CompletionList.RequestInsertion(e);
+                    AdjustCaretAfterCommit(editor, e.Text[0]);
+                    e.Handled = e.Text[0] == '(';
+                    return;
+                }
+
+                completionWindow.Close();
+                return;
             }
+        }
+    }
+
+    /// <summary>
+    /// Positions the caret after a step completion was committed with '(' or '.'.
+    /// </summary>
+    private static void AdjustCaretAfterCommit(TextEditor editor, char commitChar)
+    {
+        var doc = editor.Document;
+        var caret = editor.CaretOffset;
+        if (commitChar == '(')
+        {
+            // "name()|" -> "name(|)"
+            if (caret >= 2 && doc.GetCharAt(caret - 1) == ')' && doc.GetCharAt(caret - 2) == '(')
+            {
+                editor.CaretOffset = caret - 1;
+            }
+            else if (caret >= 1 && doc.GetCharAt(caret - 1) != '(' && (caret >= doc.TextLength || doc.GetCharAt(caret) != '('))
+            {
+                // Traversal source such as "g" - insert the paren ourselves.
+                doc.Insert(caret, "(");
+            }
+            else if (caret < doc.TextLength && doc.GetCharAt(caret) == '(')
+            {
+                editor.CaretOffset = caret + 1;
+            }
+        }
+        else if (commitChar == '.' && caret < doc.TextLength && doc.GetCharAt(caret) == ')' && caret >= 1 && doc.GetCharAt(caret - 1) == '(')
+        {
+            // "has(|)" + '.' -> "has().|"
+            editor.CaretOffset = caret + 1;
         }
     }
 
@@ -435,6 +635,38 @@ public static class TextEditorHelper
         if (e.Text == "$")
         {
             ShowVariableCompletion(editor);
+            return;
+        }
+
+        if (GetCompletionWindow(editor) != null || e.Text.Length != 1)
+        {
+            return;
+        }
+
+        var typed = e.Text[0];
+        var textBefore = editor.Text.Substring(0, editor.CaretOffset);
+
+        // Label suggestions after hasLabel( / out( / addV( and inside their quotes
+        if (typed is '(' or '\'' or '"' or ',')
+        {
+            TryShowLabelOrPropertyCompletion(editor);
+            return;
+        }
+
+        // Visual Studio-style: start suggesting as soon as the first identifier
+        // character of a step name is typed after '.' or at the start of a statement.
+        if (char.IsLetter(typed) && !IsInsideVariableToken(editor) && !IsInsideStringLiteral(textBefore))
+        {
+            var wordStart = GetWordStart(editor.Text, editor.CaretOffset);
+            if (editor.CaretOffset - wordStart != 1) return;
+
+            var i = wordStart - 1;
+            while (i >= 0 && textBefore[i] is ' ' or '\t') i--;
+            var prev = i >= 0 ? textBefore[i] : '\n';
+            if (prev is '.' or '\n' or '\r' or ';' or '(' or ',')
+            {
+                ShowCompletion(editor);
+            }
         }
     }
 
@@ -448,17 +680,27 @@ public static class TextEditorHelper
             return;
         }
 
-        // Get the text before the caret
         var offset = editor.CaretOffset;
         var textBefore = editor.Text.Substring(0, offset);
 
-        var completions = GremlinCompletionProvider.GetCompletions(textBefore).ToList();
+        if (TryShowArgumentCompletion(editor, textBefore))
+        {
+            return;
+        }
+
+        if (IsInsideStringLiteral(textBefore))
+        {
+            return;
+        }
+
+        var wordStart = GetWordStart(editor.Text, offset);
+        var completions = GremlinCompletionProvider.GetCompletions(string.Empty).ToList();
         if (completions.Count == 0)
         {
             return;
         }
 
-        var completionWindow = new CompletionWindow(editor.TextArea);
+        var completionWindow = CreateCompletionWindow(editor, wordStart);
         var data = completionWindow.CompletionList.CompletionData;
 
         foreach (var item in completions)
@@ -466,10 +708,106 @@ public static class TextEditorHelper
             data.Add(item);
         }
 
-        SetCompletionWindow(editor, completionWindow);
+        OpenCompletionWindow(editor, completionWindow, textBefore[wordStart..]);
+    }
 
+    private static void TryShowLabelOrPropertyCompletion(TextEditor editor)
+    {
+        if (GetCompletionWindow(editor) != null) return;
+        var textBefore = editor.Text.Substring(0, editor.CaretOffset);
+        TryShowArgumentCompletion(editor, textBefore);
+    }
+
+    private static bool TryShowArgumentCompletion(TextEditor editor, string textBefore)
+    {
+        var context = GremlinCompletionProvider.GetArgumentCompletion(textBefore);
+        if (context == null)
+        {
+            return false;
+        }
+
+        var items = GremlinCompletionProvider.GetArgumentCompletionItems(context);
+        if (items.Count == 0)
+        {
+            // Still suppress step completion inside a string argument.
+            return context.HasOpenQuote;
+        }
+
+        var prefix = context.Prefix;
+        var startOffset = editor.CaretOffset - (context.HasOpenQuote ? prefix.Length : 0);
+        var completionWindow = CreateCompletionWindow(editor, startOffset);
+        foreach (var item in items)
+        {
+            completionWindow.CompletionList.CompletionData.Add(item);
+        }
+
+        OpenCompletionWindow(editor, completionWindow, context.HasOpenQuote ? prefix : string.Empty);
+        return true;
+    }
+
+    private static CompletionWindow CreateCompletionWindow(TextEditor editor, int startOffset)
+    {
+        var completionWindow = new CompletionWindow(editor.TextArea)
+        {
+            StartOffset = startOffset,
+            CloseAutomatically = true,
+            CloseWhenCaretAtBeginning = true,
+            MinWidth = 260
+        };
+        completionWindow.CompletionList.IsFiltering = true;
+        return completionWindow;
+    }
+
+    private static void CloseHoverTooltip(TextEditor editor) =>
+        (editor.GetValue(TooltipProviderProperty) as GremlinTooltipProvider)?.Close();
+
+    private static void OpenCompletionWindow(TextEditor editor, CompletionWindow completionWindow, string prefix)
+    {
+        CloseHoverTooltip(editor);
+        SetCompletionWindow(editor, completionWindow);
         completionWindow.Closed += (s, args) => SetCompletionWindow(editor, null);
         completionWindow.Show();
+
+        if (!string.IsNullOrEmpty(prefix))
+        {
+            completionWindow.CompletionList.SelectItem(prefix);
+        }
+    }
+
+    private static int GetWordStart(string text, int offset)
+    {
+        var start = offset;
+        while (start > 0 && IsIdentifierChar(text[start - 1]))
+        {
+            start--;
+        }
+        return start;
+    }
+
+    private static bool IsIdentifierChar(char c) => char.IsLetterOrDigit(c) || c == '_';
+
+    /// <summary>
+    /// Returns true when the end of <paramref name="textBefore"/> is inside a quoted string on the current line.
+    /// </summary>
+    private static bool IsInsideStringLiteral(string textBefore)
+    {
+        var lineStart = textBefore.LastIndexOf('\n') + 1;
+        char? quote = null;
+        for (var i = lineStart; i < textBefore.Length; i++)
+        {
+            var c = textBefore[i];
+            if (quote != null && c == '\\')
+            {
+                i++;
+                continue;
+            }
+            if (c is '\'' or '"')
+            {
+                if (quote == null) quote = c;
+                else if (quote == c) quote = null;
+            }
+        }
+        return quote != null;
     }
 
     /// <summary>
@@ -500,6 +838,7 @@ public static class TextEditorHelper
             data.Add(item);
         }
 
+        CloseHoverTooltip(editor);
         SetCompletionWindow(editor, completionWindow);
 
         completionWindow.Closed += (s, args) => SetCompletionWindow(editor, null);

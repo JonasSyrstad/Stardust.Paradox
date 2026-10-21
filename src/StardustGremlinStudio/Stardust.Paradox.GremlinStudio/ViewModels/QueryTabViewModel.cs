@@ -80,9 +80,24 @@ public partial class QueryTabViewModel : ObservableObject
         }
 
         // Default values
-        QueryText = "g.V().limit(10)";
+        QueryText = DefaultQuery;
         StatusText = "Ready";
+        IsDirty = false;
+        GraphNodes.CollectionChanged += OnGraphNodesCollectionChanged;
     }
+
+    /// <summary>
+    /// The query text a new tab starts with.
+    /// </summary>
+    public const string DefaultQuery = "g.V().limit(10)";
+
+    /// <summary>
+    /// True when the tab contains edits that would be lost if the tab were closed.
+    /// </summary>
+    public bool HasUnsavedChanges =>
+        IsDirty && !string.IsNullOrWhiteSpace(QueryText) && QueryText != DefaultQuery;
+
+    partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(HasUnsavedChanges));
 
     #region Tab Identity
 
@@ -256,6 +271,8 @@ public partial class QueryTabViewModel : ObservableObject
     partial void OnQueryTextChanged(string value)
     {
         IsDirty = true;
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        ValidationMessage = string.Empty;
         QueryExplanation = string.Empty;
     }
 
@@ -318,7 +335,140 @@ public partial class QueryTabViewModel : ObservableObject
     private string _lastResultCountText = string.Empty;
 
     [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RunQueryCommand))]
     private bool _isExecuting;
+
+    /// <summary>
+    /// Elapsed time of the currently executing query, updated while running.
+    /// </summary>
+    [ObservableProperty]
+    private string _elapsedText = string.Empty;
+
+    private System.Windows.Threading.DispatcherTimer? _elapsedTimer;
+
+    /// <summary>
+    /// Short, user-facing error message from the last failed query.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    private string _errorMessage = string.Empty;
+
+    /// <summary>
+    /// Full technical error details (stack trace) for the last failed query.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasErrorDetails))]
+    private string _errorDetails = string.Empty;
+
+    [ObservableProperty]
+    private bool _isErrorDetailsExpanded;
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    public bool HasErrorDetails => !string.IsNullOrEmpty(ErrorDetails);
+
+    /// <summary>
+    /// Inline validation message shown next to the editor (e.g. empty query, no connection).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasValidationMessage))]
+    private string _validationMessage = string.Empty;
+
+    public bool HasValidationMessage => !string.IsNullOrEmpty(ValidationMessage);
+
+    private void SetError(string message, string? details)
+    {
+        ErrorMessage = message;
+        ErrorDetails = details ?? string.Empty;
+        IsErrorDetailsExpanded = false;
+        IsEmptyResult = false;
+        ErrorPosition = TryParseErrorPosition(details ?? message);
+    }
+
+    private void ClearError()
+    {
+        ErrorMessage = string.Empty;
+        ErrorDetails = string.Empty;
+        IsErrorDetailsExpanded = false;
+        ErrorPosition = null;
+    }
+
+    /// <summary>
+    /// True when the last successful query returned zero results.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isEmptyResult;
+
+    /// <summary>
+    /// Line/column (1-based) parsed from the last error message, when available.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasErrorPosition))]
+    [NotifyCanExecuteChangedFor(nameof(GoToErrorCommand))]
+    private (int Line, int Column)? _errorPosition;
+
+    public bool HasErrorPosition => ErrorPosition.HasValue;
+
+    /// <summary>
+    /// Raised when the view should move the editor caret to a line/column.
+    /// </summary>
+    public event EventHandler<(int Line, int Column)>? NavigateToPositionRequested;
+
+    [RelayCommand(CanExecute = nameof(HasErrorPosition))]
+    private void GoToError()
+    {
+        if (ErrorPosition is { } pos) NavigateToPositionRequested?.Invoke(this, pos);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ErrorPositionRegex = new(
+        @"line\s*[:#]?\s*(?<line>\d+)\s*[,;]?\s*(?:col(?:umn)?|char(?:acter)?|position)\s*[:#]?\s*(?<col>\d+)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    internal static (int Line, int Column)? TryParseErrorPosition(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        var match = ErrorPositionRegex.Match(text);
+        if (!match.Success) return null;
+        return (int.Parse(match.Groups["line"].Value), int.Parse(match.Groups["col"].Value));
+    }
+
+    [RelayCommand]
+    private void DismissError() => ClearError();
+
+    [RelayCommand]
+    private void ToggleErrorDetails() => IsErrorDetailsExpanded = !IsErrorDetailsExpanded;
+
+    [RelayCommand]
+    private void CopyError()
+    {
+        if (!HasError) return;
+        try
+        {
+            var text = HasErrorDetails ? $"{ErrorMessage}{Environment.NewLine}{Environment.NewLine}{ErrorDetails}" : ErrorMessage;
+            System.Windows.Clipboard.SetText(text);
+            StatusText = "Error copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    private void StartElapsedTimer(System.Diagnostics.Stopwatch stopwatch)
+    {
+        ElapsedText = "0.0 s";
+        _elapsedTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _elapsedTimer.Tick += (_, _) => ElapsedText = $"{stopwatch.Elapsed.TotalSeconds:F1} s";
+        _elapsedTimer.Start();
+    }
+
+    private void StopElapsedTimer()
+    {
+        _elapsedTimer?.Stop();
+        _elapsedTimer = null;
+        ElapsedText = string.Empty;
+    }
 
     /// <summary>
     /// Detailed explanation text for the current query, generated by the Explain feature.
@@ -330,10 +480,53 @@ public partial class QueryTabViewModel : ObservableObject
     /// Font size for the query editor. Adjustable via Ctrl+Scroll.
     /// </summary>
     [ObservableProperty]
-    private double _editorFontSize = 13.0;
+    private double _editorFontSize = LoadEditorFontSize();
 
     private const double MinEditorFontSize = 8.0;
     private const double MaxEditorFontSize = 40.0;
+
+    private static string EditorFontSizeFilePath => System.IO.Path.Combine(
+        System.IO.Path.GetDirectoryName(Core.Storage.AppDataPaths.ThemePreferenceFilePath)!, "editor-font-size.txt");
+
+    private static double LoadEditorFontSize()
+    {
+        try
+        {
+            if (System.IO.File.Exists(EditorFontSizeFilePath)
+                && double.TryParse(System.IO.File.ReadAllText(EditorFontSizeFilePath), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var size))
+            {
+                return Math.Clamp(size, MinEditorFontSize, MaxEditorFontSize);
+            }
+        }
+        catch (System.IO.IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        return 13.0;
+    }
+
+    partial void OnEditorFontSizeChanged(double value)
+    {
+        try
+        {
+            System.IO.File.WriteAllText(EditorFontSizeFilePath, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (System.IO.IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Caret position text (e.g. "Ln 3, Col 12") for the status bar.
+    /// </summary>
+    [ObservableProperty]
+    private string _caretPositionText = "Ln 1, Col 1";
 
     /// <summary>
     /// Increases the editor font size.
@@ -621,6 +814,45 @@ public partial class QueryTabViewModel : ObservableObject
     [ObservableProperty]
     private ObservableCollection<LabelCountItem> _edgeLabelCounts = new();
 
+    /// <summary>
+    /// Per-label property keys and edge topology sampled from the database, used for editor completion.
+    /// </summary>
+    public Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample SchemaSample { get; set; }
+        = Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample.Empty;
+
+    /// <summary>
+    /// Filter text applied to the vertex/edge label statistics lists.
+    /// </summary>
+    [ObservableProperty]
+    private string _statisticsLabelFilter = string.Empty;
+
+    /// <summary>
+    /// Vertex labels filtered by <see cref="StatisticsLabelFilter"/>.
+    /// </summary>
+    public IEnumerable<LabelCountItem> FilteredVertexLabelCounts => FilterLabels(VertexLabelCounts);
+
+    /// <summary>
+    /// Edge labels filtered by <see cref="StatisticsLabelFilter"/>.
+    /// </summary>
+    public IEnumerable<LabelCountItem> FilteredEdgeLabelCounts => FilterLabels(EdgeLabelCounts);
+
+    private IEnumerable<LabelCountItem> FilterLabels(IEnumerable<LabelCountItem> source) =>
+        string.IsNullOrWhiteSpace(StatisticsLabelFilter)
+            ? source
+            : source.Where(l => l.Label.Contains(StatisticsLabelFilter.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+
+    partial void OnStatisticsLabelFilterChanged(string value)
+    {
+        OnPropertyChanged(nameof(FilteredVertexLabelCounts));
+        OnPropertyChanged(nameof(FilteredEdgeLabelCounts));
+    }
+
+    partial void OnVertexLabelCountsChanged(ObservableCollection<LabelCountItem> value) =>
+        OnPropertyChanged(nameof(FilteredVertexLabelCounts));
+
+    partial void OnEdgeLabelCountsChanged(ObservableCollection<LabelCountItem> value) =>
+        OnPropertyChanged(nameof(FilteredEdgeLabelCounts));
+
     #endregion
 
     #region Execution Log
@@ -676,11 +908,13 @@ public partial class QueryTabViewModel : ObservableObject
     /// <c>${var}</c> tokens) is preserved in history. The resolved query appears in the
     /// execution log.
     /// </summary>
-    public async Task ExecuteQueryAsync(string? resolvedQuery = null)
+    public async Task ExecuteQueryAsync(string? resolvedQuery = null, string? queryOverride = null)
     {
-        if (string.IsNullOrWhiteSpace(QueryText))
+        var sourceQuery = string.IsNullOrWhiteSpace(queryOverride) ? QueryText : queryOverride;
+        if (string.IsNullOrWhiteSpace(sourceQuery))
         {
             StatusText = "Enter a query first";
+            ValidationMessage = "Enter a Gremlin query to run.";
             return;
         }
 
@@ -688,18 +922,23 @@ public partial class QueryTabViewModel : ObservableObject
         if (connector is null)
         {
             StatusText = "No active connection. Start the playground or select a connection.";
+            ValidationMessage = "No connection selected. Pick a connection in the left panel (Ctrl+L) or start the playground.";
             return;
         }
 
+        ValidationMessage = string.Empty;
+        ClearError();
+        IsEmptyResult = false;
         // The original query (may contain ${var} tokens) is kept for history.
         // The resolved query (variables substituted) is used for execution and log.
-        var originalQuery = QueryText;
-        var queryToExecute = resolvedQuery ?? QueryText;
+        var originalQuery = sourceQuery;
+        var queryToExecute = resolvedQuery ?? sourceQuery;
 
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             IsExecuting = true;
+            StartElapsedTimer(stopwatch);
             _queryCts = new CancellationTokenSource();
             StatusText = "Executing query...";
             LastRequestUnitsText = string.Empty;
@@ -731,28 +970,39 @@ public partial class QueryTabViewModel : ObservableObject
             // Record execution in session log (uses the resolved/executed query via the result)
             ExecutionLog.Insert(0, ExecutionLogEntry.FromResult(result));
 
+            // History stores the original query (with ${var} tokens), including failures
+            _queryHistoryService.RecordExecution(
+                originalQuery,
+                ConnectionMetadata?.Id,
+                result.IsSuccess,
+                result.Duration.TotalMilliseconds,
+                result.RequestUnits.HasValue ? (double)result.RequestUnits.Value : null);
+            _ = _queryHistoryService.SaveAsync();
+            _refreshMainHistory();
+
             if (result.IsSuccess)
             {
                 ResultJson = result.ResultJson ?? "No results";
-                LastResultCountText = $"Results: {result.ResultCount}";
-                StatusText = $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
-
-                // History stores the original query (with ${var} tokens)
-                _queryHistoryService.AddQuery(originalQuery, ConnectionMetadata?.Id);
-                _ = _queryHistoryService.SaveAsync();
-                _refreshMainHistory();
+                LastResultCountText = result.ResultCount == 0 ? "No results" : $"Results: {result.ResultCount}";
+                LastResultCount = result.ResultCount;
+                IsEmptyResult = result.ResultCount == 0;
+                StatusText = result.ResultCount == 0
+                    ? $"Query completed with no results in {result.Duration.TotalMilliseconds:F0}ms"
+                    : $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
             }
             else
             {
-                ResultJson = result.ErrorMessage ?? "Unknown error";
+                var error = result.ErrorMessage ?? "Unknown error";
+                SetError(GetFriendlyErrorMessage(error), error);
+                ResultJson = string.Empty;
                 LastResultCountText = string.Empty;
+                LastResultCount = null;
                 StatusText = "Query error";
             }
 
             _updateMainStatus(StatusText);
 
             PopulateResultViews(result.IsSuccess ? result.ResultJson : null);
-            IsDirty = false;
 
             // Auto-generate query explanation from the original query template
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(originalQuery))
@@ -773,7 +1023,8 @@ public partial class QueryTabViewModel : ObservableObject
             StatusText = "Query cancelled";
             LastRequestUnitsText = string.Empty;
             LastResultCountText = string.Empty;
-            ResultJson = "Query was cancelled";
+            LastResultCount = null;
+            ResultJson = string.Empty;
             ClearResultViews();
         }
         catch (Exception ex)
@@ -785,11 +1036,17 @@ public partial class QueryTabViewModel : ObservableObject
             _updateMainStatus(StatusText);
             LastRequestUnitsText = string.Empty;
             LastResultCountText = string.Empty;
-            ResultJson = ex.ToString();
+            LastResultCount = null;
+            ResultJson = string.Empty;
+            SetError(GetFriendlyErrorMessage(ex.Message), ex.ToString());
+            _queryHistoryService.RecordExecution(originalQuery, ConnectionMetadata?.Id, false, stopwatch.Elapsed.TotalMilliseconds, null);
+            _ = _queryHistoryService.SaveAsync();
+            _refreshMainHistory();
             ClearResultViews();
         }
         finally
         {
+            StopElapsedTimer();
             IsExecuting = false;
             _queryCts?.Dispose();
             _queryCts = null;
@@ -811,10 +1068,45 @@ public partial class QueryTabViewModel : ObservableObject
 
     private bool CanRunQuery() => !IsExecuting;
 
+    private bool CanCancel() => IsExecuting;
 
-    [RelayCommand]
+    /// <summary>
+    /// Number of results from the last successful query, or null when there is no result.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsResultEmpty))]
+    private int? _lastResultCount;
+
+    /// <summary>
+    /// True when the last query succeeded but returned no results.
+    /// </summary>
+    public bool IsResultEmpty => LastResultCount == 0;
+
+    /// <summary>
+    /// Extracts the most relevant line from a server error for display in the error banner.
+    /// </summary>
+    private static string GetFriendlyErrorMessage(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error)) return "Unknown error";
+
+        var firstLine = error.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault() ?? error;
+
+        // Strip a leading exception type name (e.g. "System.Exception: message")
+        var colon = firstLine.IndexOf(": ", StringComparison.Ordinal);
+        if (colon > 0 && firstLine[..colon].Contains('.') && !firstLine[..colon].Contains(' '))
+        {
+            firstLine = firstLine[(colon + 2)..];
+        }
+
+        return firstLine.Length > 300 ? firstLine[..300] + "..." : firstLine;
+    }
+
+
+    [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {
+        if (!IsExecuting) return;
         _queryCts?.Cancel();
         StatusText = "Cancelling...";
     }
@@ -1170,6 +1462,85 @@ public partial class QueryTabViewModel : ObservableObject
         GraphZoom = 1.0;
         GraphPanX = 100;
         GraphPanY = 50;
+    }
+
+    /// <summary>
+    /// Size of the graph viewport, set by the view so Fit can compute zoom.
+    /// </summary>
+    public System.Windows.Size GraphViewportSize { get; set; }
+
+    [RelayCommand]
+    private void FitGraph()
+    {
+        if (GraphNodes.Count == 0 || GraphViewportSize.Width <= 0 || GraphViewportSize.Height <= 0)
+        {
+            ResetGraph();
+            return;
+        }
+
+        const double padding = 60;
+        var minX = GraphNodes.Min(n => n.X) - padding;
+        var maxX = GraphNodes.Max(n => n.X) + padding;
+        var minY = GraphNodes.Min(n => n.Y) - padding;
+        var maxY = GraphNodes.Max(n => n.Y) + padding;
+        var zoom = Math.Min(GraphViewportSize.Width / Math.Max(1, maxX - minX),
+                            GraphViewportSize.Height / Math.Max(1, maxY - minY));
+        GraphZoom = Math.Clamp(zoom, 0.3, 3.0);
+        GraphPanX = -minX * GraphZoom + (GraphViewportSize.Width - (maxX - minX) * GraphZoom) / 2;
+        GraphPanY = -minY * GraphZoom + (GraphViewportSize.Height - (maxY - minY) * GraphZoom) / 2;
+    }
+
+    /// <summary>
+    /// Text used to find a node in the graph by id or label.
+    /// </summary>
+    [ObservableProperty]
+    private string _graphSearchText = string.Empty;
+
+    [RelayCommand]
+    private void FindGraphNode()
+    {
+        if (string.IsNullOrWhiteSpace(GraphSearchText)) return;
+        var text = GraphSearchText.Trim();
+        var node = GraphNodes.FirstOrDefault(n => n.Id.Contains(text, StringComparison.OrdinalIgnoreCase))
+                   ?? GraphNodes.FirstOrDefault(n => n.Label.Contains(text, StringComparison.OrdinalIgnoreCase));
+        if (node == null)
+        {
+            StatusText = $"No node matching '{text}'";
+            return;
+        }
+
+        SelectedGraphNode = node;
+        if (GraphViewportSize.Width > 0)
+        {
+            GraphPanX = GraphViewportSize.Width / 2 - node.X * GraphZoom;
+            GraphPanY = GraphViewportSize.Height / 2 - node.Y * GraphZoom;
+        }
+    }
+
+    /// <summary>
+    /// Distinct vertex labels and their colors shown as a legend.
+    /// </summary>
+    public IEnumerable<GraphNodeViewModel> GraphLegend =>
+        GraphNodes.GroupBy(n => n.Label).Select(g => g.First()).OrderBy(n => n.Label);
+
+    partial void OnGraphNodesChanged(ObservableCollection<GraphNodeViewModel>? oldValue, ObservableCollection<GraphNodeViewModel> newValue)
+    {
+        if (oldValue != null) oldValue.CollectionChanged -= OnGraphNodesCollectionChanged;
+        newValue.CollectionChanged += OnGraphNodesCollectionChanged;
+        OnPropertyChanged(nameof(GraphLegend));
+    }
+
+    private void OnGraphNodesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        OnPropertyChanged(nameof(GraphLegend));
+
+    /// <summary>
+    /// Re-centers the graph on the given node and loads its neighbors.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExpandGraphNodeAsync(GraphNodeViewModel? node)
+    {
+        if (node == null || string.IsNullOrEmpty(node.Id)) return;
+        await LoadGraphForSelectedNodeAsync(node.Id);
     }
 
     [RelayCommand]

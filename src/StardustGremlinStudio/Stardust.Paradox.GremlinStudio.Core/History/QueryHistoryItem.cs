@@ -38,6 +38,36 @@ public class QueryHistoryItem
     public string? DisplayName { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the last execution succeeded. Defaults to true for older entries.
+    /// </summary>
+    public bool LastSucceeded { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the duration of the last execution in milliseconds.
+    /// </summary>
+    public double? LastDurationMs { get; set; }
+
+    /// <summary>
+    /// Gets or sets the request units consumed by the last execution (Cosmos DB only).
+    /// </summary>
+    public double? LastRequestUnits { get; set; }
+
+    /// <summary>
+    /// Gets a one-line summary of the last execution for display.
+    /// </summary>
+    public string ExecutionSummary
+    {
+        get
+        {
+            var parts = new List<string> { LastExecuted.ToLocalTime().ToString("g") };
+            parts.Add(LastSucceeded ? "Succeeded" : "Failed");
+            if (LastDurationMs.HasValue) parts.Add($"{LastDurationMs.Value:F0} ms");
+            if (LastRequestUnits.HasValue) parts.Add($"{LastRequestUnits.Value:F2} RU");
+            return string.Join(" · ", parts);
+        }
+    }
+
+    /// <summary>
     /// Gets a short preview of the query for display.
     /// </summary>
     public string Preview => Query.Length > 60 ? Query[..60] + "..." : Query;
