@@ -101,9 +101,16 @@ public partial class MainWindow : Window
         // Fast path: nothing needs a prompt, so persist synchronously and let the window close.
         if (!_viewModel.HasUnsavedFileTabs)
         {
-            _viewModel.SaveSessionState();
-            SaveWindowLayout();
             _shutdownConfirmed = true;
+            try
+            {
+                _viewModel.SaveSessionState();
+                SaveWindowLayout();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Saving session on shutdown failed: {ex}");
+            }
             return;
         }
 
@@ -448,15 +455,39 @@ public partial class MainWindow : Window
             e.Column.Header = headerPanel;
         }
 
+        // Column names may contain characters that are illegal in a property path (e.g. '.', '@', '+'),
+        // so bind through the DataRowView indexer with the name escaped.
+        var indexerPath = CreateIndexerPath(columnName);
+        e.Column.SortMemberPath = columnName;
+
         // Add epoch date/time tooltip to cell values
         if (e.Column is DataGridTextColumn textColumn)
         {
+            textColumn.Binding = new Binding { Path = indexerPath };
             var style = new Style(typeof(TextBlock));
             style.Setters.Add(new Setter(
                 FrameworkElement.ToolTipProperty,
-                new Binding(columnName) { Converter = _epochTooltipConverter }));
+                new Binding { Path = indexerPath, Converter = _epochTooltipConverter }));
             textColumn.ElementStyle = style;
         }
+        else if (e.Column is DataGridBoundColumn boundColumn)
+        {
+            boundColumn.Binding = new Binding { Path = indexerPath };
+        }
+    }
+
+    private static PropertyPath CreateIndexerPath(string columnName)
+    {
+        var escaped = new System.Text.StringBuilder(columnName.Length + 8);
+        foreach (var ch in columnName)
+        {
+            if (ch is '^' or ',' or '[' or ']' or '(' or ')' or '.' or '/' or ' ')
+            {
+                escaped.Append('^');
+            }
+            escaped.Append(ch);
+        }
+        return new PropertyPath("[" + escaped + "]");
     }
 
     private void ResultDataGrid_ColumnReordered(object? sender, DataGridColumnEventArgs e)

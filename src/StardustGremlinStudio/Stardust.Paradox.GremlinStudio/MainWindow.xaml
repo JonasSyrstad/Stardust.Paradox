@@ -684,6 +684,16 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </StackPanel>
                     </Border>
                 </Popup>
+                <!-- AI Gremlin assistant panel toggle (only when opted in) -->
+                <Button Style="{StaticResource CaptionButtonStyle}"
+                        DataContext="{Binding Assistant}"
+                        Command="{Binding TogglePanelCommand}"
+                        Visibility="{Binding IsEnabled, Converter={StaticResource BoolToVisibilityConverter}}"
+                        ToolTip="Toggle AI Gremlin assistant"
+                        AutomationProperties.Name="Toggle AI Gremlin assistant">
+                    <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="13"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Button>
                 <!-- Account (GitHub sign-in, feedback, issues) -->
                 <Button x:Name="AccountButton" Style="{StaticResource CaptionButtonStyle}"
                         DataContext="{Binding Account}"
@@ -759,6 +769,26 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,8,0,0"
                                        Foreground="{DynamicResource SecondaryForegroundBrush}"
                                        Visibility="{Binding StatusMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
+
+                            <Separator Margin="0,12"/>
+
+                            <!-- AI Gremlin assistant (opt-in) -->
+                            <StackPanel Margin="0,0,0,4">
+                                <CheckBox IsChecked="{Binding Assistant.IsEnabled, Mode=TwoWay}"
+                                          Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                          AutomationProperties.Name="Enable AI Gremlin assistant">
+                                    <TextBlock Text="Enable AI Gremlin assistant (preview)"/>
+                                </CheckBox>
+                                <TextBlock TextWrapping="Wrap" FontSize="11" Margin="22,4,0,0"
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                           Text="Generates Gremlin from natural language using GitHub Copilot (requires a Copilot subscription). Labels, property keys and the current query are sent to GitHub; graph data is not."/>
+                                <StackPanel Margin="22,8,0,0"
+                                            Visibility="{Binding Assistant.IsEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock TextWrapping="Wrap" FontSize="11"
+                                               Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                               Text="Uses your GitHub Copilot CLI sign-in (run 'copilot' and '/login')."/>
+                                </StackPanel>
+                            </StackPanel>
 
                             <Separator Margin="0,12"/>
 
@@ -933,6 +963,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 <ColumnDefinition x:Name="LeftPanelColumn" Width="280" MinWidth="200" MaxWidth="500" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!-- Left Panel with Collapse Button -->
@@ -2783,6 +2814,142 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </ContentControl>
                     </Border>
             </Grid>
+
+            <!-- AI Gremlin assistant side panel (opt-in via account menu) -->
+            <Border Grid.Column="3" Width="380" Margin="0,12,12,12"
+                    DataContext="{Binding Assistant}"
+                    Visibility="{Binding IsPanelVisible, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="6">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource TertiaryBackgroundBrush}" Padding="10,6" CornerRadius="6,6,0,0">
+                        <DockPanel>
+                            <Button DockPanel.Dock="Right" Content="&#xE711;" Style="{StaticResource IconButtonStyle}"
+                                    Width="28" Height="28" Command="{Binding ClosePanelCommand}" ToolTip="Close assistant"/>
+                            <Button DockPanel.Dock="Right" Content="&#xE74D;" Style="{StaticResource IconButtonStyle}"
+                                    Width="28" Height="28" Command="{Binding ClearCommand}" ToolTip="Clear conversation"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Gremlin assistant" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
+                                    <Run Text="GitHub Copilot · "/>
+                                </TextBlock>
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Input -->
+                    <Grid DockPanel.Dock="Bottom" Margin="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
+                        <TextBox Grid.Row="1" Text="{Binding Prompt, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="False" TextWrapping="Wrap" MinHeight="56" MaxHeight="160"
+                                 VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                 Background="{DynamicResource TertiaryBackgroundBrush}"
+                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                 BorderBrush="{DynamicResource BorderBrush}"
+                                 ToolTip="Describe the query you need, e.g. 'people who know someone working at Contoso'. Press Enter to send."
+                                 AutomationProperties.Name="Assistant prompt">
+                            <TextBox.InputBindings>
+                                <KeyBinding Key="Enter" Command="{Binding SendCommand}"/>
+                            </TextBox.InputBindings>
+                        </TextBox>
+                        <DockPanel Grid.Row="2" Margin="0,6,0,0" LastChildFill="False">
+                            <Button DockPanel.Dock="Right" Content="Ask" Padding="14,4" Command="{Binding SendCommand}"
+                                    Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                            <Button DockPanel.Dock="Right" Content="Cancel" Padding="10,4" Margin="0,0,6,0" Command="{Binding CancelCommand}"
+                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <TextBlock DockPanel.Dock="Left" Text="Thinking…" VerticalAlignment="Center" FontSize="11"
+                                       Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </DockPanel>
+                    </Grid>
+
+                    <!-- Conversation -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8">
+                        <ItemsControl ItemsSource="{Binding Messages}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Margin="0,0,0,8" Padding="8" CornerRadius="6" BorderThickness="1"
+                                            BorderBrush="{DynamicResource BorderBrush}">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="{DynamicResource TertiaryBackgroundBrush}"/>
+                                                <Setter Property="Margin" Value="0,0,24,8"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsUser}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}"/>
+                                                        <Setter Property="Margin" Value="24,0,0,8"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <StackPanel>
+                                            <TextBox Text="{Binding Content, Mode=OneWay}" IsReadOnly="True" TextWrapping="Wrap"
+                                                     BorderThickness="0" Background="Transparent" Padding="0"
+                                                     Foreground="{DynamicResource PrimaryForegroundBrush}">
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsWaitingForFirstToken}" Value="True">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBox.Style>
+                                            </TextBox>
+                                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0" AutomationProperties.Name="Copilot is responding"
+                                                        Visibility="{Binding IsStreaming, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <StackPanel.Resources>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Width" Value="6"/>
+                                                        <Setter Property="Height" Value="6"/>
+                                                        <Setter Property="Margin" Value="0,0,4,0"/>
+                                                        <Setter Property="Opacity" Value="0.25"/>
+                                                        <Setter Property="Fill" Value="{DynamicResource SecondaryForegroundBrush}"/>
+                                                    </Style>
+                                                </StackPanel.Resources>
+                                                <StackPanel.Triggers>
+                                                    <EventTrigger RoutedEvent="FrameworkElement.Loaded">
+                                                        <BeginStoryboard>
+                                                            <Storyboard RepeatBehavior="Forever">
+                                                                <DoubleAnimation Storyboard.TargetName="Dot1" Storyboard.TargetProperty="Opacity"
+                                                                                 From="0.25" To="1" Duration="0:0:0.4" AutoReverse="True" BeginTime="0:0:0"/>
+                                                                <DoubleAnimation Storyboard.TargetName="Dot2" Storyboard.TargetProperty="Opacity"
+                                                                                 From="0.25" To="1" Duration="0:0:0.4" AutoReverse="True" BeginTime="0:0:0.2"/>
+                                                                <DoubleAnimation Storyboard.TargetName="Dot3" Storyboard.TargetProperty="Opacity"
+                                                                                 From="0.25" To="1" Duration="0:0:0.4" AutoReverse="True" BeginTime="0:0:0.4"/>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </EventTrigger>
+                                                </StackPanel.Triggers>
+                                                <Ellipse x:Name="Dot1"/>
+                                                <Ellipse x:Name="Dot2"/>
+                                                <Ellipse x:Name="Dot3"/>
+                                            </StackPanel>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0"
+                                                        Visibility="{Binding HasQuery, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <Button Content="Copy" Padding="10,3" Margin="0,0,6,0"
+                                                        Command="{Binding DataContext.CopyQueryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                                <Button Content="Insert into editor" Padding="10,3"
+                                                        Background="{DynamicResource AccentBrush}" Foreground="White"
+                                                        Command="{Binding DataContext.InsertQueryCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                        CommandParameter="{Binding}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
         </Grid>
     </DockPanel>
     </Grid>

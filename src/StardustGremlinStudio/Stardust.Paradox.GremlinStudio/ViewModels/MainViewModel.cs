@@ -63,6 +63,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     public AccountViewModel Account { get; }
 
+    /// <summary>
+    /// Opt-in AI Gremlin assistant side panel.
+    /// </summary>
+    public AssistantViewModel Assistant => Account.Assistant;
+
     public MainViewModel(
         IGremlinConnectionStore connectionStore,
         IGremlinConnectorFactory connectorFactory,
@@ -87,6 +92,7 @@ public partial class MainViewModel : ObservableObject
     {
         Account = account;
         _ = Account.InitializeAsync();
+        Assistant.Attach(GetAssistantContext, InsertAssistantQuery);
         _connectionStore = connectionStore;
         _connectorFactory = connectorFactory;
         _connectionTester = connectionTester;
@@ -280,6 +286,25 @@ public partial class MainViewModel : ObservableObject
     }
 
     private bool _isSyncingTabConnection;
+
+    private Stardust.Paradox.GremlinStudio.Core.Assistant.GremlinAssistantContext GetAssistantContext()
+    {
+        var tab = SelectedTab;
+        var connection = tab?.ConnectionMetadata;
+        return new Stardust.Paradox.GremlinStudio.Core.Assistant.GremlinAssistantContext(
+            connection?.Name,
+            connection?.Kind == GremlinConnectionKind.CosmosDb,
+            tab?.QueryText,
+            tab?.VertexLabelCounts.Select(l => l.Label).ToList() ?? [],
+            tab?.EdgeLabelCounts.Select(l => l.Label).ToList() ?? [],
+            tab?.SchemaSample ?? Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample.Empty);
+    }
+
+    private void InsertAssistantQuery(string query)
+    {
+        var tab = SelectedTab ?? CreateNewTab();
+        tab.QueryText = query;
+    }
 
     #endregion
 
@@ -1379,7 +1404,7 @@ public partial class MainViewModel : ObservableObject
     private void PinResult()
     {
         var source = SelectedTab;
-        if (source == null || string.IsNullOrEmpty(source.ResultJson))
+        if (source == null || string.IsNullOrEmpty(source.ResultJson) || source.ResultJson == "No results")
         {
             StatusText = "No result to pin";
             return;
@@ -1388,7 +1413,7 @@ public partial class MainViewModel : ObservableObject
         var tab = CreateNewTab(source.ConnectionSettings);
         tab.TabName = $"📌 {source.TabName} {DateTime.Now:HH:mm:ss}";
         tab.QueryText = source.QueryText;
-        tab.ResultJson = source.ResultJson;
+        tab.LoadPinnedResult(source.ResultJson);
         tab.LastResultCountText = source.LastResultCountText;
         tab.LastResultCount = source.LastResultCount;
         tab.LastDurationText = source.LastDurationText;

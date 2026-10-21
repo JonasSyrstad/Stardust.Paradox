@@ -1751,6 +1751,15 @@ public partial class QueryTabViewModel : ObservableObject
 
     #region Private Methods
 
+    /// <summary>
+    /// Loads a result copied from another tab and rebuilds the table, tree and graph views for it.
+    /// </summary>
+    internal void LoadPinnedResult(string resultJson)
+    {
+        ResultJson = resultJson;
+        PopulateResultViews(resultJson);
+    }
+
     private void PopulateResultViews(string? json)
     {
         ClearResultViews();

@@ -21,9 +21,10 @@ public partial class AccountViewModel : ObservableObject
     private readonly ILogger<AccountViewModel> _logger;
     private CancellationTokenSource? _signInCts;
 
-    public AccountViewModel(IGitHubAccountService gitHub, ILogger<AccountViewModel> logger)
+    public AccountViewModel(IGitHubAccountService gitHub, AssistantViewModel assistant, ILogger<AccountViewModel> logger)
     {
         _gitHub = gitHub;
+        Assistant = assistant;
         _logger = logger;
         _gitHub.UserChanged += (_, user) => Application.Current.Dispatcher.Invoke(() => ApplyUser(user));
     }
@@ -49,6 +50,9 @@ public partial class AccountViewModel : ObservableObject
 
     public bool IsConfigured => _gitHub.IsConfigured;
 
+    /// <summary>The opt-in AI Gremlin assistant, toggled from the account menu.</summary>
+    public AssistantViewModel Assistant { get; }
+
     /// <summary>Diagnostics appended to reports. Contains no connection details or query content.</summary>
     public string DiagnosticsPreview =>
         $"""
@@ -61,6 +65,7 @@ public partial class AccountViewModel : ObservableObject
     /// <summary>Restores a stored session at startup.</summary>
     public async Task InitializeAsync()
     {
+        await Assistant.InitializeAsync();
         try
         {
             await _gitHub.TryRestoreSessionAsync();

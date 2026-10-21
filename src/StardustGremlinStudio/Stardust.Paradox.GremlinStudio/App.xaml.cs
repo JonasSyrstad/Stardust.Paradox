@@ -46,6 +46,7 @@ public partial class App : Application
             {
                 logging.ClearProviders();
                 logging.AddConsole();
+                logging.AddProvider(new Stardust.Paradox.GremlinStudio.Core.Logging.FileLoggerProvider());
             })
             .ConfigureServices(services =>
             {
@@ -57,6 +58,7 @@ public partial class App : Application
                 // Register update service
                 services.AddSingleton<IUpdateService, UpdateService>();
 
+                services.AddSingleton<AssistantViewModel>();
                 services.AddSingleton<AccountViewModel>();
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -83,22 +85,37 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
-        if (_host is not null)
+        var host = _host;
+        if (host is not null)
         {
-            // Bounded, synchronous stop: async void OnExit lets the process exit mid-stop
-            // and a hosted service that ignores cancellation could otherwise hang shutdown.
-            try
+            // Bounded, synchronous stop + dispose off the UI thread: a hosted service or singleton
+            // (e.g. open Gremlin connections) that ignores cancellation must not hang shutdown.
+            var cleanup = Task.Run(async () =>
             {
                 using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(3));
-                Task.Run(() => _host.StopAsync(cts.Token)).Wait(TimeSpan.FromSeconds(4));
-            }
-            catch (AggregateException)
+                try
+                {
+                    await host.StopAsync(cts.Token).ConfigureAwait(false);
+                }
+                finally
+                {
+                    host.Dispose();
+                }
+            });
+            try
             {
+                cleanup.Wait(TimeSpan.FromSeconds(5));
             }
-            _host.Dispose();
+            catch (AggregateException ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Host shutdown failed: {ex}");
+            }
         }
 
         base.OnExit(e);
+
+        // Lingering foreground threads (e.g. socket/connection pools) must not keep the process alive.
+        Environment.Exit(e.ApplicationExitCode);
     }
 }
 

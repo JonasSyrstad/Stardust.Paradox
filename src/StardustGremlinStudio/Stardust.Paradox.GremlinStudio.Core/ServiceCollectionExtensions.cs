@@ -65,6 +65,10 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<GitHub.GitHubOptions>(),
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<GitHub.GitHubAccountService>>()));
 
+        // AI Gremlin assistant (opt-in, GitHub Copilot SDK)
+        services.AddSingleton<Assistant.IGremlinAssistantSettingsStore, Assistant.FileGremlinAssistantSettingsStore>();
+        services.AddSingleton<Assistant.IGremlinAssistantService, Assistant.CopilotGremlinAssistantService>();
+
         // Snippets and variables
         services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();
         services.AddSingleton<IQueryVariableStore, FileQueryVariableStore>();
