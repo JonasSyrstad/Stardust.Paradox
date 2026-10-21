@@ -1104,6 +1104,87 @@ public partial class MainWindow : Window
     private static string EscapeGremlin(string? value) =>
         (value ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
 
+    private void HistoryPopup_Opened(object? sender, EventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.Popup { Child: { } child }) return;
+        Dispatcher.BeginInvoke(
+            () => FindDescendant<TextBox>(child)?.Focus(),
+            System.Windows.Threading.DispatcherPriority.Input);
+    }
+
+    private void HistorySearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (sender is not DependencyObject source) return;
+        var popup = FindLogicalAncestor<System.Windows.Controls.Primitives.Popup>(source);
+        var list = popup?.Child is { } child ? FindDescendant<ListBox>(child) : null;
+        if (list == null || list.Items.Count == 0) return;
+
+        if (e.Key == Key.Down)
+        {
+            list.SelectedIndex = 0;
+            (list.ItemContainerGenerator.ContainerFromIndex(0) as ListBoxItem)?.Focus();
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            LoadHistoryItem(list, list.Items[0] as Core.History.QueryHistoryItem);
+            e.Handled = true;
+        }
+    }
+
+    private void HistoryList_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        // Let the pin/remove buttons inside an item handle their own clicks
+        var origin = e.OriginalSource as DependencyObject;
+        if (FindAncestor<System.Windows.Controls.Primitives.ButtonBase>(origin) != null) return;
+        if (FindAncestor<ListBoxItem>(origin)?.DataContext is Core.History.QueryHistoryItem item)
+        {
+            LoadHistoryItem((DependencyObject)sender, item);
+            e.Handled = true;
+        }
+    }
+
+    private void HistoryList_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is ListBox { SelectedItem: Core.History.QueryHistoryItem item } list)
+        {
+            LoadHistoryItem(list, item);
+            e.Handled = true;
+        }
+    }
+
+    private void LoadHistoryItem(DependencyObject source, Core.History.QueryHistoryItem? item)
+    {
+        if (item == null) return;
+        SetEditorQuery(item.Query);
+        if (FindLogicalAncestor<System.Windows.Controls.Primitives.Popup>(source) is { } popup)
+        {
+            popup.IsOpen = false;
+        }
+        Controls.TextEditorHelper.FocusEditor();
+    }
+
+    private static T? FindLogicalAncestor<T>(DependencyObject? current) where T : DependencyObject
+    {
+        while (current != null)
+        {
+            if (current is T match) return match;
+            current = LogicalTreeHelper.GetParent(current)
+                ?? (current is Visual or System.Windows.Media.Media3D.Visual3D ? VisualTreeHelper.GetParent(current) : null);
+        }
+        return null;
+    }
+
+    private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is T match) return match;
+            if (FindDescendant<T>(child) is { } nested) return nested;
+        }
+        return null;
+    }
+
     private void SetEditorQuery(string query)
     {
         if (DataContext is ViewModels.MainViewModel { SelectedTab: { } tab })
