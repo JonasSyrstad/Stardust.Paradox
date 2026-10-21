@@ -52,6 +52,12 @@
                            Foreground="#B0B0B0"
                            HorizontalAlignment="Center"
                            Margin="0,8,0,0" />
+                <TextBlock x:Name="Branding" 
+                           Text="Brought to you by Stardust and Veracity by DNV" 
+                           FontSize="11" 
+                           Foreground="#B0B0B0"
+                           HorizontalAlignment="Center"
+                           Margin="0,8,0,0" />
             </StackPanel>
         </Grid>
     </Border>

@@ -1,8 +1,10 @@
-# ?? Stardust Gremlin Studio
+# Stardust Gremlin Studio - IDE and Query Tool for Gremlin
 
 <div align="center">
 
-**A Modern, Feature-Rich Query Tool for Gremlin Graph Databases**
+**A free, open source Gremlin IDE for Azure Cosmos DB (Gremlin API), Apache TinkerPop and JanusGraph**
+
+Website: [jonassyrstad.github.io/Stardust.Paradox](https://jonassyrstad.github.io/Stardust.Paradox/)
 
 [![Build Status](https://github.com/JonasSyrstad/Stardust.Paradox/actions/workflows/gremlin-studio-build.yml/badge.svg)](https://github.com/JonasSyrstad/Stardust.Paradox/actions/workflows/gremlin-studio-build.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/JonasSyrstad/Stardust.Paradox?include_prereleases&label=latest)](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest)

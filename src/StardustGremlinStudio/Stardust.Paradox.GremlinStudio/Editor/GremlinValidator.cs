@@ -99,6 +99,9 @@ public static class GremlinValidator
         // Check for common mistakes
         CheckCommonMistakes(query, errors);
 
+        // Validate step arguments against known definitions
+        CheckStepArguments(query, errors);
+
         return errors;
     }
 
@@ -274,6 +277,238 @@ public static class GremlinValidator
                 GremlinErrorSeverity.Warning));
         }
     }
+
+    private static void CheckStepArguments(string query, List<GremlinValidationError> errors)
+    {
+        // Match step invocations: .stepName(args)
+        var stepPattern = new Regex(@"\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(", RegexOptions.Compiled);
+
+        foreach (Match match in stepPattern.Matches(query))
+        {
+            var stepName = match.Groups[1].Value;
+            var def = GremlinStepDatabase.Get(stepName);
+            if (def == null)
+                continue;
+
+            var parenOpenIndex = match.Index + match.Length - 1;
+            var argsEnd = FindMatchingParen(query, parenOpenIndex);
+            if (argsEnd < 0)
+                continue; // Unbalanced — already reported
+
+            var argsText = query.Substring(parenOpenIndex + 1, argsEnd - parenOpenIndex - 1).Trim();
+
+            // Parse top-level arguments (respecting nesting and strings)
+            var args = ParseTopLevelArguments(argsText, parenOpenIndex + 1);
+            var argCount = args.Count;
+
+            // Skip validation for empty args if any overload accepts zero params
+            if (argCount == 0 && def.Overloads.Any(o => o.Parameters.Length == 0))
+                continue;
+
+            // Check if a step with required params got zero args
+            if (argCount == 0 && def.HasRequiredParameters && !def.Overloads.Any(o => o.Parameters.Length == 0))
+            {
+                var (line, col) = GetLineAndColumn(query, parenOpenIndex);
+                errors.Add(new GremlinValidationError(
+                    parenOpenIndex, argsEnd + 1, line, col,
+                    $"'{stepName}()' requires parameters: {def.Overloads[0].Signature}",
+                    GremlinErrorSeverity.Warning));
+                continue;
+            }
+
+            // Validate argument types against the best-matching overload
+            if (argCount > 0)
+            {
+                ValidateArgumentTypes(query, stepName, def, args, parenOpenIndex, errors);
+            }
+        }
+    }
+
+    private static void ValidateArgumentTypes(
+        string query,
+        string stepName,
+        GremlinStepDefinition def,
+        List<ArgumentToken> args,
+        int stepOffset,
+        List<GremlinValidationError> errors)
+    {
+        // Find the overload whose required param count is closest to the provided arg count
+        var matchingOverloads = def.Overloads
+            .Where(o =>
+            {
+                var required = o.Parameters.Count(p => !p.IsOptional);
+                var total = o.Parameters.Length;
+                return args.Count >= required && args.Count <= total;
+            })
+            .ToList();
+
+        if (matchingOverloads.Count == 0)
+        {
+            // No overload matches the argument count
+            var validCounts = string.Join(", ", def.Overloads
+                .Select(o =>
+                {
+                    var req = o.Parameters.Count(p => !p.IsOptional);
+                    var tot = o.Parameters.Length;
+                    return req == tot ? req.ToString() : $"{req}-{tot}";
+                })
+                .Distinct());
+            var (line, col) = GetLineAndColumn(query, stepOffset);
+            errors.Add(new GremlinValidationError(
+                stepOffset, stepOffset + stepName.Length + 2, line, col,
+                $"'{stepName}()' expects {validCounts} argument(s), but got {args.Count}",
+                GremlinErrorSeverity.Warning));
+            return;
+        }
+
+        // Use the first matching overload for type validation
+        var bestOverload = matchingOverloads[0];
+
+        for (int i = 0; i < Math.Min(args.Count, bestOverload.Parameters.Length); i++)
+        {
+            var expectedType = bestOverload.Parameters[i].Type;
+            var argValue = args[i].Text.Trim();
+            var argAbsStart = args[i].StartOffset;
+
+            var typeError = ValidateSingleArgument(argValue, expectedType);
+            if (typeError != null)
+            {
+                var (line, col) = GetLineAndColumn(query, argAbsStart);
+                errors.Add(new GremlinValidationError(
+                    argAbsStart, argAbsStart + argValue.Length, line, col,
+                    $"Parameter '{bestOverload.Parameters[i].Name}': {typeError}",
+                    GremlinErrorSeverity.Warning));
+            }
+        }
+    }
+
+    private static string? ValidateSingleArgument(string argValue, GremlinParamType expectedType)
+    {
+        if (string.IsNullOrWhiteSpace(argValue))
+            return null;
+
+        // Skip validation for sub-traversals (contain dots or parens)
+        if (argValue.Contains('.') || argValue.Contains('('))
+            return null;
+
+        return expectedType switch
+        {
+            GremlinParamType.String or GremlinParamType.Label or GremlinParamType.PropertyKey =>
+                IsStringLiteral(argValue) ? null : $"expected a quoted string, got '{Truncate(argValue, 20)}'",
+
+            GremlinParamType.Number =>
+                IsNumericLiteral(argValue) ? null : $"expected a number, got '{Truncate(argValue, 20)}'",
+
+            GremlinParamType.Boolean =>
+                argValue is "true" or "false" ? null : $"expected true/false, got '{Truncate(argValue, 20)}'",
+
+            _ => null // Any, Value, Traversal, Predicate, Enum — too permissive to validate statically
+        };
+    }
+
+    private static bool IsStringLiteral(string value)
+    {
+        return (value.StartsWith('\'') && value.EndsWith('\'') && value.Length >= 2) ||
+               (value.StartsWith('"') && value.EndsWith('"') && value.Length >= 2);
+    }
+
+    private static bool IsNumericLiteral(string value)
+    {
+        // Accept integers, decimals, and negative numbers
+        return double.TryParse(value, System.Globalization.NumberStyles.Any,
+            System.Globalization.CultureInfo.InvariantCulture, out _);
+    }
+
+    private static string Truncate(string value, int maxLen)
+    {
+        return value.Length <= maxLen ? value : value[..maxLen] + "…";
+    }
+
+    /// <summary>
+    /// Finds the matching closing parenthesis, respecting nesting and strings.
+    /// Returns -1 if not found.
+    /// </summary>
+    private static int FindMatchingParen(string text, int openIndex)
+    {
+        int depth = 0;
+        bool inString = false;
+        char stringChar = '\0';
+
+        for (int i = openIndex; i < text.Length; i++)
+        {
+            var c = text[i];
+            if (!inString && (c == '\'' || c == '"'))
+            {
+                inString = true;
+                stringChar = c;
+            }
+            else if (inString && c == stringChar && (i == 0 || text[i - 1] != '\\'))
+            {
+                inString = false;
+            }
+            else if (!inString)
+            {
+                if (c == '(') depth++;
+                else if (c == ')')
+                {
+                    depth--;
+                    if (depth == 0) return i;
+                }
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Parses top-level comma-separated arguments, respecting nested parens and strings.
+    /// Returns argument values with their absolute offsets in the outer query.
+    /// </summary>
+    private static List<ArgumentToken> ParseTopLevelArguments(string argsText, int baseOffset)
+    {
+        var result = new List<ArgumentToken>();
+        if (string.IsNullOrWhiteSpace(argsText))
+            return result;
+
+        int depth = 0;
+        bool inString = false;
+        char stringChar = '\0';
+        int argStart = 0;
+
+        for (int i = 0; i < argsText.Length; i++)
+        {
+            var c = argsText[i];
+            if (!inString && (c == '\'' || c == '"'))
+            {
+                inString = true;
+                stringChar = c;
+            }
+            else if (inString && c == stringChar && (i == 0 || argsText[i - 1] != '\\'))
+            {
+                inString = false;
+            }
+            else if (!inString)
+            {
+                if (c == '(' || c == '[') depth++;
+                else if (c == ')' || c == ']') depth--;
+                else if (c == ',' && depth == 0)
+                {
+                    result.Add(new ArgumentToken(argsText[argStart..i].Trim(), baseOffset + argStart));
+                    argStart = i + 1;
+                }
+            }
+        }
+
+        var last = argsText[argStart..].Trim();
+        if (last.Length > 0)
+        {
+            result.Add(new ArgumentToken(last, baseOffset + argStart));
+        }
+
+        return result;
+    }
+
+    private record ArgumentToken(string Text, int StartOffset);
 
     private static (int line, int column) GetLineAndColumn(string text, int offset)
     {

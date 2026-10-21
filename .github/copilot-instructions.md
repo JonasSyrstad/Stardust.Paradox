@@ -444,3 +444,21 @@ When writing code that must work across all targets:
 - Check if step executor exists for the Gremlin step
 - Verify `TinkerGraphQueryParser` can parse the query pattern
 - Check `Traverser` context for step dependencies
+
+## ?? Gremlin Studio Versioning — MANDATORY CHECK
+
+**IMPORTANT:** When making ANY changes to the **Gremlin Studio** application (any file under `StardustGremlinStudio/`), you **MUST** ask the user whether the version number should be updated **before finishing your response**. This applies to code changes, XAML changes, new files, and configuration changes. Never skip this step.
+
+The version is defined in `StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj` in three properties that **must** be kept in sync:
+
+```xml
+<Version>1.3.0</Version>
+<FileVersion>1.3.0.0</FileVersion>
+<AssemblyVersion>1.3.0.0</AssemblyVersion>
+```
+
+- **Patch bump** (e.g., `1.3.0` to `1.3.1`): bug fixes, minor UI tweaks.
+- **Minor bump** (e.g., `1.3.0` to `1.4.0`): new features, new panes, new commands.
+- **Major bump** (e.g., `1.3.0` to `2.0.0`): breaking changes, major rewrites.
+
+Always confirm with the user before changing the version. Do not bump automatically.

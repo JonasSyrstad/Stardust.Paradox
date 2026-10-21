@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Stardust.Paradox.GremlinStudio.Core.Export;
 
 /// <summary>
@@ -45,8 +47,11 @@ public class ScenarioData
 {
     public string Name { get; set; } = "ExportedScenario";
     public string Description { get; set; } = string.Empty;
+    public string Namespace { get; set; } = "Stardust.Paradox.InMemory.Scenarios";
     public DateTime ExportedAt { get; set; } = DateTime.UtcNow;
     public string? SourceConnection { get; set; }
+    [Newtonsoft.Json.JsonIgnore]
+    [JsonIgnore]
     public string? ExportQuery { get; set; }
     public List<ScenarioVertex> Vertices { get; set; } = new();
     public List<ScenarioEdge> Edges { get; set; } = new();

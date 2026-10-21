@@ -8,6 +8,8 @@ using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
+using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Editor;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
 
@@ -20,6 +22,8 @@ public partial class QueryTabViewModel : ObservableObject
     private readonly IQueryHistoryService _queryHistoryService;
     private readonly IScenarioExportService _scenarioExportService;
     private readonly IGremlinConnectorFactory _connectorFactory;
+    private readonly ISchemaDiscoveryService _schemaDiscoveryService;
+    private readonly ISchemaExportService _schemaExportService;
     private readonly ILogger _logger;
     private readonly Action<string> _updateMainStatus;
     private readonly Action _refreshMainHistory;
@@ -27,14 +31,23 @@ public partial class QueryTabViewModel : ObservableObject
     private IGremlinLanguageConnector? _activeConnector;
     private CancellationTokenSource? _queryCts;
     private CancellationTokenSource? _exportCts;
+    private CancellationTokenSource? _schemaCts;
+
 
     private static int _tabCounter;
+
+    /// <summary>
+    /// Resets the tab counter. Call when application restarts or all tabs are closed.
+    /// </summary>
+    public static void ResetTabCounter() => Interlocked.Exchange(ref _tabCounter, 0);
 
     public QueryTabViewModel(
         IGremlinQueryExecutor queryExecutor,
         IQueryHistoryService queryHistoryService,
         IScenarioExportService scenarioExportService,
         IGremlinConnectorFactory connectorFactory,
+        ISchemaDiscoveryService schemaDiscoveryService,
+        ISchemaExportService schemaExportService,
         ILogger logger,
         Action<string> updateMainStatus,
         Action refreshMainHistory,
@@ -44,13 +57,15 @@ public partial class QueryTabViewModel : ObservableObject
         _queryHistoryService = queryHistoryService;
         _scenarioExportService = scenarioExportService;
         _connectorFactory = connectorFactory;
+        _schemaDiscoveryService = schemaDiscoveryService;
+        _schemaExportService = schemaExportService;
         _logger = logger;
         _updateMainStatus = updateMainStatus;
         _refreshMainHistory = refreshMainHistory;
 
-        // Set tab name
-        _tabCounter++;
-        TabName = $"Query {_tabCounter}";
+        // Set tab name with thread-safe counter increment
+        var tabNumber = Interlocked.Increment(ref _tabCounter);
+        TabName = $"Query {tabNumber}";
         Id = Guid.NewGuid().ToString();
 
         // Initialize collections
@@ -65,9 +80,24 @@ public partial class QueryTabViewModel : ObservableObject
         }
 
         // Default values
-        QueryText = "g.V().limit(10)";
+        QueryText = DefaultQuery;
         StatusText = "Ready";
+        IsDirty = false;
+        GraphNodes.CollectionChanged += OnGraphNodesCollectionChanged;
     }
+
+    /// <summary>
+    /// The query text a new tab starts with.
+    /// </summary>
+    public const string DefaultQuery = "g.V().limit(10)";
+
+    /// <summary>
+    /// True when the tab contains edits that would be lost if the tab were closed.
+    /// </summary>
+    public bool HasUnsavedChanges =>
+        IsDirty && !string.IsNullOrWhiteSpace(QueryText) && QueryText != DefaultQuery;
+
+    partial void OnIsDirtyChanged(bool value) => OnPropertyChanged(nameof(HasUnsavedChanges));
 
     #region Tab Identity
 
@@ -86,6 +116,9 @@ public partial class QueryTabViewModel : ObservableObject
     private bool _canClose = true;
 
     #endregion
+
+
+    // (Snippets/Variables feature removed)
 
     #region Connection (Tab-specific snapshot)
 
@@ -195,6 +228,28 @@ public partial class QueryTabViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Applies an InMemory connection with a pre-created connector.
+    /// The tab uses the provided connector directly and tracks it as a regular connection.
+    /// </summary>
+    public void ApplyInMemoryConnection(GremlinConnectionSettings settings, IGremlinLanguageConnector connector)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(connector);
+
+        ConnectionSettings = settings;
+        _activeConnector = connector;
+        IsUsingPlayground = false;
+        PlaygroundScenarioName = null;
+        _playgroundConnector = null;
+
+        TabName = settings.Metadata.Name;
+
+        OnPropertyChanged(nameof(ConnectionDisplayName));
+        OnPropertyChanged(nameof(ConnectionMetadata));
+        OnPropertyChanged(nameof(HasConnection));
+    }
+
+    /// <summary>
     /// Gets the active connector for this tab.
     /// </summary>
     public IGremlinLanguageConnector? GetActiveConnector()
@@ -216,6 +271,9 @@ public partial class QueryTabViewModel : ObservableObject
     partial void OnQueryTextChanged(string value)
     {
         IsDirty = true;
+        OnPropertyChanged(nameof(HasUnsavedChanges));
+        ValidationMessage = string.Empty;
+        QueryExplanation = string.Empty;
     }
 
     [ObservableProperty]
@@ -232,6 +290,28 @@ public partial class QueryTabViewModel : ObservableObject
     /// </summary>
     public Dictionary<string, bool> ColumnIsProperty { get; } = new();
 
+    /// <summary>
+    /// Tracks the current visual column display order. Updated when the user reorders
+    /// columns in the DataGrid. Used by CSV export to preserve visual ordering.
+    /// </summary>
+    private List<string>? _columnDisplayOrder;
+
+    /// <summary>
+    /// When enabled, columns whose names suggest epoch timestamps are converted to
+    /// Excel date/time values during XLSX export.
+    /// </summary>
+    [ObservableProperty]
+    private bool _convertEpochDates;
+
+    /// <summary>
+    /// Updates the column display order from the DataGrid's visual column arrangement.
+    /// Called from code-behind when the user reorders columns.
+    /// </summary>
+    public void UpdateColumnDisplayOrder(List<string> order)
+    {
+        _columnDisplayOrder = order;
+    }
+
     [ObservableProperty]
     private ObservableCollection<TreeNodeViewModel> _resultTreeItems = new();
 
@@ -242,8 +322,233 @@ public partial class QueryTabViewModel : ObservableObject
     [ObservableProperty]
     private string _lastDurationText = string.Empty;
 
+    /// <summary>
+    /// RU consumption text for Cosmos DB queries (empty for non-Cosmos connections).
+    /// </summary>
     [ObservableProperty]
+    private string _lastRequestUnitsText = string.Empty;
+
+    /// <summary>
+    /// Result count text from the last query execution.
+    /// </summary>
+    [ObservableProperty]
+    private string _lastResultCountText = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RunQueryCommand))]
     private bool _isExecuting;
+
+    /// <summary>
+    /// Elapsed time of the currently executing query, updated while running.
+    /// </summary>
+    [ObservableProperty]
+    private string _elapsedText = string.Empty;
+
+    private System.Windows.Threading.DispatcherTimer? _elapsedTimer;
+
+    /// <summary>
+    /// Short, user-facing error message from the last failed query.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    private string _errorMessage = string.Empty;
+
+    /// <summary>
+    /// Full technical error details (stack trace) for the last failed query.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasErrorDetails))]
+    private string _errorDetails = string.Empty;
+
+    [ObservableProperty]
+    private bool _isErrorDetailsExpanded;
+
+    public bool HasError => !string.IsNullOrEmpty(ErrorMessage);
+
+    public bool HasErrorDetails => !string.IsNullOrEmpty(ErrorDetails);
+
+    /// <summary>
+    /// Inline validation message shown next to the editor (e.g. empty query, no connection).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasValidationMessage))]
+    private string _validationMessage = string.Empty;
+
+    public bool HasValidationMessage => !string.IsNullOrEmpty(ValidationMessage);
+
+    private void SetError(string message, string? details)
+    {
+        ErrorMessage = message;
+        ErrorDetails = details ?? string.Empty;
+        IsErrorDetailsExpanded = false;
+        IsEmptyResult = false;
+        ErrorPosition = TryParseErrorPosition(details ?? message);
+    }
+
+    private void ClearError()
+    {
+        ErrorMessage = string.Empty;
+        ErrorDetails = string.Empty;
+        IsErrorDetailsExpanded = false;
+        ErrorPosition = null;
+    }
+
+    /// <summary>
+    /// True when the last successful query returned zero results.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isEmptyResult;
+
+    /// <summary>
+    /// Line/column (1-based) parsed from the last error message, when available.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasErrorPosition))]
+    [NotifyCanExecuteChangedFor(nameof(GoToErrorCommand))]
+    private (int Line, int Column)? _errorPosition;
+
+    public bool HasErrorPosition => ErrorPosition.HasValue;
+
+    /// <summary>
+    /// Raised when the view should move the editor caret to a line/column.
+    /// </summary>
+    public event EventHandler<(int Line, int Column)>? NavigateToPositionRequested;
+
+    [RelayCommand(CanExecute = nameof(HasErrorPosition))]
+    private void GoToError()
+    {
+        if (ErrorPosition is { } pos) NavigateToPositionRequested?.Invoke(this, pos);
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex ErrorPositionRegex = new(
+        @"line\s*[:#]?\s*(?<line>\d+)\s*[,;]?\s*(?:col(?:umn)?|char(?:acter)?|position)\s*[:#]?\s*(?<col>\d+)",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    internal static (int Line, int Column)? TryParseErrorPosition(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        var match = ErrorPositionRegex.Match(text);
+        if (!match.Success) return null;
+        return (int.Parse(match.Groups["line"].Value), int.Parse(match.Groups["col"].Value));
+    }
+
+    [RelayCommand]
+    private void DismissError() => ClearError();
+
+    [RelayCommand]
+    private void ToggleErrorDetails() => IsErrorDetailsExpanded = !IsErrorDetailsExpanded;
+
+    [RelayCommand]
+    private void CopyError()
+    {
+        if (!HasError) return;
+        try
+        {
+            var text = HasErrorDetails ? $"{ErrorMessage}{Environment.NewLine}{Environment.NewLine}{ErrorDetails}" : ErrorMessage;
+            System.Windows.Clipboard.SetText(text);
+            StatusText = "Error copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    private void StartElapsedTimer(System.Diagnostics.Stopwatch stopwatch)
+    {
+        ElapsedText = "0.0 s";
+        _elapsedTimer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _elapsedTimer.Tick += (_, _) => ElapsedText = $"{stopwatch.Elapsed.TotalSeconds:F1} s";
+        _elapsedTimer.Start();
+    }
+
+    private void StopElapsedTimer()
+    {
+        _elapsedTimer?.Stop();
+        _elapsedTimer = null;
+        ElapsedText = string.Empty;
+    }
+
+    /// <summary>
+    /// Detailed explanation text for the current query, generated by the Explain feature.
+    /// </summary>
+    [ObservableProperty]
+    private string _queryExplanation = string.Empty;
+
+    /// <summary>
+    /// Font size for the query editor. Adjustable via Ctrl+Scroll.
+    /// </summary>
+    [ObservableProperty]
+    private double _editorFontSize = LoadEditorFontSize();
+
+    private const double MinEditorFontSize = 8.0;
+    private const double MaxEditorFontSize = 40.0;
+
+    private static string EditorFontSizeFilePath => System.IO.Path.Combine(
+        System.IO.Path.GetDirectoryName(Core.Storage.AppDataPaths.ThemePreferenceFilePath)!, "editor-font-size.txt");
+
+    private static double LoadEditorFontSize()
+    {
+        try
+        {
+            if (System.IO.File.Exists(EditorFontSizeFilePath)
+                && double.TryParse(System.IO.File.ReadAllText(EditorFontSizeFilePath), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var size))
+            {
+                return Math.Clamp(size, MinEditorFontSize, MaxEditorFontSize);
+            }
+        }
+        catch (System.IO.IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+        return 13.0;
+    }
+
+    partial void OnEditorFontSizeChanged(double value)
+    {
+        try
+        {
+            System.IO.File.WriteAllText(EditorFontSizeFilePath, value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (System.IO.IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Caret position text (e.g. "Ln 3, Col 12") for the status bar.
+    /// </summary>
+    [ObservableProperty]
+    private string _caretPositionText = "Ln 1, Col 1";
+
+    /// <summary>
+    /// Increases the editor font size.
+    /// </summary>
+    public void ZoomEditorIn()
+    {
+        if (EditorFontSize < MaxEditorFontSize)
+        {
+            EditorFontSize = Math.Min(EditorFontSize + 1, MaxEditorFontSize);
+        }
+    }
+
+    /// <summary>
+    /// Decreases the editor font size.
+    /// </summary>
+    public void ZoomEditorOut()
+    {
+        if (EditorFontSize > MinEditorFontSize)
+        {
+            EditorFontSize = Math.Max(EditorFontSize - 1, MinEditorFontSize);
+        }
+    }
 
     #endregion
 
@@ -380,6 +685,9 @@ public partial class QueryTabViewModel : ObservableObject
     private string _exportScenarioDescription = "";
 
     [ObservableProperty]
+    private string _exportNamespace = "Stardust.Paradox.InMemory.Scenarios";
+
+    [ObservableProperty]
     private ScenarioExportFormat _selectedExportFormat = ScenarioExportFormat.Json;
 
     public List<ScenarioExportFormat> ExportFormats { get; }
@@ -399,6 +707,191 @@ public partial class QueryTabViewModel : ObservableObject
     [ObservableProperty]
     private string _exportStepName = "";
 
+    /// <summary>
+    /// Cached scenario data to avoid re-fetching edges when only format changes.
+    /// </summary>
+    private ScenarioData? _cachedScenarioData;
+
+    /// <summary>
+    /// The ResultJson that was used to generate the cached scenario data.
+    /// </summary>
+    private string? _cachedResultJson;
+
+    /// <summary>
+    /// Re-exports the cached scenario data when format changes.
+    /// </summary>
+    partial void OnSelectedExportFormatChanged(ScenarioExportFormat value)
+    {
+        // If we have cached data, re-export with the new format immediately
+        if (_cachedScenarioData != null && _scenarioExportService != null)
+        {
+            try
+            {
+                // Update metadata in case it changed
+                _cachedScenarioData.Name = ExportScenarioName;
+                _cachedScenarioData.Description = ExportScenarioDescription;
+                _cachedScenarioData.Namespace = ExportNamespace;
+                
+                ExportPreview = _scenarioExportService.Export(_cachedScenarioData, value);
+                ExportStatusText = $"Format: {value} ({_cachedScenarioData.Vertices.Count} vertices, {_cachedScenarioData.Edges.Count} edges)";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to re-export with new format");
+                ExportStatusText = $"Error changing format: {ex.Message}";
+            }
+        }
+        else if (!string.IsNullOrEmpty(ExportPreview) && ExportPreview != "// No query results to export. Run a query first.")
+        {
+            // Prompt user to regenerate
+            ExportStatusText = "Click 'Generate Preview' to export with the new format";
+        }
+    }
+
+    #endregion
+
+    #region Agent Skills Download
+
+    [ObservableProperty]
+    private bool _isDownloadingSkills;
+
+    [ObservableProperty]
+    private string _skillsDownloadStatusText = "";
+
+    #endregion
+
+    #region MCP Server Install
+
+    /// <summary>
+    /// Status text shown during or after MCP server install.
+    /// </summary>
+    [ObservableProperty]
+    private string _mcpInstallStatusText = "";
+
+    #endregion
+
+    #region Database Statistics
+
+    /// <summary>
+    /// Whether statistics are currently being loaded.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isLoadingStatistics;
+
+    /// <summary>
+    /// Whether statistics have been loaded.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasStatistics;
+
+    /// <summary>
+    /// Status text for statistics loading.
+    /// </summary>
+    [ObservableProperty]
+    private string _statisticsStatusText = string.Empty;
+
+    /// <summary>
+    /// Total vertex count in the database.
+    /// </summary>
+    [ObservableProperty]
+    private long _totalVertexCount;
+
+    /// <summary>
+    /// Total edge count in the database.
+    /// </summary>
+    [ObservableProperty]
+    private long _totalEdgeCount;
+
+    /// <summary>
+    /// Vertex counts grouped by label.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<LabelCountItem> _vertexLabelCounts = new();
+
+    /// <summary>
+    /// Edge counts grouped by label.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<LabelCountItem> _edgeLabelCounts = new();
+
+    /// <summary>
+    /// Per-label property keys and edge topology sampled from the database, used for editor completion.
+    /// </summary>
+    public Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample SchemaSample { get; set; }
+        = Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample.Empty;
+
+    /// <summary>
+    /// Filter text applied to the vertex/edge label statistics lists.
+    /// </summary>
+    [ObservableProperty]
+    private string _statisticsLabelFilter = string.Empty;
+
+    /// <summary>
+    /// Vertex labels filtered by <see cref="StatisticsLabelFilter"/>.
+    /// </summary>
+    public IEnumerable<LabelCountItem> FilteredVertexLabelCounts => FilterLabels(VertexLabelCounts);
+
+    /// <summary>
+    /// Edge labels filtered by <see cref="StatisticsLabelFilter"/>.
+    /// </summary>
+    public IEnumerable<LabelCountItem> FilteredEdgeLabelCounts => FilterLabels(EdgeLabelCounts);
+
+    private IEnumerable<LabelCountItem> FilterLabels(IEnumerable<LabelCountItem> source) =>
+        string.IsNullOrWhiteSpace(StatisticsLabelFilter)
+            ? source
+            : source.Where(l => l.Label.Contains(StatisticsLabelFilter.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+
+    partial void OnStatisticsLabelFilterChanged(string value)
+    {
+        OnPropertyChanged(nameof(FilteredVertexLabelCounts));
+        OnPropertyChanged(nameof(FilteredEdgeLabelCounts));
+    }
+
+    partial void OnVertexLabelCountsChanged(ObservableCollection<LabelCountItem> value) =>
+        OnPropertyChanged(nameof(FilteredVertexLabelCounts));
+
+    partial void OnEdgeLabelCountsChanged(ObservableCollection<LabelCountItem> value) =>
+        OnPropertyChanged(nameof(FilteredEdgeLabelCounts));
+
+    #endregion
+
+    #region Execution Log
+
+    /// <summary>
+    /// Session-scoped execution log for this tab. Not persisted.
+    /// </summary>
+    public ObservableCollection<ExecutionLogEntry> ExecutionLog { get; } = new();
+
+    /// <summary>
+    /// The currently selected log entry (for detail display).
+    /// </summary>
+    [ObservableProperty]
+    private ExecutionLogEntry? _selectedLogEntry;
+
+    /// <summary>
+    /// Clears all log entries for this tab.
+    /// </summary>
+    [RelayCommand]
+    private void ClearExecutionLog() => ExecutionLog.Clear();
+
+    #endregion
+
+    #region Query File
+
+    /// <summary>
+    /// The file path this tab was opened from or last saved to.
+    /// </summary>
+    [ObservableProperty]
+    private string? _queryFilePath;
+
+    partial void OnQueryFilePathChanged(string? value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            TabName = System.IO.Path.GetFileName(value);
+        }
+    }
+
     #endregion
 
     #region Commands
@@ -406,9 +899,22 @@ public partial class QueryTabViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanRunQuery))]
     private async Task RunQueryAsync()
     {
-        if (string.IsNullOrWhiteSpace(QueryText))
+        await ExecuteQueryAsync(resolvedQuery: null);
+    }
+
+    /// <summary>
+    /// Executes the current query. When <paramref name="resolvedQuery"/> is provided,
+    /// it is sent to the server while the original <see cref="QueryText"/> (containing
+    /// <c>${var}</c> tokens) is preserved in history. The resolved query appears in the
+    /// execution log.
+    /// </summary>
+    public async Task ExecuteQueryAsync(string? resolvedQuery = null, string? queryOverride = null)
+    {
+        var sourceQuery = string.IsNullOrWhiteSpace(queryOverride) ? QueryText : queryOverride;
+        if (string.IsNullOrWhiteSpace(sourceQuery))
         {
             StatusText = "Enter a query first";
+            ValidationMessage = "Enter a Gremlin query to run.";
             return;
         }
 
@@ -416,67 +922,526 @@ public partial class QueryTabViewModel : ObservableObject
         if (connector is null)
         {
             StatusText = "No active connection. Start the playground or select a connection.";
+            ValidationMessage = "No connection selected. Pick a connection in the left panel (Ctrl+L) or start the playground.";
             return;
         }
 
+        ValidationMessage = string.Empty;
+        ClearError();
+        IsEmptyResult = false;
+        // The original query (may contain ${var} tokens) is kept for history.
+        // The resolved query (variables substituted) is used for execution and log.
+        var originalQuery = sourceQuery;
+        var queryToExecute = resolvedQuery ?? sourceQuery;
+
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             IsExecuting = true;
+            StartElapsedTimer(stopwatch);
             _queryCts = new CancellationTokenSource();
             StatusText = "Executing query...";
+            LastRequestUnitsText = string.Empty;
+
+            // Clear export data when running a new query
+            ClearExportData();
+
+            // Reset schema discovery when running a new query (schema is tied to the current results)
+            IsDiscoveringSchema = false;
+            SchemaProgressPercent = 0;
+            SchemaDiscoveryStatus = string.Empty;
+            DiscoveredSchema = null;
+            SchemaTreeItems.Clear();
+            SchemaCodePreview = string.Empty;
 
             var result = await _queryExecutor.ExecuteAsync(
                 connector,
-                QueryText,
+                queryToExecute,
                 cancellationToken: _queryCts.Token).ConfigureAwait(true);
 
-            ResultJson = result.ResultJson ?? result.ErrorMessage ?? "No results";
+            stopwatch.Stop();
+
             LastDurationText = $"Query: {result.Duration.TotalMilliseconds:F0}ms";
 
-            StatusText = result.IsSuccess
-                ? $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms"
-                : $"Query failed: {result.ErrorMessage}";
+            LastRequestUnitsText = result.RequestUnits.HasValue
+                ? $"RU: {result.RequestUnits.Value:F2}"
+                : string.Empty;
 
-            _updateMainStatus(StatusText);
+            // Record execution in session log (uses the resolved/executed query via the result)
+            ExecutionLog.Insert(0, ExecutionLogEntry.FromResult(result));
+
+            // History stores the original query (with ${var} tokens), including failures
+            _queryHistoryService.RecordExecution(
+                originalQuery,
+                ConnectionMetadata?.Id,
+                result.IsSuccess,
+                result.Duration.TotalMilliseconds,
+                result.RequestUnits.HasValue ? (double)result.RequestUnits.Value : null);
+            _ = _queryHistoryService.SaveAsync();
+            _refreshMainHistory();
 
             if (result.IsSuccess)
             {
-                _queryHistoryService.AddQuery(QueryText);
-                _ = _queryHistoryService.SaveAsync();
-                _refreshMainHistory();
+                ResultJson = result.ResultJson ?? "No results";
+                LastResultCountText = result.ResultCount == 0 ? "No results" : $"Results: {result.ResultCount}";
+                LastResultCount = result.ResultCount;
+                IsEmptyResult = result.ResultCount == 0;
+                StatusText = result.ResultCount == 0
+                    ? $"Query completed with no results in {result.Duration.TotalMilliseconds:F0}ms"
+                    : $"Query completed: {result.ResultCount} results in {result.Duration.TotalMilliseconds:F0}ms";
+            }
+            else
+            {
+                var error = result.ErrorMessage ?? "Unknown error";
+                SetError(GetFriendlyErrorMessage(error), error);
+                ResultJson = string.Empty;
+                LastResultCountText = string.Empty;
+                LastResultCount = null;
+                StatusText = "Query error";
             }
 
-            PopulateResultViews(result.ResultJson);
-            IsDirty = false;
+            _updateMainStatus(StatusText);
+
+            PopulateResultViews(result.IsSuccess ? result.ResultJson : null);
+
+            // Auto-generate query explanation from the original query template
+            if (result.IsSuccess && !string.IsNullOrWhiteSpace(originalQuery))
+            {
+                QueryExplanation = GremlinQueryExplainer.Explain(originalQuery);
+            }
+
+            // If user is currently viewing schema mode, run a fresh discovery for the new results
+            if (IsSchemaExplorerMode && result.IsSuccess)
+            {
+                _ = BuildSchemaFromResultsAsync();
+            }
         }
         catch (OperationCanceledException)
         {
+            stopwatch.Stop();
+            ExecutionLog.Insert(0, ExecutionLogEntry.Cancelled(queryToExecute, stopwatch.Elapsed));
             StatusText = "Query cancelled";
-            ResultJson = "Query was cancelled";
+            LastRequestUnitsText = string.Empty;
+            LastResultCountText = string.Empty;
+            LastResultCount = null;
+            ResultJson = string.Empty;
             ClearResultViews();
         }
         catch (Exception ex)
         {
+            stopwatch.Stop();
+            ExecutionLog.Insert(0, ExecutionLogEntry.Error(queryToExecute, stopwatch.Elapsed, ex.Message));
             _logger.LogError(ex, "Failed to execute query");
-            StatusText = $"Query error: {ex.Message}";
-            ResultJson = ex.ToString();
+            StatusText = "Query error";
+            _updateMainStatus(StatusText);
+            LastRequestUnitsText = string.Empty;
+            LastResultCountText = string.Empty;
+            LastResultCount = null;
+            ResultJson = string.Empty;
+            SetError(GetFriendlyErrorMessage(ex.Message), ex.ToString());
+            _queryHistoryService.RecordExecution(originalQuery, ConnectionMetadata?.Id, false, stopwatch.Elapsed.TotalMilliseconds, null);
+            _ = _queryHistoryService.SaveAsync();
+            _refreshMainHistory();
             ClearResultViews();
         }
         finally
         {
+            StopElapsedTimer();
             IsExecuting = false;
             _queryCts?.Dispose();
             _queryCts = null;
         }
     }
 
+    /// <summary>
+    /// Clears all export data, settings, and preview.
+    /// </summary>
+    private void ClearExportData()
+    {
+        _cachedScenarioData = null;
+        _cachedResultJson = null;
+        ExportPreview = "";
+        HasExportData = false;
+        ExportStatusText = "";
+        ExportStepName = "";
+    }
+
     private bool CanRunQuery() => !IsExecuting;
 
-    [RelayCommand]
+    private bool CanCancel() => IsExecuting;
+
+    /// <summary>
+    /// Number of results from the last successful query, or null when there is no result.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsResultEmpty))]
+    private int? _lastResultCount;
+
+    /// <summary>
+    /// True when the last query succeeded but returned no results.
+    /// </summary>
+    public bool IsResultEmpty => LastResultCount == 0;
+
+    /// <summary>
+    /// Extracts the most relevant line from a server error for display in the error banner.
+    /// </summary>
+    private static string GetFriendlyErrorMessage(string error)
+    {
+        if (string.IsNullOrWhiteSpace(error)) return "Unknown error";
+
+        var firstLine = error.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .FirstOrDefault() ?? error;
+
+        // Strip a leading exception type name (e.g. "System.Exception: message")
+        var colon = firstLine.IndexOf(": ", StringComparison.Ordinal);
+        if (colon > 0 && firstLine[..colon].Contains('.') && !firstLine[..colon].Contains(' '))
+        {
+            firstLine = firstLine[(colon + 2)..];
+        }
+
+        return firstLine.Length > 300 ? firstLine[..300] + "..." : firstLine;
+    }
+
+
+    [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel()
     {
+        if (!IsExecuting) return;
         _queryCts?.Cancel();
         StatusText = "Cancelling...";
+    }
+
+    [RelayCommand]
+    private void CopyJsonToClipboard()
+    {
+        if (string.IsNullOrWhiteSpace(ResultJson))
+        {
+            StatusText = "No JSON to copy";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(ResultJson);
+            StatusText = "JSON copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CopyExplanationToClipboard()
+    {
+        if (string.IsNullOrWhiteSpace(QueryExplanation))
+        {
+            StatusText = "No explanation to copy";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(QueryExplanation);
+            StatusText = "Explanation copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void ExportTableToCsv()
+    {
+        if (ResultTable == null || ResultTable.Count == 0)
+        {
+            StatusText = "No data to export";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "CSV files (*.csv)|*.csv|All files (*.*)|*.*",
+                DefaultExt = ".csv",
+                FileName = $"query-results-{DateTime.Now:yyyyMMdd-HHmmss}.csv"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var csv = new System.Text.StringBuilder();
+                var table = ResultTable.Table;
+                
+                if (table == null)
+                {
+                    StatusText = "No table data available";
+                    return;
+                }
+
+                // Use visual column order (from user reordering) if available,
+                // otherwise fall back to the DataTable column order.
+                var columnNames = _columnDisplayOrder
+                    ?? table.Columns.Cast<System.Data.DataColumn>().Select(c => c.ColumnName).ToList();
+
+                // Headers
+                csv.AppendLine(string.Join(",", columnNames.Select(EscapeCsvField)));
+                
+                // Rows from the DataView, in visual column order
+                foreach (System.Data.DataRowView rowView in ResultTable)
+                {
+                    var values = columnNames.Select(col => EscapeCsvField(rowView[col]?.ToString() ?? ""));
+                    csv.AppendLine(string.Join(",", values));
+                }
+                
+                System.IO.File.WriteAllText(dialog.FileName, csv.ToString(), System.Text.Encoding.UTF8);
+                StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export to CSV");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    private static string EscapeCsvField(string field)
+    {
+        if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+        {
+            return $"\"{field.Replace("\"", "\"\"")}\"";
+        }
+        return field;
+    }
+
+    [RelayCommand]
+    private void ExportTableToXlsx()
+    {
+        if (ResultTable == null || ResultTable.Count == 0)
+        {
+            StatusText = "No data to export";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "Excel files (*.xlsx)|*.xlsx|All files (*.*)|*.*",
+                DefaultExt = ".xlsx",
+                FileName = $"query-results-{DateTime.Now:yyyyMMdd-HHmmss}.xlsx"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var table = ResultTable.Table;
+
+                if (table == null)
+                {
+                    StatusText = "No table data available";
+                    return;
+                }
+
+                var columnNames = _columnDisplayOrder
+                    ?? table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
+
+                WriteXlsx(dialog.FileName, columnNames, ResultTable, ConvertEpochDates);
+                StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export to XLSX");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Writes the result data to an XLSX file using Open XML SDK.
+    /// </summary>
+    private static void WriteXlsx(string filePath, List<string> columnNames, DataView dataView, bool convertEpochDates = false)
+    {
+        using var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(
+            filePath, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook);
+
+        var workbookPart = document.AddWorkbookPart();
+        workbookPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
+
+        // When converting epoch dates, add a stylesheet with a date/time number format.
+        // Style index 1 = date format "yyyy-mm-dd hh:mm:ss".
+        uint dateStyleIndex = 0;
+        if (convertEpochDates)
+        {
+            dateStyleIndex = 1;
+            var stylesPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorkbookStylesPart>();
+            stylesPart.Stylesheet = CreateDateStylesheet();
+            stylesPart.Stylesheet.Save();
+        }
+
+        var dateColumns = convertEpochDates
+            ? new HashSet<string>(columnNames.Where(IsDateColumnName), StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var worksheetPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
+        var sheetData = new DocumentFormat.OpenXml.Spreadsheet.SheetData();
+        worksheetPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(sheetData);
+
+        var sheets = workbookPart.Workbook.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheets());
+        sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet
+        {
+            Id = workbookPart.GetIdOfPart(worksheetPart),
+            SheetId = 1,
+            Name = "Query Results"
+        });
+
+        // Header row
+        var headerRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
+        foreach (var col in columnNames)
+        {
+            headerRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
+            {
+                DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+                CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(col)
+            });
+        }
+        sheetData.Append(headerRow);
+
+        // Data rows
+        foreach (DataRowView rowView in dataView)
+        {
+            var dataRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
+            foreach (var col in columnNames)
+            {
+                var value = rowView[col]?.ToString() ?? string.Empty;
+
+                if (dateColumns.Contains(col) && TryConvertEpochToOADate(value, out var oaDate))
+                {
+                    // Write as a numeric cell with the date style applied
+                    dataRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
+                    {
+                        CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(oaDate.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                        StyleIndex = dateStyleIndex
+                    });
+                }
+                else
+                {
+                    dataRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
+                    {
+                        DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
+                        CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(value)
+                    });
+                }
+            }
+            sheetData.Append(dataRow);
+        }
+
+        // Enable AutoFilter so the header row is filterable and sortable in Excel
+        if (columnNames.Count > 0)
+        {
+            var lastColumnLetter = GetExcelColumnLetter(columnNames.Count);
+            var lastRow = dataView.Count + 1; // +1 for header row
+            var autoFilter = new DocumentFormat.OpenXml.Spreadsheet.AutoFilter
+            {
+                Reference = $"A1:{lastColumnLetter}{lastRow}"
+            };
+            worksheetPart.Worksheet.InsertAfter(autoFilter, sheetData);
+        }
+    }
+
+    /// <summary>
+    /// Creates a minimal stylesheet containing a date/time number format at style index 1.
+    /// </summary>
+    private static DocumentFormat.OpenXml.Spreadsheet.Stylesheet CreateDateStylesheet()
+    {
+        const uint customFormatId = 164; // First user-defined format id
+        var stylesheet = new DocumentFormat.OpenXml.Spreadsheet.Stylesheet();
+
+        stylesheet.NumberingFormats = new DocumentFormat.OpenXml.Spreadsheet.NumberingFormats(
+            new DocumentFormat.OpenXml.Spreadsheet.NumberingFormat
+            {
+                NumberFormatId = customFormatId,
+                FormatCode = "yyyy\\-mm\\-dd\\ hh:mm:ss"
+            })
+        { Count = 1 };
+
+        stylesheet.Fonts = new DocumentFormat.OpenXml.Spreadsheet.Fonts(
+            new DocumentFormat.OpenXml.Spreadsheet.Font())
+        { Count = 1 };
+
+        stylesheet.Fills = new DocumentFormat.OpenXml.Spreadsheet.Fills(
+            new DocumentFormat.OpenXml.Spreadsheet.Fill(new DocumentFormat.OpenXml.Spreadsheet.PatternFill { PatternType = DocumentFormat.OpenXml.Spreadsheet.PatternValues.None }),
+            new DocumentFormat.OpenXml.Spreadsheet.Fill(new DocumentFormat.OpenXml.Spreadsheet.PatternFill { PatternType = DocumentFormat.OpenXml.Spreadsheet.PatternValues.Gray125 }))
+        { Count = 2 };
+
+        stylesheet.Borders = new DocumentFormat.OpenXml.Spreadsheet.Borders(
+            new DocumentFormat.OpenXml.Spreadsheet.Border())
+        { Count = 1 };
+
+        stylesheet.CellFormats = new DocumentFormat.OpenXml.Spreadsheet.CellFormats(
+            // Index 0: default
+            new DocumentFormat.OpenXml.Spreadsheet.CellFormat(),
+            // Index 1: date format
+            new DocumentFormat.OpenXml.Spreadsheet.CellFormat
+            {
+                NumberFormatId = customFormatId,
+                ApplyNumberFormat = true
+            })
+        { Count = 2 };
+
+        return stylesheet;
+    }
+
+    /// <summary>
+    /// Determines whether a column name suggests it holds epoch timestamp values.
+    /// </summary>
+    private static bool IsDateColumnName(string columnName)
+    {
+        var lower = columnName.ToLowerInvariant();
+        return lower.Contains("date")
+            || lower.Contains("time")
+            || lower.Contains("created")
+            || lower.Contains("modified")
+            || lower.Contains("updated")
+            || lower.Contains("timestamp")
+            || lower.Contains("expir")
+            || lower.EndsWith("_at")
+            || lower.EndsWith("at");
+    }
+
+    /// <summary>
+    /// Tries to parse a string as an epoch value (seconds or milliseconds) and convert
+    /// it to an OLE Automation date (Excel serial number).
+    /// </summary>
+    private static bool TryConvertEpochToOADate(string value, out double oaDate)
+    {
+        oaDate = 0;
+        if (!long.TryParse(value, out var epoch) || epoch <= 0)
+            return false;
+
+        // Heuristic: values above 1e12 are likely milliseconds, below are seconds.
+        // Seconds range covers ~1970-2100 (0 .. ~4.1e9).
+        DateTimeOffset dto = epoch > 4_102_444_800
+            ? DateTimeOffset.FromUnixTimeMilliseconds(epoch)
+            : DateTimeOffset.FromUnixTimeSeconds(epoch);
+
+        oaDate = dto.UtcDateTime.ToOADate();
+        return true;
+    }
+
+    /// <summary>
+    /// Converts a 1-based column number to an Excel column letter (e.g. 1?A, 26?Z, 27?AA).
+    /// </summary>
+    private static string GetExcelColumnLetter(int columnNumber)
+    {
+        var result = "";
+        while (columnNumber > 0)
+        {
+            columnNumber--;
+            result = (char)('A' + columnNumber % 26) + result;
+            columnNumber /= 26;
+        }
+        return result;
     }
 
     [RelayCommand]
@@ -497,6 +1462,85 @@ public partial class QueryTabViewModel : ObservableObject
         GraphZoom = 1.0;
         GraphPanX = 100;
         GraphPanY = 50;
+    }
+
+    /// <summary>
+    /// Size of the graph viewport, set by the view so Fit can compute zoom.
+    /// </summary>
+    public System.Windows.Size GraphViewportSize { get; set; }
+
+    [RelayCommand]
+    private void FitGraph()
+    {
+        if (GraphNodes.Count == 0 || GraphViewportSize.Width <= 0 || GraphViewportSize.Height <= 0)
+        {
+            ResetGraph();
+            return;
+        }
+
+        const double padding = 60;
+        var minX = GraphNodes.Min(n => n.X) - padding;
+        var maxX = GraphNodes.Max(n => n.X) + padding;
+        var minY = GraphNodes.Min(n => n.Y) - padding;
+        var maxY = GraphNodes.Max(n => n.Y) + padding;
+        var zoom = Math.Min(GraphViewportSize.Width / Math.Max(1, maxX - minX),
+                            GraphViewportSize.Height / Math.Max(1, maxY - minY));
+        GraphZoom = Math.Clamp(zoom, 0.3, 3.0);
+        GraphPanX = -minX * GraphZoom + (GraphViewportSize.Width - (maxX - minX) * GraphZoom) / 2;
+        GraphPanY = -minY * GraphZoom + (GraphViewportSize.Height - (maxY - minY) * GraphZoom) / 2;
+    }
+
+    /// <summary>
+    /// Text used to find a node in the graph by id or label.
+    /// </summary>
+    [ObservableProperty]
+    private string _graphSearchText = string.Empty;
+
+    [RelayCommand]
+    private void FindGraphNode()
+    {
+        if (string.IsNullOrWhiteSpace(GraphSearchText)) return;
+        var text = GraphSearchText.Trim();
+        var node = GraphNodes.FirstOrDefault(n => n.Id.Contains(text, StringComparison.OrdinalIgnoreCase))
+                   ?? GraphNodes.FirstOrDefault(n => n.Label.Contains(text, StringComparison.OrdinalIgnoreCase));
+        if (node == null)
+        {
+            StatusText = $"No node matching '{text}'";
+            return;
+        }
+
+        SelectedGraphNode = node;
+        if (GraphViewportSize.Width > 0)
+        {
+            GraphPanX = GraphViewportSize.Width / 2 - node.X * GraphZoom;
+            GraphPanY = GraphViewportSize.Height / 2 - node.Y * GraphZoom;
+        }
+    }
+
+    /// <summary>
+    /// Distinct vertex labels and their colors shown as a legend.
+    /// </summary>
+    public IEnumerable<GraphNodeViewModel> GraphLegend =>
+        GraphNodes.GroupBy(n => n.Label).Select(g => g.First()).OrderBy(n => n.Label);
+
+    partial void OnGraphNodesChanged(ObservableCollection<GraphNodeViewModel>? oldValue, ObservableCollection<GraphNodeViewModel> newValue)
+    {
+        if (oldValue != null) oldValue.CollectionChanged -= OnGraphNodesCollectionChanged;
+        newValue.CollectionChanged += OnGraphNodesCollectionChanged;
+        OnPropertyChanged(nameof(GraphLegend));
+    }
+
+    private void OnGraphNodesCollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e) =>
+        OnPropertyChanged(nameof(GraphLegend));
+
+    /// <summary>
+    /// Re-centers the graph on the given node and loads its neighbors.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExpandGraphNodeAsync(GraphNodeViewModel? node)
+    {
+        if (node == null || string.IsNullOrEmpty(node.Id)) return;
+        await LoadGraphForSelectedNodeAsync(node.Id);
     }
 
     [RelayCommand]
@@ -539,6 +1583,8 @@ public partial class QueryTabViewModel : ObservableObject
         {
             ExportPreview = "// No query results to export. Run a query first.";
             HasExportData = false;
+            _cachedScenarioData = null;
+            _cachedResultJson = null;
             return;
         }
 
@@ -555,31 +1601,58 @@ public partial class QueryTabViewModel : ObservableObject
             _exportCts = new CancellationTokenSource();
             IsExporting = true;
 
-            ExportStepName = "Initializing";
-            ExportStatusText = "Preparing export...";
-            await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
+            ScenarioData scenarioData;
 
-            _exportCts.Token.ThrowIfCancellationRequested();
-
-            ExportStepName = "Parsing Data";
-            ExportStatusText = "Parsing vertices from query results...";
-
-            var scenarioData = _scenarioExportService.ParseQueryResults(
-                ResultJson,
-                ExportScenarioName,
-                ExportScenarioDescription,
-                ConnectionSettings?.Metadata.Name,
-                QueryText);
-
-            _exportCts.Token.ThrowIfCancellationRequested();
-
-            if (scenarioData.Vertices.Count > 0)
+            // Check if we can use cached data (same result JSON)
+            if (_cachedScenarioData != null && _cachedResultJson == ResultJson)
             {
-                ExportStepName = "Fetching Edges";
-                ExportStatusText = $"Fetching edges between {scenarioData.Vertices.Count} vertices...";
+                ExportStepName = "Generating Output";
+                ExportStatusText = "Using cached data, generating output...";
+                await Task.Delay(100, _exportCts.Token).ConfigureAwait(true);
+                
+                // Update metadata from UI
+                _cachedScenarioData.Name = ExportScenarioName;
+                _cachedScenarioData.Description = ExportScenarioDescription;
+                _cachedScenarioData.Namespace = ExportNamespace;
+                
+                scenarioData = _cachedScenarioData;
+            }
+            else
+            {
+                // Need to re-parse and fetch edges
+                ExportStepName = "Initializing";
+                ExportStatusText = "Preparing export...";
+                await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
 
-                var progress = new Progress<string>(message => ExportStatusText = message);
-                scenarioData = await _scenarioExportService.FetchEdgesAsync(scenarioData, connector, progress, _exportCts.Token);
+                _exportCts.Token.ThrowIfCancellationRequested();
+
+                ExportStepName = "Parsing Data";
+                ExportStatusText = "Parsing vertices from query results...";
+
+                scenarioData = _scenarioExportService.ParseQueryResults(
+                    ResultJson,
+                    ExportScenarioName,
+                    ExportScenarioDescription,
+                    ConnectionSettings?.Metadata.Name,
+                    QueryText);
+
+                // Set the namespace for C# export
+                scenarioData.Namespace = ExportNamespace;
+
+                _exportCts.Token.ThrowIfCancellationRequested();
+
+                if (scenarioData.Vertices.Count > 0)
+                {
+                    ExportStepName = "Fetching Edges";
+                    ExportStatusText = $"Fetching edges between {scenarioData.Vertices.Count} vertices...";
+
+                    var progress = new Progress<string>(message => ExportStatusText = message);
+                    scenarioData = await _scenarioExportService.FetchEdgesAsync(scenarioData, connector, progress, _exportCts.Token);
+                }
+
+                // Cache the scenario data
+                _cachedScenarioData = scenarioData;
+                _cachedResultJson = ResultJson;
             }
 
             _exportCts.Token.ThrowIfCancellationRequested();
@@ -592,13 +1665,15 @@ public partial class QueryTabViewModel : ObservableObject
 
             ExportStepName = "Finishing up";
             ExportStatusText = "Finalizing export preview...";
-            await Task.Delay(500, _exportCts.Token).ConfigureAwait(true);
+            await Task.Delay(200, _exportCts.Token).ConfigureAwait(true);
 
             if (!HasExportData)
             {
                 ExportPreview = "// No vertices found in query results.\n// Make sure your query returns graph elements.";
                 ExportStepName = "";
                 ExportStatusText = "No data found";
+                _cachedScenarioData = null;
+                _cachedResultJson = null;
             }
             else
             {
@@ -708,6 +1783,7 @@ public partial class QueryTabViewModel : ObservableObject
 
             // Populate Table View
             ColumnIsProperty.Clear();
+            _columnDisplayOrder = null; // Reset visual order; new query generates fresh columns
             ResultTable = BuildResultDataTable(results, ColumnIsProperty);
 
             // Populate Graph View
@@ -963,14 +2039,28 @@ public partial class QueryTabViewModel : ObservableObject
 
                 if (id != null && !existingEdgeIds.Contains(id) && inV != null && outV != null)
                 {
-                    edges.Add(new GraphEdgeViewModel
+                    var edge = new GraphEdgeViewModel
                     {
                         Id = id,
                         Label = label ?? "",
                         FromId = outV,
                         ToId = inV,
                         Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(120, 120, 120))
-                    });
+                    };
+
+                    if (item["properties"] is Newtonsoft.Json.Linq.JObject props)
+                    {
+                        foreach (var prop in props.Properties())
+                        {
+                            var value = ExtractPropertyValue(prop.Value);
+                            if (value != null)
+                            {
+                                edge.Properties[prop.Name] = value;
+                            }
+                        }
+                    }
+
+                    edges.Add(edge);
                     existingEdgeIds.Add(id);
                 }
             }
@@ -1238,9 +2328,11 @@ public partial class QueryTabViewModel : ObservableObject
         }
 
         var orderedColumns = columnInfo
-            .OrderBy(c => c.Value.IsProperty)
-            .ThenBy(c => c.Key == "id" ? 0 : c.Key == "label" ? 1 : c.Key == "type" ? 2 : 3)
-            .ThenBy(c => c.Key)
+            .OrderBy(c => c.Key.Equals("id", StringComparison.OrdinalIgnoreCase) ? 0
+                        : c.Key.Equals("name", StringComparison.OrdinalIgnoreCase) ? 1
+                        : c.Key.Equals("pk", StringComparison.OrdinalIgnoreCase) ? 2
+                        : 3)
+            .ThenBy(c => c.Key, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         foreach (var col in orderedColumns)
@@ -1319,6 +2411,1204 @@ public partial class QueryTabViewModel : ObservableObject
             return obj.ToString(Newtonsoft.Json.Formatting.None);
         }
         return token?.ToString();
+    }
+
+    #endregion
+
+    #region Row Editing
+
+    /// <summary>
+    /// Whether a table row is currently being edited.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isEditingRow;
+
+    /// <summary>
+    /// The DataRowView currently being edited, if any.
+    /// </summary>
+    private DataRowView? _editingRowView;
+
+    /// <summary>
+    /// Snapshot of original cell values taken when editing begins.
+    /// Used to restore values on cancel and to detect changed properties.
+    /// </summary>
+    private Dictionary<string, object?>? _editingOriginalValues;
+
+    /// <summary>
+    /// Optional callback that forces the DataGrid to commit its active cell edit.
+    /// Set by the view code-behind so the ViewModel can flush pending edits before reading values.
+    /// </summary>
+    public Action? CommitDataGridEdit { get; set; }
+
+    /// <summary>
+    /// Column names that must not be edited (id, label, type, partition key).
+    /// </summary>
+    private static readonly HashSet<string> NonEditableColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "id", "label", "type", "pk", "partition", "partitionKey", "_etag", "_rid", "_self", "_ts"
+    };
+
+    /// <summary>
+    /// Determines whether a column should be read-only during row editing.
+    /// </summary>
+    public static bool IsNonEditableColumn(string columnName)
+    {
+        return NonEditableColumns.Contains(columnName);
+    }
+
+    /// <summary>
+    /// Begins editing the specified row. Captures original values for change detection.
+    /// </summary>
+    public void BeginEditRow(DataRowView rowView)
+    {
+        ArgumentNullException.ThrowIfNull(rowView);
+
+        // Cancel any in-progress edit first
+        if (IsEditingRow)
+        {
+            CancelEditRow();
+        }
+
+        _editingRowView = rowView;
+        _editingOriginalValues = new Dictionary<string, object?>();
+
+        foreach (DataColumn col in rowView.Row.Table.Columns)
+        {
+            _editingOriginalValues[col.ColumnName] = rowView[col.ColumnName];
+        }
+
+        IsEditingRow = true;
+        StatusText = "Editing row – modify values, then Save or Cancel";
+    }
+
+    /// <summary>
+    /// Saves the edited row by generating and executing a Gremlin property update query.
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveEditedRowAsync()
+    {
+        if (_editingRowView == null || _editingOriginalValues == null)
+        {
+            IsEditingRow = false;
+            return;
+        }
+
+        // Force the DataGrid to commit any in-progress cell edit so the
+        // DataRowView reflects the latest typed values.
+        CommitDataGridEdit?.Invoke();
+
+        var connector = GetActiveConnector();
+        if (connector is null)
+        {
+            StatusText = "No active connection – cannot save";
+            return;
+        }
+
+        var rowView = _editingRowView;
+        var table = rowView.Row.Table;
+        var vertexId = rowView["id"]?.ToString();
+
+        if (string.IsNullOrWhiteSpace(vertexId))
+        {
+            StatusText = "Cannot save: row has no id";
+            return;
+        }
+
+        // Detect which property columns changed.
+        // Only graph properties (ColumnIsProperty == true) can be updated via .property().
+        // Instance-level columns (id, label, type, etc.) are skipped.
+        var changedProperties = new Dictionary<string, string>();
+        foreach (DataColumn col in table.Columns)
+        {
+            if (IsNonEditableColumn(col.ColumnName))
+                continue;
+
+            // Skip instance columns (isProperty == false). Columns not tracked
+            // in ColumnIsProperty are also skipped to be safe.
+            if (!ColumnIsProperty.TryGetValue(col.ColumnName, out var isProperty) || !isProperty)
+                continue;
+
+            var newValue = rowView[col.ColumnName]?.ToString() ?? string.Empty;
+            var oldValue = _editingOriginalValues.TryGetValue(col.ColumnName, out var orig)
+                ? orig?.ToString() ?? string.Empty
+                : string.Empty;
+
+            if (!string.Equals(newValue, oldValue, StringComparison.Ordinal))
+            {
+                changedProperties[col.ColumnName] = newValue;
+            }
+        }
+
+        if (changedProperties.Count == 0)
+        {
+            StatusText = "No changes detected";
+            EndEditRow();
+            return;
+        }
+
+        // Build Gremlin update query: g.V('id').property('key','value')...
+        var queryBuilder = new System.Text.StringBuilder();
+        queryBuilder.Append($"g.V('{EscapeGremlinString(vertexId)}')");
+
+        foreach (var kv in changedProperties)
+        {
+            queryBuilder.Append($".property('{EscapeGremlinString(kv.Key)}','{EscapeGremlinString(kv.Value)}')");
+        }
+
+        var updateQuery = queryBuilder.ToString();
+
+        try
+        {
+            StatusText = "Saving changes...";
+            var result = await _queryExecutor.ExecuteAsync(connector, updateQuery, cancellationToken: default).ConfigureAwait(true);
+
+            if (result.IsSuccess)
+            {
+                StatusText = $"Saved {changedProperties.Count} property change(s)";
+                ExecutionLog.Insert(0, ExecutionLogEntry.FromResult(result));
+            }
+            else
+            {
+                StatusText = $"Save failed: {result.ErrorMessage}";
+                ExecutionLog.Insert(0, ExecutionLogEntry.Error(updateQuery, result.Duration, result.ErrorMessage ?? "Unknown error"));
+
+                // Restore original values on failure
+                RestoreOriginalValues();
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Save failed: {ex.Message}";
+            _logger.LogError(ex, "Failed to save edited row");
+
+            // Restore original values on failure
+            RestoreOriginalValues();
+        }
+
+        EndEditRow();
+    }
+
+    /// <summary>
+    /// Cancels the current row edit and restores original values.
+    /// </summary>
+    [RelayCommand]
+    private void CancelEditRow()
+    {
+        RestoreOriginalValues();
+        EndEditRow();
+        StatusText = "Edit cancelled";
+    }
+
+    private void RestoreOriginalValues()
+    {
+        if (_editingRowView == null || _editingOriginalValues == null)
+            return;
+
+        foreach (var kv in _editingOriginalValues)
+        {
+            try
+            {
+                _editingRowView[kv.Key] = kv.Value ?? DBNull.Value;
+            }
+            catch
+            {
+                // Column may have been removed; ignore
+            }
+        }
+    }
+
+    private void EndEditRow()
+    {
+        _editingRowView = null;
+        _editingOriginalValues = null;
+        IsEditingRow = false;
+    }
+
+    #endregion
+
+    #region Schema Explorer
+
+    /// <summary>
+    /// Whether the tree view is showing schema or data.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isSchemaExplorerMode;
+
+    /// <summary>
+    /// The discovered graph schema.
+    /// </summary>
+    [ObservableProperty]
+    private GraphSchema? _discoveredSchema;
+
+    /// <summary>
+    /// Tree items for schema display.
+    /// </summary>
+    [ObservableProperty]
+    private ObservableCollection<TreeNodeViewModel> _schemaTreeItems = new();
+
+    /// <summary>
+    /// Whether schema discovery is in progress.
+    /// </summary>
+    [ObservableProperty]
+    private bool _isDiscoveringSchema;
+
+    /// <summary>
+    /// Schema discovery progress percentage.
+    /// </summary>
+    [ObservableProperty]
+    private int _schemaProgressPercent;
+
+    /// <summary>
+    /// Schema discovery status message.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaDiscoveryStatus = string.Empty;
+
+    /// <summary>
+    /// Whether schema has been discovered.
+    /// </summary>
+    public bool HasDiscoveredSchema => DiscoveredSchema != null;
+
+    /// <summary>
+    /// The generated schema code preview.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaCodePreview = string.Empty;
+
+    /// <summary>
+    /// Namespace for schema export.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaExportNamespace = "MyApp.Graph.Entities";
+
+    /// <summary>
+    /// Context class name for schema export.
+    /// </summary>
+    [ObservableProperty]
+    private string _schemaContextClassName = "MyGraphContext";
+
+    partial void OnIsSchemaExplorerModeChanged(bool value)
+    {
+        // Switch between schema and data tree views
+        if (value)
+        {
+            if (DiscoveredSchema != null)
+            {
+                // Already have schema, just refresh view
+                BuildSchemaTreeView();
+            }
+            else if (!string.IsNullOrWhiteSpace(ResultJson) && ResultJson != "No results")
+            {
+                // Build schema from current query results (async with edge fetching)
+                _ = BuildSchemaFromResultsAsync();
+            }
+        }
+    }
+
+    partial void OnDiscoveredSchemaChanged(GraphSchema? value)
+    {
+        OnPropertyChanged(nameof(HasDiscoveredSchema));
+        if (value != null && IsSchemaExplorerMode)
+        {
+            BuildSchemaTreeView();
+        }
+    }
+
+    [RelayCommand]
+    private void ToggleSchemaExplorerMode()
+    {
+        IsSchemaExplorerMode = !IsSchemaExplorerMode;
+    }
+
+    /// <summary>
+    /// Builds a schema from the current query results, fetching related edges from the database.
+    /// Uses the same approach as the export feature.
+    /// </summary>
+    private async Task BuildSchemaFromResultsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(ResultJson) || ResultJson == "No results")
+        {
+            StatusText = "No query results. Run a query that returns vertices/edges first.";
+            SchemaDiscoveryStatus = "No data available";
+            return;
+        }
+
+        var connector = GetActiveConnector();
+
+        try
+        {
+            _schemaCts = new CancellationTokenSource();
+            IsDiscoveringSchema = true;
+            SchemaDiscoveryStatus = "Analyzing query results...";
+            SchemaProgressPercent = 0;
+
+            var results = Newtonsoft.Json.JsonConvert.DeserializeObject<List<object>>(ResultJson);
+            if (results == null || results.Count == 0)
+            {
+                StatusText = "No parseable results found";
+                SchemaDiscoveryStatus = "No data";
+                return;
+            }
+
+            var schema = new GraphSchema
+            {
+                DiscoveredAt = DateTime.UtcNow,
+                SourceConnection = ConnectionDisplayName
+            };
+
+            var vertexLabels = new Dictionary<string, SchemaVertexLabel>();
+            var edgeLabels = new Dictionary<string, SchemaEdgeLabel>();
+            var vertexIds = new List<string>();
+            // Map vertex ID to label for edge processing
+            var vertexIdToLabel = new Dictionary<string, string>();
+            // Track edge connections: edgeLabel -> (sourceLabel, targetLabel)
+            var edgeConnections = new Dictionary<string, List<(string Source, string Target)>>();
+            var seenEdgeIds = new HashSet<string>();
+
+            // Phase 1: Parse vertices and edges from current results
+            SchemaDiscoveryStatus = "Parsing query results...";
+            int processed = 0;
+            int total = results.Count;
+
+            foreach (var item in results)
+            {
+                processed++;
+                SchemaProgressPercent = (int)((processed * 30.0) / total); // First 30% for parsing
+
+                if (item is not Newtonsoft.Json.Linq.JObject jObj)
+                    continue;
+
+                var type = jObj["type"]?.ToString();
+                var label = jObj["label"]?.ToString();
+                var id = jObj["id"]?.ToString();
+
+                if (string.IsNullOrEmpty(label))
+                    continue;
+
+                if (type == "edge")
+                {
+                    var edgeId = id;
+                    if (!string.IsNullOrEmpty(edgeId) && !seenEdgeIds.Contains(edgeId))
+                    {
+                        seenEdgeIds.Add(edgeId);
+                        ProcessEdgeForSchema(jObj, label, edgeLabels, edgeConnections, schema, vertexIdToLabel);
+                    }
+                }
+                else
+                {
+                    // Process vertex
+                    if (!string.IsNullOrEmpty(id))
+                    {
+                        if (!vertexIds.Contains(id))
+                        {
+                            vertexIds.Add(id);
+                        }
+                        // Map vertex ID to label for edge lookups
+                        vertexIdToLabel[id] = label;
+                    }
+
+                    if (!vertexLabels.TryGetValue(label, out var vertexLabel))
+                    {
+                        vertexLabel = new SchemaVertexLabel { Label = label };
+                        vertexLabels[label] = vertexLabel;
+                    }
+
+                    vertexLabel.Count++;
+                    schema.VertexSampleCount++;
+
+                    // Extract vertex properties
+                    if (jObj["properties"] is Newtonsoft.Json.Linq.JObject props)
+                    {
+                        ExtractPropertiesFromVertexFormat(props, vertexLabel.Properties);
+                    }
+                }
+            }
+
+            // Phase 2: Fetch edges for vertices if we have a connection and vertices
+            if (connector != null && vertexIds.Count > 0)
+            {
+                SchemaDiscoveryStatus = $"Fetching edges for {vertexIds.Count} vertices...";
+                
+                const int batchSize = 100; // Same as export service
+                var totalVertices = vertexIds.Count;
+                var processedVertices = 0;
+
+                for (int batchStart = 0; batchStart < totalVertices; batchStart += batchSize)
+                {
+                    _schemaCts.Token.ThrowIfCancellationRequested();
+
+                    var batchEnd = Math.Min(batchStart + batchSize, totalVertices);
+                    var batchVertexIds = vertexIds.Skip(batchStart).Take(batchSize).ToList();
+
+                    SchemaDiscoveryStatus = $"Fetching edges for vertices {batchStart + 1}-{batchEnd} of {totalVertices}...";
+
+                    foreach (var vertexId in batchVertexIds)
+                    {
+                        _schemaCts.Token.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            var escapedId = EscapeGremlinString(vertexId);
+                            var edgeQuery = $"g.V('{escapedId}').bothE()";
+
+                            // Use _queryExecutor to get proper JSON results (same as main query execution)
+                            var edgeQueryResult = await _queryExecutor.ExecuteAsync(connector, edgeQuery, cancellationToken: _schemaCts.Token).ConfigureAwait(true);
+                            
+                            if (edgeQueryResult.IsSuccess && !string.IsNullOrEmpty(edgeQueryResult.ResultJson))
+                            {
+                                // Parse JSON results - this is reliable since it works for main queries
+                                var edgeItems = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Newtonsoft.Json.Linq.JObject>>(edgeQueryResult.ResultJson);
+                                
+                                if (edgeItems != null)
+                                {
+                                    foreach (var edgeJObj in edgeItems)
+                                    {
+                                        var edgeId = edgeJObj["id"]?.ToString();
+                                        var edgeLabel = edgeJObj["label"]?.ToString();
+                                        var outV = edgeJObj["outV"]?.ToString();
+                                        var inV = edgeJObj["inV"]?.ToString();
+                                        var outVLabelFromEdge = edgeJObj["outVLabel"]?.ToString();
+                                        var inVLabelFromEdge = edgeJObj["inVLabel"]?.ToString();
+                                        
+                                        if (string.IsNullOrEmpty(edgeId) || string.IsNullOrEmpty(edgeLabel))
+                                            continue;
+                                            
+                                        if (seenEdgeIds.Contains(edgeId))
+                                            continue;
+                                            
+                                        seenEdgeIds.Add(edgeId);
+                                        
+                                        // Get vertex labels from edge or from our map
+                                        string? outVLabel = outVLabelFromEdge;
+                                        string? inVLabel = inVLabelFromEdge;
+                                        
+                                        // If labels not in edge, look them up from our vertex map
+                                        if (string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(outV))
+                                        {
+                                            vertexIdToLabel.TryGetValue(outV, out outVLabel);
+                                        }
+                                        if (string.IsNullOrEmpty(inVLabel) && !string.IsNullOrEmpty(inV))
+                                        {
+                                            vertexIdToLabel.TryGetValue(inV, out inVLabel);
+                                        }
+                                        
+                                        // If we still don't have labels, try fetching the vertices
+                                        if (string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(outV))
+                                        {
+                                            outVLabel = await FetchVertexLabelAsync(connector, outV, vertexIdToLabel, vertexLabels, schema).ConfigureAwait(true);
+                                        }
+                                        if (string.IsNullOrEmpty(inVLabel) && !string.IsNullOrEmpty(inV))
+                                        {
+                                            inVLabel = await FetchVertexLabelAsync(connector, inV, vertexIdToLabel, vertexLabels, schema).ConfigureAwait(true);
+                                        }
+                                        
+                                        // ALWAYS process the edge to capture the edge label
+                                        ProcessEdgeForSchemaWithLabels(
+                                            edgeLabel, 
+                                            outVLabel, 
+                                            inVLabel, 
+                                            edgeJObj,
+                                            edgeLabels, 
+                                            edgeConnections, 
+                                            schema);
+                                    }
+                                }
+                            }
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to fetch edges for vertex {VertexId}", vertexId);
+                        }
+
+                        processedVertices++;
+                        SchemaProgressPercent = 30 + (int)((processedVertices * 60.0) / totalVertices); // 30-90%
+                    }
+                }
+            }
+
+            // Phase 3: Build edge connections on vertex labels
+            SchemaDiscoveryStatus = "Building schema relationships...";
+            SchemaProgressPercent = 90;
+            foreach (var kvp in edgeConnections)
+            {
+                var edgeLabelName = kvp.Key;
+                foreach (var (sourceLabel, targetLabel) in kvp.Value)
+                {
+                    // Add outgoing edge to source vertex
+                    if (vertexLabels.TryGetValue(sourceLabel, out var sourceVertex))
+                    {
+                        if (!sourceVertex.OutgoingEdges.Any(e => e.EdgeLabel == edgeLabelName && e.VertexLabel == targetLabel))
+                        {
+                            sourceVertex.OutgoingEdges.Add(new SchemaEdgeConnection
+                            {
+                                EdgeLabel = edgeLabelName,
+                                VertexLabel = targetLabel
+                            });
+                        }
+                    }
+
+                    // Add incoming edge to target vertex
+                    if (vertexLabels.TryGetValue(targetLabel, out var targetVertex))
+                    {
+                        if (!targetVertex.IncomingEdges.Any(e => e.EdgeLabel == edgeLabelName && e.VertexLabel == sourceLabel))
+                        {
+                            targetVertex.IncomingEdges.Add(new SchemaEdgeConnection
+                            {
+                                EdgeLabel = edgeLabelName,
+                                VertexLabel = sourceLabel
+                            });
+                        }
+                    }
+                }
+            }
+
+            schema.VertexLabels.AddRange(vertexLabels.Values.OrderBy(v => v.Label));
+            schema.EdgeLabels.AddRange(edgeLabels.Values.OrderBy(e => e.Label));
+
+            DiscoveredSchema = schema;
+            SchemaProgressPercent = 100;
+            SchemaDiscoveryStatus = "Complete";
+
+            StatusText = $"Schema built: {schema.VertexLabels.Count} vertex types, {schema.EdgeLabels.Count} edge types";
+            _updateMainStatus(StatusText);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Schema discovery cancelled";
+            SchemaDiscoveryStatus = "Cancelled";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build schema from results");
+            StatusText = $"Schema analysis failed: {ex.Message}";
+            SchemaDiscoveryStatus = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsDiscoveringSchema = false;
+            _schemaCts?.Dispose();
+            _schemaCts = null;
+        }
+    }
+
+    /// <summary>
+    /// Fetches a vertex label by ID and adds it to the vertex labels dictionary if found.
+    /// </summary>
+    private async Task<string?> FetchVertexLabelAsync(
+        IGremlinLanguageConnector connector,
+        string vertexId,
+        Dictionary<string, string> vertexIdToLabel,
+        Dictionary<string, SchemaVertexLabel> vertexLabels,
+        GraphSchema schema)
+    {
+        // Already cached
+        if (vertexIdToLabel.TryGetValue(vertexId, out var cachedLabel))
+            return cachedLabel;
+
+        try
+        {
+            var escapedId = EscapeGremlinString(vertexId);
+            var query = $"g.V('{escapedId}')";
+            
+            // Use _queryExecutor for reliable JSON parsing
+            var result = await _queryExecutor.ExecuteAsync(connector, query).ConfigureAwait(true);
+            
+            if (result.IsSuccess && !string.IsNullOrEmpty(result.ResultJson))
+            {
+                var vertices = Newtonsoft.Json.JsonConvert.DeserializeObject<List<Newtonsoft.Json.Linq.JObject>>(result.ResultJson);
+                
+                if (vertices != null && vertices.Count > 0)
+                {
+                    var jObj = vertices[0];
+                    var label = jObj["label"]?.ToString();
+                    var propsObj = jObj["properties"] as Newtonsoft.Json.Linq.JObject;
+
+                    if (!string.IsNullOrEmpty(label))
+                    {
+                        vertexIdToLabel[vertexId] = label;
+                        
+                        // Also add to vertex labels if not already there
+                        if (!vertexLabels.ContainsKey(label))
+                        {
+                            var schemaVertex = new SchemaVertexLabel { Label = label };
+                            vertexLabels[label] = schemaVertex;
+                            
+                            // Extract properties if available
+                            if (propsObj != null)
+                            {
+                                ExtractPropertiesFromVertexFormat(propsObj, schemaVertex.Properties);
+                            }
+                        }
+                        
+                        vertexLabels[label].Count++;
+                        schema.VertexSampleCount++;
+                        
+                        return label;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors fetching vertex
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Processes an edge and adds it to the schema (from initial results with inVLabel/outVLabel).
+    /// </summary>
+    private static void ProcessEdgeForSchema(
+        Newtonsoft.Json.Linq.JObject jObj,
+        string label,
+        Dictionary<string, SchemaEdgeLabel> edgeLabels,
+        Dictionary<string, List<(string Source, string Target)>> edgeConnections,
+        GraphSchema schema,
+        Dictionary<string, string> vertexIdToLabel)
+    {
+        // Try to get labels directly from the edge (present in initial results)
+        var inVLabel = jObj["inVLabel"]?.ToString();
+        var outVLabel = jObj["outVLabel"]?.ToString();
+        
+        // If not present, try to look up from vertex ID map
+        if (string.IsNullOrEmpty(inVLabel))
+        {
+            var inV = jObj["inV"]?.ToString();
+            if (!string.IsNullOrEmpty(inV))
+                vertexIdToLabel.TryGetValue(inV, out inVLabel);
+        }
+        if (string.IsNullOrEmpty(outVLabel))
+        {
+            var outV = jObj["outV"]?.ToString();
+            if (!string.IsNullOrEmpty(outV))
+                vertexIdToLabel.TryGetValue(outV, out outVLabel);
+        }
+
+        ProcessEdgeForSchemaWithLabels(label, outVLabel, inVLabel, jObj, edgeLabels, edgeConnections, schema);
+    }
+
+    /// <summary>
+    /// Processes an edge with known vertex labels.
+    /// </summary>
+    private static void ProcessEdgeForSchemaWithLabels(
+        string label,
+        string? outVLabel,
+        string? inVLabel,
+        Newtonsoft.Json.Linq.JObject? propsSource,
+        Dictionary<string, SchemaEdgeLabel> edgeLabels,
+        Dictionary<string, List<(string Source, string Target)>> edgeConnections,
+        GraphSchema schema)
+    {
+        if (!edgeLabels.TryGetValue(label, out var edgeLabel))
+        {
+            edgeLabel = new SchemaEdgeLabel { Label = label };
+            edgeLabels[label] = edgeLabel;
+            edgeConnections[label] = new List<(string, string)>();
+        }
+
+        edgeLabel.Count++;
+        schema.EdgeSampleCount++;
+
+        // Track source and target labels
+        if (!string.IsNullOrEmpty(outVLabel) && !edgeLabel.SourceLabels.Contains(outVLabel))
+        {
+            edgeLabel.SourceLabels.Add(outVLabel);
+        }
+        if (!string.IsNullOrEmpty(inVLabel) && !edgeLabel.TargetLabels.Contains(inVLabel))
+        {
+            edgeLabel.TargetLabels.Add(inVLabel);
+        }
+
+        // Track connection for vertex edge lists
+        if (!string.IsNullOrEmpty(outVLabel) && !string.IsNullOrEmpty(inVLabel))
+        {
+            var conn = (outVLabel, inVLabel);
+            if (!edgeConnections[label].Contains(conn))
+            {
+                edgeConnections[label].Add(conn);
+            }
+        }
+
+        // Extract edge properties
+        if (propsSource?["properties"] is Newtonsoft.Json.Linq.JObject edgeProps)
+        {
+            ExtractProperties(edgeProps, edgeLabel.Properties);
+        }
+    }
+
+    /// <summary>
+    /// Edge data structure for schema discovery.
+    /// </summary>
+    private struct SchemaEdgeData
+    {
+        public string Id;
+        public string Label;
+        public string? OutV;
+        public string? InV;
+        public string? OutVLabel;
+        public string? InVLabel;
+        public Newtonsoft.Json.Linq.JObject? Properties;
+    }
+
+    /// <summary>
+    /// Parses an edge from dynamic result for schema discovery.
+    /// Matches the export service's ParseEdgeFromDynamic logic.
+    /// </summary>
+    private static SchemaEdgeData? ParseEdgeFromDynamicForSchema(dynamic edge)
+    {
+        try
+        {
+            string? id = null;
+            string? label = null;
+            string? outV = null;
+            string? inV = null;
+            string? outVLabel = null;
+            string? inVLabel = null;
+            Newtonsoft.Json.Linq.JObject? propsJObj = null;
+
+            // Handle different edge result formats (same as export service)
+            if (edge is Newtonsoft.Json.Linq.JObject edgeJObj)
+            {
+                id = edgeJObj["id"]?.ToString();
+                label = edgeJObj["label"]?.ToString();
+                outV = edgeJObj["outV"]?.ToString();
+                inV = edgeJObj["inV"]?.ToString();
+                outVLabel = edgeJObj["outVLabel"]?.ToString();
+                inVLabel = edgeJObj["inVLabel"]?.ToString();
+                propsJObj = edgeJObj;
+            }
+            else if (edge is IDictionary<string, object> dict)
+            {
+                id = dict.TryGetValue("id", out var idVal) ? idVal?.ToString() : null;
+                label = dict.TryGetValue("label", out var labelVal) ? labelVal?.ToString() : null;
+                outV = dict.TryGetValue("outV", out var outVVal) ? outVVal?.ToString() : null;
+                inV = dict.TryGetValue("inV", out var inVVal) ? inVVal?.ToString() : null;
+                outVLabel = dict.TryGetValue("outVLabel", out var outVLabelVal) ? outVLabelVal?.ToString() : null;
+                inVLabel = dict.TryGetValue("inVLabel", out var inVLabelVal) ? inVLabelVal?.ToString() : null;
+                
+                try
+                {
+                    var json = Newtonsoft.Json.JsonConvert.SerializeObject(dict);
+                    propsJObj = Newtonsoft.Json.Linq.JObject.Parse(json);
+                }
+                catch { /* ignore serialization errors */ }
+            }
+            else
+            {
+                // Fallback: Try to access properties dynamically (matches export service)
+                try
+                {
+                    id = edge.id?.ToString();
+                    label = edge.label?.ToString();
+                    outV = edge.outV?.ToString();
+                    inV = edge.inV?.ToString();
+                    // outVLabel and inVLabel usually not present in dynamic access
+                }
+                catch { /* ignore dynamic access errors */ }
+            }
+
+            // Edge must have id, label, and both vertex references
+            if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(label) || 
+                string.IsNullOrEmpty(outV) || string.IsNullOrEmpty(inV))
+                return null;
+
+            return new SchemaEdgeData
+            {
+                Id = id,
+                Label = label,
+                OutV = outV,
+                InV = inV,
+                OutVLabel = outVLabel,
+                InVLabel = inVLabel,
+                Properties = propsJObj
+            };
+        }
+        catch
+        {
+            // Ignore parsing errors
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Escapes a string for use in a Gremlin query.
+    /// </summary>
+    private static string EscapeGremlinString(string value)
+    {
+        return value.Replace("\\", "\\\\").Replace("'", "\\'");
+    }
+
+    /// <summary>
+    /// Extracts properties from edge format (simple key-value pairs).
+    /// </summary>
+    private static void ExtractProperties(Newtonsoft.Json.Linq.JObject props, List<SchemaProperty> propertyList)
+    {
+        foreach (var prop in props.Properties())
+        {
+            var propName = prop.Name;
+            var existing = propertyList.FirstOrDefault(p => p.Name == propName);
+
+            if (existing == null)
+            {
+                var schemaProperty = new SchemaProperty
+                {
+                    Name = propName,
+                    InferredType = InferPropertyType(prop.Value),
+                    SampleValues = new List<string>()
+                };
+
+                var sampleValue = prop.Value?.ToString();
+                if (!string.IsNullOrEmpty(sampleValue) && schemaProperty.SampleValues.Count < 3)
+                {
+                    schemaProperty.SampleValues.Add(sampleValue.Length > 50 ? sampleValue.Substring(0, 50) + "..." : sampleValue);
+                }
+
+                propertyList.Add(schemaProperty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extracts properties from vertex format (Gremlin vertex properties are arrays).
+    /// </summary>
+    private static void ExtractPropertiesFromVertexFormat(Newtonsoft.Json.Linq.JObject props, List<SchemaProperty> propertyList)
+    {
+        foreach (var prop in props.Properties())
+        {
+            var propName = prop.Name;
+            var existing = propertyList.FirstOrDefault(p => p.Name == propName);
+
+            if (existing == null)
+            {
+                var schemaProperty = new SchemaProperty
+                {
+                    Name = propName,
+                    SampleValues = new List<string>()
+                };
+
+                // Vertex properties in Gremlin are arrays of {id, value} objects
+                if (prop.Value is Newtonsoft.Json.Linq.JArray arr && arr.Count > 0)
+                {
+                    var firstItem = arr[0];
+                    if (firstItem is Newtonsoft.Json.Linq.JObject propObj && propObj["value"] != null)
+                    {
+                        schemaProperty.InferredType = InferPropertyType(propObj["value"]);
+                        var sampleValue = propObj["value"]?.ToString();
+                        if (!string.IsNullOrEmpty(sampleValue))
+                        {
+                            schemaProperty.SampleValues.Add(sampleValue.Length > 50 ? sampleValue.Substring(0, 50) + "..." : sampleValue);
+                        }
+                    }
+                    else
+                    {
+                        schemaProperty.InferredType = InferPropertyType(firstItem);
+                    }
+                }
+                else
+                {
+                    schemaProperty.InferredType = InferPropertyType(prop.Value);
+                }
+
+                propertyList.Add(schemaProperty);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Infers the C# type from a JSON token.
+    /// </summary>
+    private static string InferPropertyType(Newtonsoft.Json.Linq.JToken? token)
+    {
+        if (token == null)
+            return "string";
+
+        return token.Type switch
+        {
+            Newtonsoft.Json.Linq.JTokenType.Integer => "int",
+            Newtonsoft.Json.Linq.JTokenType.Float => "double",
+            Newtonsoft.Json.Linq.JTokenType.Boolean => "bool",
+            Newtonsoft.Json.Linq.JTokenType.Date => "DateTime",
+            Newtonsoft.Json.Linq.JTokenType.Array => "ICollection<string>",
+            _ => "string"
+        };
+    }
+
+    [RelayCommand(CanExecute = nameof(CanDiscoverSchema))]
+    private async Task DiscoverSchemaAsync()
+    {
+        // Trigger the async schema building with edge fetching
+        await BuildSchemaFromResultsAsync().ConfigureAwait(true);
+    }
+
+    private bool CanDiscoverSchema() => !IsDiscoveringSchema && !string.IsNullOrWhiteSpace(ResultJson) && ResultJson != "No results";
+
+    [RelayCommand]
+    private void CancelSchemaDiscovery()
+    {
+        _schemaCts?.Cancel();
+        SchemaDiscoveryStatus = "Cancelling...";
+    }
+
+    [RelayCommand]
+    private void ExportSchemaToCode()
+    {
+        if (DiscoveredSchema == null)
+        {
+            StatusText = "No schema discovered. Click 'Discover Schema' first.";
+            return;
+        }
+
+        try
+        {
+            var options = new SchemaExportOptions
+            {
+                Namespace = SchemaExportNamespace,
+                ContextClassName = SchemaContextClassName,
+                GenerateTypedEdges = true,
+                GenerateNavigationProperties = true,
+                IncludeXmlDocumentation = true,
+                GenerateContext = true,
+                UseFileScopedNamespace = true,
+                UseNullableReferenceTypes = true
+            };
+
+            SchemaCodePreview = _schemaExportService.ExportToCode(DiscoveredSchema, options);
+            StatusText = "Schema code generated successfully";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to export schema to code");
+            StatusText = $"Export failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void SaveSchemaToFile()
+    {
+        if (string.IsNullOrWhiteSpace(SchemaCodePreview))
+        {
+            StatusText = "Generate schema code first";
+            return;
+        }
+
+        try
+        {
+            var dialog = new Microsoft.Win32.SaveFileDialog
+            {
+                Filter = "C# files (*.cs)|*.cs|All files (*.*)|*.*",
+                DefaultExt = ".cs",
+                FileName = $"{SchemaContextClassName}.cs"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                System.IO.File.WriteAllText(dialog.FileName, SchemaCodePreview);
+                StatusText = $"Schema saved to {dialog.FileName}";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save schema file");
+            StatusText = $"Save failed: {ex.Message}";
+        }
+    }
+
+    [RelayCommand]
+    private void CopySchemaToClipboard()
+    {
+        if (string.IsNullOrWhiteSpace(SchemaCodePreview))
+        {
+            StatusText = "Generate schema code first";
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(SchemaCodePreview);
+            StatusText = "Schema code copied to clipboard";
+        }
+        catch (Exception ex)
+        {
+            StatusText = $"Failed to copy: {ex.Message}";
+        }
+    }
+
+    private void BuildSchemaTreeView()
+    {
+        SchemaTreeItems.Clear();
+
+        if (DiscoveredSchema == null)
+            return;
+
+        // Root node for schema info
+        var rootNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Graph Schema",
+            Value = $"Discovered at {DiscoveredSchema.DiscoveredAt:HH:mm:ss}",
+            FontWeight = "Bold",
+            IsExpanded = true
+        };
+
+        // Vertex Labels section
+        var vertexNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Vertex Labels",
+            Value = $"({DiscoveredSchema.VertexLabels.Count})",
+            FontWeight = "SemiBold",
+            IsExpanded = true
+        };
+
+        foreach (var vLabel in DiscoveredSchema.VertexLabels.OrderBy(v => v.Label))
+        {
+            var labelNode = new TreeNodeViewModel
+            {
+                Icon = "?",
+                Name = vLabel.Label,
+                Value = $"({vLabel.Count} instances)",
+                IsExpanded = false
+            };
+
+            // Properties
+            if (vLabel.Properties.Count > 0)
+            {
+                var propsNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Properties",
+                    Value = $"({vLabel.Properties.Count})"
+                };
+
+                foreach (var prop in vLabel.Properties)
+                {
+                    propsNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "•",
+                        Name = prop.Name,
+                        Value = $"{prop.CSharpType}"
+                    });
+                }
+
+                labelNode.Children.Add(propsNode);
+            }
+
+            // Outgoing edges
+            if (vLabel.OutgoingEdges.Count > 0)
+            {
+                var outNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Outgoing Edges",
+                    Value = $"({vLabel.OutgoingEdges.Count})"
+                };
+
+                foreach (var edge in vLabel.OutgoingEdges)
+                {
+                    outNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "?",
+                        Name = edge.EdgeLabel,
+                        Value = $"? {edge.VertexLabel}"
+                    });
+                }
+
+                labelNode.Children.Add(outNode);
+            }
+
+            // Incoming edges
+            if (vLabel.IncomingEdges.Count > 0)
+            {
+                var inNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Incoming Edges",
+                    Value = $"({vLabel.IncomingEdges.Count})"
+                };
+
+                foreach (var edge in vLabel.IncomingEdges)
+                {
+                    inNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "?",
+                        Name = edge.EdgeLabel,
+                        Value = $"? {edge.VertexLabel}"
+                    });
+                }
+
+                labelNode.Children.Add(inNode);
+            }
+
+            vertexNode.Children.Add(labelNode);
+        }
+
+        rootNode.Children.Add(vertexNode);
+
+        // Edge Labels section
+        var edgeNode = new TreeNodeViewModel
+        {
+            Icon = "??",
+            Name = "Edge Labels",
+            Value = $"({DiscoveredSchema.EdgeLabels.Count})",
+            FontWeight = "SemiBold",
+            IsExpanded = true
+        };
+
+        foreach (var eLabel in DiscoveredSchema.EdgeLabels.OrderBy(e => e.Label))
+        {
+            var labelNode = new TreeNodeViewModel
+            {
+                Icon = "—",
+                Name = eLabel.Label,
+                Value = $"({eLabel.Count} instances)"
+            };
+
+            // Connection info
+            if (eLabel.SourceLabels.Count > 0 || eLabel.TargetLabels.Count > 0)
+            {
+                var connNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Connections",
+                    Value = $"{string.Join(", ", eLabel.SourceLabels)} ? {string.Join(", ", eLabel.TargetLabels)}"
+                };
+                labelNode.Children.Add(connNode);
+            }
+
+            // Properties
+            if (eLabel.Properties.Count > 0)
+            {
+                var propsNode = new TreeNodeViewModel
+                {
+                    Icon = "??",
+                    Name = "Properties",
+                    Value = $"({eLabel.Properties.Count})"
+                };
+
+                foreach (var prop in eLabel.Properties)
+                {
+                    propsNode.Children.Add(new TreeNodeViewModel
+                    {
+                        Icon = "•",
+                        Name = prop.Name,
+                        Value = $"{prop.CSharpType}"
+                    });
+                }
+
+                labelNode.Children.Add(propsNode);
+            }
+
+            edgeNode.Children.Add(labelNode);
+        }
+
+        rootNode.Children.Add(edgeNode);
+
+        SchemaTreeItems.Add(rootNode);
     }
 
     #endregion

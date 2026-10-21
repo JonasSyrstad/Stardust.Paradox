@@ -3,8 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core;
+using Stardust.Paradox.GremlinStudio.Core.Storage;
+using Stardust.Paradox.GremlinStudio.Core.Updates;
 using Stardust.Paradox.GremlinStudio.Services;
 using Stardust.Paradox.GremlinStudio.ViewModels;
+using Velopack;
 
 namespace Stardust.Paradox.GremlinStudio;
 
@@ -19,6 +22,13 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        
+        // Initialize Velopack as early as possible
+        VelopackApp.Build().Run();
+
+        // Migrate any legacy settings that may have been stored in the app directory
+        using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+        LegacySettingsMigration.MigrateIfNeeded(loggerFactory.CreateLogger<App>());
 
         // Show splash screen
         var splash = new SplashScreen();
@@ -43,6 +53,9 @@ public partial class App : Application
 
                 // Register theme service
                 services.AddSingleton<IThemeService>(_themeService);
+                
+                // Register update service
+                services.AddSingleton<IUpdateService, UpdateService>();
 
                 services.AddSingleton<MainViewModel>();
                 services.AddSingleton<MainWindow>();
@@ -60,16 +73,27 @@ public partial class App : Application
         await Dispatcher.InvokeAsync(() =>
         {
             var window = _host.Services.GetRequiredService<MainWindow>();
+            MainWindow = window;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
             window.Show();
             splash.Close();
         });
     }
 
-    protected override async void OnExit(ExitEventArgs e)
+    protected override void OnExit(ExitEventArgs e)
     {
         if (_host is not null)
         {
-            await _host.StopAsync().ConfigureAwait(false);
+            // Bounded, synchronous stop: async void OnExit lets the process exit mid-stop
+            // and a hosted service that ignores cancellation could otherwise hang shutdown.
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(3));
+                Task.Run(() => _host.StopAsync(cts.Token)).Wait(TimeSpan.FromSeconds(4));
+            }
+            catch (AggregateException)
+            {
+            }
             _host.Dispose();
         }
 

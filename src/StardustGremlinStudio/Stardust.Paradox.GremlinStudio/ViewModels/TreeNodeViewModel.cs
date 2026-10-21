@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
 
@@ -8,6 +9,8 @@ namespace Stardust.Paradox.GremlinStudio.ViewModels;
 /// </summary>
 public class TreeNodeViewModel : INotifyPropertyChanged
 {
+    private const int BatchSize = 50; // Nodes to process before yielding to UI
+    
     public string Icon { get; set; } = "[.]";
     public string Name { get; set; } = string.Empty;
     public string? Value { get; set; }
@@ -37,11 +40,29 @@ public class TreeNodeViewModel : INotifyPropertyChanged
             }
         }
     }
+    
+    private bool _isProcessing;
+    /// <summary>
+    /// Gets whether an expand/collapse operation is in progress.
+    /// </summary>
+    public bool IsProcessing
+    {
+        get => _isProcessing;
+        private set
+        {
+            if (_isProcessing != value)
+            {
+                _isProcessing = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(ExpandCollapseIcon));
+            }
+        }
+    }
 
     /// <summary>
     /// Gets the icon for the expand/collapse button.
     /// </summary>
-    public string ExpandCollapseIcon => IsExpanded ? "−" : "+";
+    public string ExpandCollapseIcon => IsProcessing ? "⏳" : (IsExpanded ? "−" : "+");
 
     /// <summary>
     /// Gets the tooltip for the expand/collapse button.
@@ -50,22 +71,71 @@ public class TreeNodeViewModel : INotifyPropertyChanged
 
     /// <summary>
     /// Toggles the expand/collapse state for this node and all its descendants.
+    /// Runs asynchronously to keep UI responsive.
     /// </summary>
     public void ToggleExpandCollapseAll()
     {
+        if (IsProcessing)
+            return;
+            
         bool newState = !IsExpanded;
-        SetExpandedRecursive(newState);
+        _ = SetExpandedAllAsync(newState);
     }
 
     /// <summary>
-    /// Sets the expanded state recursively for this node and all descendants.
+    /// Asynchronously sets the expanded state for this node and all descendants.
+    /// Uses iterative processing with batching to avoid stack overflow and UI freezing.
     /// </summary>
-    private void SetExpandedRecursive(bool expanded)
+    public async Task SetExpandedAllAsync(bool expanded, CancellationToken cancellationToken = default)
     {
-        IsExpanded = expanded;
-        foreach (var child in Children)
+        if (IsProcessing)
+            return;
+
+        IsProcessing = true;
+        
+        try
         {
-            child.SetExpandedRecursive(expanded);
+            // Use iterative approach with stack to avoid stack overflow on deep trees
+            var nodesToProcess = new Stack<TreeNodeViewModel>();
+            nodesToProcess.Push(this);
+            
+            int processedCount = 0;
+            
+            while (nodesToProcess.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                
+                var node = nodesToProcess.Pop();
+                
+                // Set expanded state directly (minimal notifications)
+                if (node._isExpanded != expanded)
+                {
+                    node._isExpanded = expanded;
+                    node.OnPropertyChanged(nameof(IsExpanded));
+                }
+                
+                processedCount++;
+                
+                // Add children to stack (reverse order to maintain traversal order)
+                for (int i = node.Children.Count - 1; i >= 0; i--)
+                {
+                    nodesToProcess.Push(node.Children[i]);
+                }
+                
+                // Yield to UI thread periodically to keep it responsive
+                if (processedCount % BatchSize == 0 && nodesToProcess.Count > 0)
+                {
+                    await Task.Delay(1, cancellationToken).ConfigureAwait(true);
+                }
+            }
+            
+            // Update button state after all nodes processed
+            OnPropertyChanged(nameof(ExpandCollapseIcon));
+            OnPropertyChanged(nameof(ExpandCollapseTooltip));
+        }
+        finally
+        {
+            IsProcessing = false;
         }
     }
 

@@ -2,12 +2,12 @@ name: Build Gremlin Studio
 
 on:
   push:
-    branches: [ V2.5,V2.6, main ]
+    branches: [ V2.6, main ]
     paths:
       - 'src/StardustGremlinStudio/**'
       - '.github/workflows/gremlin-studio-build.yml'
   pull_request:
-    branches: [ V2.5, main ]
+    branches: [ V2.6, main ]
     paths:
       - 'src/StardustGremlinStudio/**'
   release:
@@ -17,6 +17,8 @@ on:
 env:
   DOTNET_VERSION: '8.0.x'
   PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj'
+  MCP_PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio.McpServer/Stardust.Paradox.GremlinStudio.McpServer.csproj'
+  APP_ID: 'GremlinStudio'
 
 jobs:
   build:
@@ -37,9 +39,9 @@ jobs:
     - name: Build
       run: dotnet build ${{ env.PROJECT_PATH }} -c Release --no-restore
 
-    - name: Publish (Self-contained)
+    - name: Publish MCP Server (Self-contained Single File)
       run: |
-        dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish/win-x64 `
+        dotnet publish ${{ env.MCP_PROJECT_PATH }} -c Release -o ./publish/mcp-server `
           -r win-x64 `
           --self-contained true `
           -p:PublishSingleFile=true `
@@ -47,14 +49,88 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:EnableCompressionInSingleFile=true
 
-    - name: Upload Build Artifact
+    - name: Publish (Self-contained Single File - for standalone distribution)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish/win-x64-single `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishReadyToRun=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true
+        Copy-Item ./publish/mcp-server/GremlinStudioMcp.exe ./publish/win-x64-single/
+
+    - name: Publish (Self-contained for Velopack auto-update)
+      run: |
+        dotnet publish ${{ env.PROJECT_PATH }} -c Release -o ./publish/win-x64-velopack `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=false `
+          -p:PublishReadyToRun=true
+        Copy-Item ./publish/mcp-server/GremlinStudioMcp.exe ./publish/win-x64-velopack/
+
+    - name: Install Velopack CLI
+      run: |
+        dotnet tool install -g vpk
+        echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Get version from project
+      id: version
+      run: |
+        $xml = [xml](Get-Content ${{ env.PROJECT_PATH }})
+        $version = $xml.Project.PropertyGroup.Version | Where-Object { $_ }
+        if (-not $version) { $version = "1.0.0" }
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        Write-Host "Detected version: $version"
+
+    - name: Package with Velopack (build verification)
+      run: |
+        vpk pack `
+          --packId ${{ env.APP_ID }} `
+          --packVersion ${{ steps.version.outputs.VERSION }} `
+          --packDir ./publish/win-x64-velopack `
+          --mainExe GremlinStudio.exe `
+          --outputDir ./releases/velopack `
+          --channel win `
+          --icon src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
+
+    - name: Validate Velopack output (build verification)
+      run: |
+        if (-not (Test-Path ./releases/velopack/RELEASES)) {
+          Write-Error "Velopack output missing RELEASES file."
+          exit 1
+        }
+
+        $nupkgs = Get-ChildItem -Path ./releases/velopack -Recurse -Filter "*.nupkg" -ErrorAction SilentlyContinue
+        if (-not $nupkgs -or $nupkgs.Count -eq 0) {
+          Write-Error "Velopack output missing .nupkg packages."
+          exit 1
+        }
+
+        Write-Host "Build job produced $($nupkgs.Count) .nupkg package(s)."
+
+    - name: Upload Single File Artifact
       uses: actions/upload-artifact@v4
       with:
         name: GremlinStudio-win-x64
-        path: ./publish/win-x64/
+        path: ./publish/win-x64-single/
         if-no-files-found: error
 
-  create-installer:
+    - name: Upload Velopack Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GremlinStudio-win-x64-velopack
+        path: ./publish/win-x64-velopack/
+        if-no-files-found: error
+
+    - name: Upload Velopack Release Feed Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: GremlinStudio-Velopack-Feed
+        path: ./releases/velopack/
+        if-no-files-found: error
+
+  package-velopack:
     runs-on: windows-latest
     needs: build
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
@@ -68,25 +144,75 @@ jobs:
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
-    - name: Download Build Artifact
+    - name: Download Single File Artifact
       uses: actions/download-artifact@v4
       with:
         name: GremlinStudio-win-x64
-        path: src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
+        path: ./src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/
 
-    - name: Install Inno Setup
-      run: |
-        choco install innosetup -y
-        
-    - name: Build Installer
-      run: |
-        & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "src/StardustGremlinStudio\Installer\GremlinStudio.iss"
+    - name: Download Velopack Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: GremlinStudio-win-x64-velopack
+        path: ./publish/win-x64-velopack/
 
-    - name: Upload Installer Artifact
+    - name: Get version from project
+      id: version
+      run: |
+        $xml = [xml](Get-Content ${{ env.PROJECT_PATH }})
+        $version = $xml.Project.PropertyGroup.Version | Where-Object { $_ }
+        if (-not $version) { $version = "1.0.0" }
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        Write-Host "Detected version: $version"
+
+    - name: Install Velopack CLI
+      run: |
+        dotnet tool install -g vpk
+        echo "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Package with Velopack (for auto-updates)
+      run: |
+        vpk pack `
+          --packId ${{ env.APP_ID }} `
+          --packVersion ${{ steps.version.outputs.VERSION }} `
+          --packDir ./publish/win-x64-velopack `
+          --mainExe GremlinStudio.exe `
+          --outputDir ./releases/velopack `
+          --channel win `
+          --icon src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Resources/icon.ico
+
+    - name: Validate Velopack output
+      run: |
+        if (-not (Test-Path ./releases/velopack/RELEASES)) {
+          Write-Error "Velopack output missing RELEASES file. Auto-update will not work."
+          exit 1
+        }
+
+        $nupkgs = Get-ChildItem -Path ./releases/velopack -Recurse -Filter "*.nupkg" -ErrorAction SilentlyContinue
+        if (-not $nupkgs -or $nupkgs.Count -eq 0) {
+          Write-Error "Velopack output missing .nupkg packages. Auto-update will not work."
+          exit 1
+        }
+
+        $assetsJson = Get-ChildItem -Path ./releases/velopack -Filter "assets.*.json" -ErrorAction SilentlyContinue
+        $releasesJson = Get-ChildItem -Path ./releases/velopack -Filter "releases.*.json" -ErrorAction SilentlyContinue
+        if (-not $assetsJson -or $assetsJson.Count -eq 0 -or -not $releasesJson -or $releasesJson.Count -eq 0) {
+          Write-Error "Velopack output missing assets/release json manifest(s). Auto-update will not work."
+          exit 1
+        }
+
+        Write-Host "Found RELEASES and $($nupkgs.Count) .nupkg package(s)."
+
+    - name: List Velopack output files
+      run: |
+        Write-Host "Velopack output files:"
+        Get-ChildItem -Path ./releases/velopack -Recurse | ForEach-Object { Write-Host $_.FullName }
+
+    - name: Upload Velopack Release Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: GremlinStudio-Installer
-        path: ./dist/GremlinStudio-*-Setup.exe
+        name: GremlinStudio-Velopack-Release
+        path: ./releases/velopack/
         if-no-files-found: error
 
     - name: Upload to Release
@@ -94,7 +220,11 @@ jobs:
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          ./dist/GremlinStudio-*-Setup.exe
-          src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
+          ./releases/velopack/RELEASES
+          ./releases/velopack/*.nupkg
+          ./releases/velopack/*.json
+          ./releases/velopack/*-Setup.exe
+          ./releases/velopack/*-Portable.zip
+          ./src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio/bin/publish/win-x64/GremlinStudio.exe
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

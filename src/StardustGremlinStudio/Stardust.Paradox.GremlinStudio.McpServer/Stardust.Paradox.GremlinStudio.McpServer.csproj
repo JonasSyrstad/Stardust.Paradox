@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Stardust.Paradox.GremlinStudio.McpServer</RootNamespace>
+    <AssemblyName>GremlinStudioMcp</AssemblyName>
+    <Version>1.10.0</Version>
+    <FileVersion>1.10.0.0</FileVersion>
+    <AssemblyVersion>1.10.0.0</AssemblyVersion>
+
+    <!-- Publishing Settings -->
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.13" />
+    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageReference Include="System.Private.Uri" Version="4.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stardust.Paradox.GremlinStudio.Core\Stardust.Paradox.GremlinStudio.Core.csproj" />
+  </ItemGroup>
+
+</Project>

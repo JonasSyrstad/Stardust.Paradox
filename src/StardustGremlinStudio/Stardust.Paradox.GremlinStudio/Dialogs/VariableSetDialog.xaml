@@ -1,0 +1,402 @@
+<Window x:Class="Stardust.Paradox.GremlinStudio.Dialogs.VariableSetDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:Stardust.Paradox.GremlinStudio.Converters"
+        mc:Ignorable="d"
+        Title="{Binding DialogTitle}" 
+        Height="620" Width="760"
+        WindowStartupLocation="CenterOwner"
+        WindowStyle="None"
+        AllowsTransparency="False"
+        Background="{DynamicResource PrimaryBackgroundBrush}"
+        Foreground="{DynamicResource PrimaryForegroundBrush}"
+        ResizeMode="CanResizeWithGrip"
+        MinHeight="480" MinWidth="600">
+    
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="36" 
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="0"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+    
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <converters:NullToCollapsedConverter x:Key="NullToCollapsedConverter"/>
+        
+        <!-- Dialog Caption Button Style -->
+        <Style x:Key="DialogCaptionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryForegroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#F1707A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        
+        <!-- Small icon button for row actions -->
+        <Style x:Key="RowActionButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryForegroundBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" 
+                                CornerRadius="4" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#33FF4444"/>
+                                <Setter Property="Foreground" Value="#FF6B6B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    
+    <Border Background="{DynamicResource PrimaryBackgroundBrush}" 
+            BorderBrush="{DynamicResource BorderBrush}" 
+            BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="36"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <!-- Custom Title Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource SecondaryBackgroundBrush}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="&#xE8A1;" FontFamily="Segoe MDL2 Assets" FontSize="14" 
+                                   VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{DynamicResource AccentBrush}"/>
+                        <TextBlock Text="{Binding DialogTitle}" FontWeight="SemiBold" FontSize="12" 
+                                   VerticalAlignment="Center" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    </StackPanel>
+                    
+                    <Border Grid.Column="1" Background="Transparent"/>
+                    
+                    <Button Grid.Column="2" Content="&#xE106;" 
+                            Style="{StaticResource DialogCaptionButtonStyle}" 
+                            Click="CloseButton_Click" 
+                            ToolTip="Close"/>
+                </Grid>
+            </Border>
+            
+            <!-- Main Content -->
+            <Grid Grid.Row="1" Margin="20,16,20,16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                
+                <!-- Name Field -->
+                <Grid Grid.Row="0" Margin="0,0,0,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="90"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="Set Name" VerticalAlignment="Center" FontWeight="SemiBold"
+                               Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                    <TextBox Grid.Column="1" Text="{Binding SetName, UpdateSourceTrigger=PropertyChanged}"
+                             Background="{DynamicResource TertiaryBackgroundBrush}" 
+                             Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                             BorderBrush="{DynamicResource BorderBrush}"/>
+                </Grid>
+                
+                <!-- Two-Column Layout: Variables Editor + JSON Preview -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*" MinWidth="280"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*" MinWidth="180"/>
+                    </Grid.ColumnDefinitions>
+                    
+                    <!-- Left: Variable Editor Tabs -->
+                    <Grid Grid.Column="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        
+                        <TabControl Grid.Row="0" Background="{DynamicResource SecondaryBackgroundBrush}">
+                            <!-- Global Variables Tab -->
+                            <TabItem Header="Global">
+                                <DockPanel>
+                                    <!-- Add button bar -->
+                                    <Border DockPanel.Dock="Top" Background="{DynamicResource TertiaryBackgroundBrush}" Padding="6,4">
+                                        <Grid>
+                                            <TextBlock Text="Variables for all connections" FontSize="11" 
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"/>
+                                            <Button Content="+ Add" HorizontalAlignment="Right" Padding="8,3"
+                                                    Command="{Binding AddGlobalVariableCommand}" FontSize="11"/>
+                                        </Grid>
+                                    </Border>
+                                    
+                                    <!-- Variable rows -->
+                                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding GlobalVariables}" Margin="4">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="8"/>
+                                                            <ColumnDefinition Width="1.5*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBox Grid.Column="0" 
+                                                                 Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Background="{DynamicResource TertiaryBackgroundBrush}"
+                                                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                                 BorderBrush="{DynamicResource BorderBrush}"
+                                                                 Padding="6,4" FontFamily="Consolas" FontSize="12">
+                                                            <TextBox.ToolTip>Variable name (use as ${name} in queries)</TextBox.ToolTip>
+                                                        </TextBox>
+                                                        <TextBox Grid.Column="2" 
+                                                                 Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                 Background="{DynamicResource TertiaryBackgroundBrush}"
+                                                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                                 BorderBrush="{DynamicResource BorderBrush}"
+                                                                 Padding="6,4" FontFamily="Consolas" FontSize="12"/>
+                                                        <Button Grid.Column="3" Content="✕" 
+                                                                Style="{StaticResource RowActionButton}"
+                                                                Command="{Binding DataContext.RemoveGlobalVariableCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                ToolTip="Remove variable" Margin="4,0,0,0"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </DockPanel>
+                            </TabItem>
+                            
+                            <!-- Per-Connection Variable Tabs (dynamic) -->
+                            <TabItem Header="Connections">
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="*"/>
+                                    </Grid.RowDefinitions>
+                                    
+                                    <!-- Add connection dropdown -->
+                                    <Border Grid.Row="0" Background="{DynamicResource TertiaryBackgroundBrush}" Padding="6,4">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ComboBox Grid.Column="0" ItemsSource="{Binding AvailableConnections}" 
+                                                      SelectedItem="{Binding SelectedConnectionToAdd}"
+                                                      DisplayMemberPath="Name" Margin="0,0,6,0"/>
+                                            <Button Grid.Column="1" Content="+ Add" Padding="8,3" FontSize="11"
+                                                    Command="{Binding AddConnectionTabCommand}"/>
+                                        </Grid>
+                                    </Border>
+                                    
+                                    <!-- Connection tab strip -->
+                                    <ItemsControl Grid.Row="1" ItemsSource="{Binding ConnectionTabs}" Margin="4,4,4,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,4,4" CornerRadius="4" Padding="8,4" Cursor="Hand"
+                                                        MouseLeftButtonDown="ConnectionTab_MouseLeftButtonDown"
+                                                        Background="{DynamicResource SecondaryBackgroundBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding ConnectionName}" FontSize="11" 
+                                                                   Foreground="{DynamicResource PrimaryForegroundBrush}" 
+                                                                   VerticalAlignment="Center"/>
+                                                        <Button Content="✕" Margin="6,0,0,0"
+                                                                Style="{StaticResource RowActionButton}" Width="16" Height="16"
+                                                                FontSize="9"
+                                                                Command="{Binding DataContext.RemoveConnectionTabCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"/>
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    
+                                    <!-- Selected connection variables -->
+                                    <Border Grid.Row="2" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+                                        <Grid>
+                                            <!-- Empty state -->
+                                            <TextBlock Text="Select a connection above to edit its variable overrides"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic"
+                                                       FontSize="12">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding SelectedConnectionTab}" Value="{x:Null}">
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            
+                                            <!-- Connection variable editor -->
+                                            <DockPanel Visibility="{Binding SelectedConnectionTab, Converter={StaticResource NullToCollapsedConverter}}">
+                                                <Border DockPanel.Dock="Top" Padding="6,4">
+                                                    <Grid>
+                                                        <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center">
+                                                            <Run Text="Overrides for: "/>
+                                                            <Run Text="{Binding SelectedConnectionTab.ConnectionName, Mode=OneWay}" FontWeight="SemiBold"/>
+                                                        </TextBlock>
+                                                        <Button Content="+ Add" HorizontalAlignment="Right" Padding="8,3" FontSize="11"
+                                                                Command="{Binding AddConnectionVariableCommand}"
+                                                                CommandParameter="{Binding SelectedConnectionTab}"/>
+                                                    </Grid>
+                                                </Border>
+                                                
+                                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                                    <ItemsControl ItemsSource="{Binding SelectedConnectionTab.Variables}" Margin="4">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate>
+                                                                <Grid Margin="0,2">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*"/>
+                                                                        <ColumnDefinition Width="8"/>
+                                                                        <ColumnDefinition Width="1.5*"/>
+                                                                        <ColumnDefinition Width="Auto"/>
+                                                                    </Grid.ColumnDefinitions>
+                                                                    <TextBox Grid.Column="0" 
+                                                                             Text="{Binding Key, UpdateSourceTrigger=PropertyChanged}"
+                                                                             Background="{DynamicResource TertiaryBackgroundBrush}"
+                                                                             Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                                             Padding="6,4" FontFamily="Consolas" FontSize="12">
+                                                                        <TextBox.ToolTip>Variable name (overrides global with same key)</TextBox.ToolTip>
+                                                                    </TextBox>
+                                                                    <TextBox Grid.Column="2" 
+                                                                             Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}"
+                                                                             Background="{DynamicResource TertiaryBackgroundBrush}"
+                                                                             Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                                             BorderBrush="{DynamicResource BorderBrush}"
+                                                                             Padding="6,4" FontFamily="Consolas" FontSize="12"/>
+                                                                    <Button Grid.Column="3" Content="✕" 
+                                                                            Style="{StaticResource RowActionButton}"
+                                                                            Command="{Binding DataContext.RemoveConnectionVariableCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            ToolTip="Remove variable" Margin="4,0,0,0"/>
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </ScrollViewer>
+                                            </DockPanel>
+                                        </Grid>
+                                    </Border>
+                                </Grid>
+                            </TabItem>
+                        </TabControl>
+                        
+                        <!-- Column headers hint -->
+                        <Border Grid.Row="1" Padding="4,4,4,0">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="8"/>
+                                    <ColumnDefinition Width="1.5*"/>
+                                    <ColumnDefinition Width="28"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Key" FontSize="10" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic"/>
+                                <TextBlock Grid.Column="2" Text="Value" FontSize="10" 
+                                           Foreground="{DynamicResource SecondaryForegroundBrush}" FontStyle="Italic"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- Splitter -->
+                    <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                  Background="Transparent" Cursor="SizeWE"/>
+                    
+                    <!-- Right: JSON Preview -->
+                    <Border Grid.Column="2" Background="{DynamicResource TertiaryBackgroundBrush}" 
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4">
+                        <DockPanel>
+                            <Border DockPanel.Dock="Top" Background="{DynamicResource SecondaryBackgroundBrush}" 
+                                    Padding="8,6" CornerRadius="4,4,0,0">
+                                <TextBlock Text="JSON Preview" FontWeight="SemiBold" FontSize="11"
+                                           Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                            </Border>
+                            <TextBox Text="{Binding JsonPreview, Mode=OneWay}" IsReadOnly="True"
+                                     FontFamily="Consolas" FontSize="11"
+                                     Background="{DynamicResource EditorBackgroundBrush}"
+                                     Foreground="{DynamicResource EditorForegroundBrush}"
+                                     BorderThickness="0"
+                                     TextWrapping="Wrap"
+                                     AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto"
+                                     Padding="8,6"/>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+                
+                <!-- Error message -->
+                <TextBlock Grid.Row="2" Text="{Binding ErrorMessage}" Foreground="#E81123" TextWrapping="Wrap" 
+                           Margin="0,8,0,0"
+                           Visibility="{Binding HasError, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                
+                <!-- Footer Buttons -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+                    <TextBlock Text="Use ${key} in queries to reference variables" FontSize="11" FontStyle="Italic"
+                               Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Center"
+                               Margin="0,0,16,0"/>
+                    <Button Content="Save" Command="{Binding SaveCommand}" Width="80" Margin="0,0,8,0"
+                            Background="{DynamicResource AccentBrush}" Foreground="White"/>
+                    <Button Content="Cancel" IsCancel="True" Width="80" Click="CloseButton_Click"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

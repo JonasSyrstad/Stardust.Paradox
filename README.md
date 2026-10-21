@@ -1,5 +1,7 @@
-# Stardust.Paradox
-Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb
+# Stardust.Paradox & Stardust Gremlin Studio
+Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb.
+
+> **Looking for a Gremlin IDE?** [**Stardust Gremlin Studio**](src/StardustGremlinStudio) is a free, open source Gremlin IDE and query tool for Azure Cosmos DB (Gremlin API), Apache TinkerPop and JanusGraph, with graph visualization, IntelliSense and a local playground. [Website](https://jonassyrstad.github.io/Stardust.Paradox/) | [Download](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest) | [Docs](src/StardustGremlinStudio/README.md)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=alert_status)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=security_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
@@ -9,9 +11,9 @@ Entity framework'ish tool for developing .net applications using gremlin graph q
 
 ---
 
-## Stardust Gremlin Studio
+## Stardust Gremlin Studio - Free Gremlin IDE for Cosmos DB and TinkerPop
 
-**A Modern Query Tool for Gremlin Graph Databases**
+**A free, open source Gremlin IDE, query tool and DBA tool for Gremlin graph databases**
 
 | Download | Links |
 |----------|-------|

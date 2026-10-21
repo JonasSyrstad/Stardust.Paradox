@@ -3,7 +3,12 @@ using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
 using Stardust.Paradox.GremlinStudio.Core.Export;
 using Stardust.Paradox.GremlinStudio.Core.History;
+using Stardust.Paradox.GremlinStudio.Core.McpInstall;
 using Stardust.Paradox.GremlinStudio.Core.Playground;
+using Stardust.Paradox.GremlinStudio.Core.Schema;
+using Stardust.Paradox.GremlinStudio.Core.Snippets;
+using Stardust.Paradox.GremlinStudio.Core.Variables;
+using Stardust.Paradox.GremlinStudio.Core.WelcomeGuide;
 
 namespace Stardust.Paradox.GremlinStudio.Core;
 
@@ -32,7 +37,6 @@ public static class ServiceCollectionExtensions
         // Query execution
         services.AddSingleton<IGremlinQueryExecutor, GremlinQueryExecutor>();
 
-
         // Playground
         services.AddSingleton<IPlaygroundService, PlaygroundService>();
 
@@ -41,6 +45,23 @@ public static class ServiceCollectionExtensions
 
         // Scenario export
         services.AddSingleton<IScenarioExportService, ScenarioExportService>();
+
+        // Agent skills download
+        services.AddHttpClient<IAgentSkillsDownloadService, AgentSkillsDownloadService>();
+
+        // Schema discovery and export
+        services.AddSingleton<ISchemaDiscoveryService, SchemaDiscoveryService>();
+        services.AddSingleton<ISchemaExportService, SchemaExportService>();
+
+        // Welcome guide
+        services.AddSingleton<IWelcomeGuideService, FileWelcomeGuideService>();
+
+        // Snippets and variables
+        services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();
+        services.AddSingleton<IQueryVariableStore, FileQueryVariableStore>();
+
+        // MCP server installation
+        services.AddSingleton<IMcpServerInstallService, McpServerInstallService>();
 
         return services;
     }
