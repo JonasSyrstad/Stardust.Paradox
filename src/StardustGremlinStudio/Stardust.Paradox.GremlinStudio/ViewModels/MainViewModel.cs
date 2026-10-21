@@ -58,6 +58,11 @@ public partial class MainViewModel : ObservableObject
     /// </summary>
     private readonly Dictionary<string, IGremlinLanguageConnector> _inMemoryConnectors = new();
 
+    /// <summary>
+    /// Account area (GitHub sign-in, feedback and issue reporting).
+    /// </summary>
+    public AccountViewModel Account { get; }
+
     public MainViewModel(
         IGremlinConnectionStore connectionStore,
         IGremlinConnectorFactory connectorFactory,
@@ -77,8 +82,11 @@ public partial class MainViewModel : ObservableObject
         IWelcomeGuideService welcomeGuideService,
         IQuerySnippetStore snippetStore,
         IQueryVariableStore variableStore,
+        AccountViewModel account,
         ILogger<MainViewModel> logger)
     {
+        Account = account;
+        _ = Account.InitializeAsync();
         _connectionStore = connectionStore;
         _connectorFactory = connectorFactory;
         _connectionTester = connectionTester;

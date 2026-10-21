@@ -1,0 +1,392 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>User Guide - Stardust Gremlin Studio | Gremlin IDE for Cosmos DB &amp; TinkerPop</title>
+  <meta name="description" content="Complete user guide for Stardust Gremlin Studio: connect to Azure Cosmos DB, TinkerPop and JanusGraph, write and visualize Gremlin queries, use variables, snippets, schema discovery, scenario export and the MCP server.">
+  <link rel="canonical" href="https://jonassyrstad.github.io/Stardust.Paradox/guide.html">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="Stardust Gremlin Studio - User Guide">
+  <meta property="og:description" content="Everything you need to get productive with the free Gremlin IDE for Cosmos DB and TinkerPop.">
+  <meta property="og:url" content="https://jonassyrstad.github.io/Stardust.Paradox/guide.html">
+  <meta property="og:image" content="https://jonassyrstad.github.io/Stardust.Paradox/images/main-window.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <style>
+    body { font-family: Segoe UI, system-ui, sans-serif; margin: 0; color: #e6e6e6; background: #1b1d23; line-height: 1.6; }
+    .layout { display: grid; grid-template-columns: 240px 1fr; max-width: 1200px; margin: 0 auto; }
+    nav.toc { position: sticky; top: 0; align-self: start; max-height: 100vh; overflow-y: auto; padding: 2rem 1rem; font-size: .9rem; }
+    nav.toc ol { padding-left: 1.1rem; }
+    nav.toc a { color: #9ecbff; text-decoration: none; }
+    main { padding: 2rem 1.5rem 4rem; min-width: 0; }
+    .topbar { max-width: 1200px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; gap: 1.5rem; }
+    h1 { font-size: 2.2rem; margin-top: 0; }
+    h2 { border-bottom: 1px solid #333; padding-bottom: .3rem; margin-top: 3rem; }
+    a { color: #6cb6ff; }
+    code, pre, kbd { background: #0d1117; border-radius: 4px; }
+    code, kbd { padding: 0 .3rem; }
+    pre { padding: 1rem; overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { border: 1px solid #333; padding: .4rem .6rem; text-align: left; vertical-align: top; }
+    th { background: #22262e; }
+    .note { background: #22262e; border-left: 4px solid #2f81f7; padding: .75rem 1rem; border-radius: 4px; }
+    img { max-width: 100%; border-radius: 8px; }
+    footer { text-align: center; color: #8b949e; font-size: .9rem; padding: 2rem; }
+    @media (max-width: 800px) { .layout { grid-template-columns: 1fr; } nav.toc { position: static; max-height: none; } }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="./">Home</a>
+    <a href="guide.html"><strong>User Guide</strong></a>
+    <a href="https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest">Download</a>
+    <a href="https://github.com/JonasSyrstad/Stardust.Paradox/tree/HEAD/src/StardustGremlinStudio">GitHub</a>
+  </div>
+  <div class="layout">
+    <nav class="toc" aria-label="Table of contents">
+      <strong>Contents</strong>
+      <ol>
+        <li><a href="#install">Installation</a></li>
+        <li><a href="#tour">The main window</a></li>
+        <li><a href="#connections">Connections</a></li>
+        <li><a href="#playground">Local playground</a></li>
+        <li><a href="#editor">Query editor</a></li>
+        <li><a href="#tabs">Query tabs &amp; files</a></li>
+        <li><a href="#results">Result views</a></li>
+        <li><a href="#graph">Graph visualization</a></li>
+        <li><a href="#variables">Variables &amp; parameters</a></li>
+        <li><a href="#snippets">Snippets</a></li>
+        <li><a href="#history">Query history</a></li>
+        <li><a href="#schema">Schema discovery &amp; code export</a></li>
+        <li><a href="#export">Scenario export</a></li>
+        <li><a href="#mcp">MCP server (AI assistants)</a></li>
+        <li><a href="#themes">Themes &amp; settings</a></li>
+        <li><a href="#shortcuts">Keyboard shortcuts</a></li>
+        <li><a href="#storage">Data &amp; security</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <h1>Stardust Gremlin Studio User Guide</h1>
+      <p>Stardust Gremlin Studio is a free, open source Gremlin IDE for Azure Cosmos DB (Gremlin API), Apache TinkerPop Gremlin Server and JanusGraph. This guide covers everything from installation to advanced features such as variables, schema discovery and the MCP server for AI assistants.</p>
+
+      <section id="install">
+        <h2>1. Installation</h2>
+        <h3>System requirements</h3>
+        <ul>
+          <li>Windows 10 or Windows 11 (x64)</li>
+          <li>Network access to your Gremlin endpoint (port 443 for Cosmos DB, typically 8182 for Gremlin Server)</li>
+        </ul>
+        <h3>Install from release</h3>
+        <ol>
+          <li>Open the <a href="https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest">latest release</a> on GitHub.</li>
+          <li>Download the setup executable and run it.</li>
+          <li>Launch <strong>Gremlin Studio</strong> from the Start menu.</li>
+        </ol>
+        <h3>Build from source</h3>
+<pre><code>git clone https://github.com/JonasSyrstad/Stardust.Paradox.git
+cd Stardust.Paradox/src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio
+dotnet run</code></pre>
+        <p>Requires the .NET 10 SDK.</p>
+        <h3>Updates</h3>
+        <p>Gremlin Studio checks for new releases at startup. You can also click <strong>Check for Updates</strong> and then <strong>Download &amp; Install</strong>.</p>
+      </section>
+
+      <section id="tour">
+        <h2>2. The main window</h2>
+        <img src="images/main-window.png" alt="Stardust Gremlin Studio main window">
+        <ul>
+          <li><strong>Connections panel</strong> (left) &ndash; saved connections organized in collapsible groups, plus snippets, variables and history.</li>
+          <li><strong>Toolbar</strong> &ndash; Run, Cancel, Open and Save.</li>
+          <li><strong>Query tabs</strong> &ndash; one editor per tab, each bound to a connection.</li>
+          <li><strong>Results area</strong> &ndash; JSON, Table, Tree, Graph, Export, Log, Explain and Stats tabs.</li>
+          <li><strong>Status bar</strong> &ndash; request charge (RU) of the last query for Cosmos DB.</li>
+        </ul>
+        <p>On first launch a <strong>Welcome Guide</strong> walks you through the main features. Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> at any time to open the <strong>command palette</strong> and search for any command, or <kbd>F1</kbd> for the keyboard shortcut reference.</p>
+      </section>
+
+      <section id="connections">
+        <h2>3. Connections</h2>
+        <p>Click <strong>New</strong> in the Connections panel to create a connection. Three connection types are supported:</p>
+        <table>
+          <tr><th>Type</th><th>Use for</th></tr>
+          <tr><td>Azure Cosmos DB (Gremlin API)</td><td>Cosmos DB accounts with the Gremlin API enabled</td></tr>
+          <tr><td>Generic Gremlin Server</td><td>Apache TinkerPop Gremlin Server, JanusGraph and other Gremlin-compatible servers</td></tr>
+          <tr><td>Local Playground (InMemory)</td><td>An in-memory graph for learning and testing, no server required</td></tr>
+        </table>
+
+        <h3>Azure Cosmos DB</h3>
+        <ol>
+          <li>Select <strong>Azure Cosmos DB (Gremlin API)</strong>.</li>
+          <li>Paste the connection string from the Azure Portal (<em>Cosmos DB account &rarr; Keys &rarr; Primary Connection String</em>).</li>
+          <li>Click <strong>Discover Graphs</strong>. Databases and graphs are discovered automatically.</li>
+          <li>Select the database and graph, then click <strong>Next</strong> and <strong>Create</strong>.</li>
+        </ol>
+        <p class="note">Tip: use <strong>Clone</strong> on an existing Cosmos DB connection to quickly add another graph in the same account.</p>
+
+        <h3>Gremlin Server / TinkerPop / JanusGraph</h3>
+        <ol>
+          <li>Select <strong>Generic Gremlin Server</strong>.</li>
+          <li>Enter <strong>Host</strong>, <strong>Port</strong> (usually <code>8182</code>), optional <strong>Username/Password</strong>, and enable <strong>Use SSL</strong> if required.</li>
+          <li>Click <strong>Next</strong> and <strong>Create</strong>.</li>
+          <li>To verify connectivity, select the connection, click <strong>Edit</strong> and use <strong>Test</strong>.</li>
+        </ol>
+
+        <h3>Managing connections</h3>
+        <ul>
+          <li>Use the buttons below the list: <strong>New</strong>, <strong>Edit</strong>, <strong>Delete</strong>, <strong>Clone</strong> (Cosmos DB only), <strong>Reset</strong> (Local Playground only), <strong>Export</strong> and <strong>Import</strong> (JSON).</li>
+          <li>Connections are shown in collapsible groups. Right-click the list for <strong>Expand all groups</strong> / <strong>Collapse all groups</strong>.</li>
+          <li>Press <kbd>Ctrl</kbd>+<kbd>L</kbd> to jump to the Connections panel.</li>
+        </ul>
+      </section>
+
+      <section id="playground">
+        <h2>4. Local playground</h2>
+        <p>The playground is a built-in, in-memory Gremlin engine (powered by <code>Stardust.Paradox.Data.InMemory</code>). It is perfect for learning Gremlin, prototyping queries and demos.</p>
+        <ol>
+          <li>Create a <strong>Local Playground (InMemory)</strong> connection.</li>
+          <li>Choose <strong>Empty Playground</strong>, or <strong>Predefined Scenario</strong> and pick one under <strong>Select Scenario</strong>.</li>
+          <li>Run queries as you would against a real server.</li>
+        </ol>
+        <p>Bundled scenarios: <code>BasicSocialNetwork</code>, <code>SimpleECommerce</code>, <code>OrganizationHierarchy</code>, <code>UserRoleManagement</code>, <code>GraphTraversalTest</code>, <code>ODataTest</code> and <code>SocialNetworkTest</code>. Select the connection and click <strong>Reset</strong> to restore the original data.</p>
+        <p class="note">The playground is in-memory only. Changes are lost when you reset or close the application.</p>
+      </section>
+
+      <section id="editor">
+        <h2>5. Query editor</h2>
+        <h3>Running queries</h3>
+        <ul>
+          <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd> or <kbd>F5</kbd> &ndash; run the whole editor.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd> &ndash; run only the selected text.</li>
+          <li><kbd>Alt</kbd>+<kbd>Enter</kbd> &ndash; run the statement under the cursor.</li>
+          <li><kbd>Esc</kbd> &ndash; cancel a running query.</li>
+        </ul>
+        <h3>Editing assistance</h3>
+        <ul>
+          <li><strong>Syntax highlighting</strong> and real-time validation for Gremlin.</li>
+          <li><strong>Auto-completion</strong> of Gremlin steps with <kbd>Ctrl</kbd>+<kbd>Space</kbd> (or <kbd>Ctrl</kbd>+<kbd>J</kbd>).</li>
+          <li><strong>Parameter hints</strong> with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd>, and <strong>tooltips</strong> describing each step on hover.</li>
+          <li><strong>Format</strong> long traversals with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>.</li>
+          <li><strong>Find / Replace</strong> with <kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>H</kbd>.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>/</kbd> toggles comments, <kbd>Ctrl</kbd>+<kbd>D</kbd> duplicates a line, <kbd>Alt</kbd>+<kbd>&uarr;</kbd>/<kbd>&darr;</kbd> moves lines.</li>
+          <li><strong>Explain</strong> &ndash; the Explain tab shows a readable description of what a traversal does.</li>
+        </ul>
+        <h3>Example queries</h3>
+<pre><code>// Count vertices by label
+g.V().groupCount().by(label)
+
+// Friends of friends
+g.V().has('person','name','marko').out('knows').out('knows').dedup().values('name')
+
+// Paths for visualization
+g.V().hasLabel('person').outE().inV().path()</code></pre>
+      </section>
+
+      <section id="tabs">
+        <h2>6. Query tabs &amp; files</h2>
+        <ul>
+          <li><kbd>Ctrl</kbd>+<kbd>T</kbd> new tab, <kbd>Ctrl</kbd>+<kbd>W</kbd> close tab, <kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd> switch tabs.</li>
+          <li><kbd>F2</kbd> renames a tab. Right-click a tab for <strong>Duplicate</strong>, <strong>Close others</strong> and <strong>Close tabs to the right</strong>.</li>
+          <li><kbd>Ctrl</kbd>+<kbd>O</kbd> opens a query file (<code>.gremlin</code> or <code>.txt</code>), <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> save / save as.</li>
+          <li>Open tabs and window layout are restored the next time you start Gremlin Studio.</li>
+        </ul>
+      </section>
+
+      <section id="results">
+        <h2>7. Result views</h2>
+        <img src="images/query-results.png" alt="Gremlin query results in Stardust Gremlin Studio">
+        <table>
+          <tr><th>View</th><th>Shortcut</th><th>Description</th></tr>
+          <tr><td>JSON</td><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td><td>Raw JSON response.</td></tr>
+          <tr><td>Table</td><td><kbd>Ctrl</kbd>+<kbd>2</kbd></td><td>Flattened tabular view. Copy with <kbd>Ctrl</kbd>+<kbd>C</kbd> or save as CSV / Excel.</td></tr>
+          <tr><td>Tree</td><td><kbd>Ctrl</kbd>+<kbd>3</kbd></td><td>Hierarchical explorer for nested results, plus the <strong>Schema</strong> view.</td></tr>
+          <tr><td>Graph</td><td><kbd>Ctrl</kbd>+<kbd>4</kbd></td><td>Interactive graph visualization.</td></tr>
+          <tr><td>Export</td><td></td><td>Scenario export (see below).</td></tr>
+          <tr><td>Log</td><td></td><td>Executed queries with time, duration (ms), result count, RU and errors.</td></tr>
+          <tr><td>Explain</td><td></td><td>Readable explanation of the query.</td></tr>
+          <tr><td>Stats</td><td></td><td>Query statistics.</td></tr>
+        </table>
+        <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to <strong>pin</strong> the current result: the query and its results are copied into a new tab marked with a pin, so they are kept while you continue working.</p>
+      </section>
+
+      <section id="graph">
+        <h2>8. Graph visualization</h2>
+        <p>The Graph view renders vertices and edges returned by your query.</p>
+        <ul>
+          <li>Drag nodes to rearrange the layout.</li>
+          <li>Zoom with <kbd>Ctrl</kbd>+mouse wheel. Pan by dragging the background or with <kbd>Shift</kbd>+mouse wheel.</li>
+          <li>Click a vertex or edge to highlight it and show its properties.</li>
+        </ul>
+        <p class="note">Tip: queries that return <code>path()</code>, or both vertices and edges (for example <code>g.V().outE().inV().path()</code>), produce the richest visualizations.</p>
+      </section>
+
+      <section id="variables">
+        <h2>9. Variables &amp; parameters</h2>
+        <p><strong>Variable sets</strong> let you reuse values across queries and switch between environments. Manage them in the Variables panel with <strong>New</strong>, <strong>Edit</strong> and <strong>Del</strong>. The editor has <strong>Global</strong> and <strong>Connections</strong> tabs with key/value rows and a JSON preview.</p>
+        <p>Reference values in queries with <code>${key}</code>, or nested values with <code>${path.to.value}</code>:</p>
+<pre><code>g.V().has('tenant', '${tenant}')</code></pre>
+        <p><strong>Apply</strong> previews the variable substitution without modifying the query. <kbd>Ctrl</kbd>+<kbd>P</kbd> (<strong>Resolve</strong>) replaces parameters in the editor text with their values.</p>
+      </section>
+
+      <section id="snippets">
+        <h2>10. Snippets</h2>
+        <p>Snippets are named, reusable queries that you save yourself.</p>
+        <ol>
+          <li>Write a query in the editor.</li>
+          <li>Click <strong>Save current query as snippet</strong> in the editor toolbar.</li>
+          <li>Enter a name in the <strong>Save as Snippet</strong> dialog.</li>
+        </ol>
+        through the MCP server.</p>
+      </section>
+
+      <section id="history">
+        <h2>11. Query history</h2>
+        <p>Every executed query is recorded with its connection and timestamp. Select an entry and press <kbd>Enter</kbd> to load it into the editor. Pin queries you use often so they stay at hand.</p>
+      </section>
+
+      <section id="schema">
+        <h2>12. Schema discovery &amp; code export</h2>
+        <p>Gremlin databases are schemaless, so Gremlin Studio samples your graph to discover its structure:</p>
+        <ol>
+          <li>Open the <strong>Tree</strong> tab and select <strong>Schema</strong>.</li>
+          <li>Gremlin Studio discovers vertex and edge labels, analyzes their properties and maps how labels connect.</li>
+          <li>Browse the schema, or click <strong>Generate Code</strong> to create C# entity interfaces for <a href="https://github.com/JonasSyrstad/Stardust.Paradox">Stardust.Paradox</a>, the Entity Framework-style ORM for Gremlin. Copy the code or save it to a file.</li>
+        </ol>
+<pre><code>[VertexLabel("person")]
+public interface IPerson : IVertex
+{
+    string Id { get; }
+    string Name { get; set; }
+    IEdgeCollection&lt;IPerson&gt; Knows { get; }
+}</code></pre>
+      </section>
+
+      <section id="export">
+        <h2>13. Scenario export</h2>
+        <p>Turn real data into reproducible test fixtures:</p>
+        <ol>
+          <li>Run a query that returns vertices.</li>
+          <li>Open the <strong>Export</strong> tab and enter a <strong>Scenario Name</strong> and optional <strong>Description</strong>.</li>
+          <li>Choose the <strong>Export Format</strong>: <strong>Json</strong> (loadable by the InMemory scenario loader) or <strong>CSharp</strong> (code that recreates the graph; set <strong>Namespace</strong>).</li>
+          <li>Click <strong>Generate Preview</strong>, then <strong>Save to File...</strong></li>
+        </ol>
+        <p>Edges between the exported vertices are fetched and included.
+      </section>
+
+      <section id="mcp">
+        <h2>14. MCP server (AI assistants)</h2>
+        <p>Gremlin Studio ships with <code>GremlinStudioMcp.exe</code>, a <a href="https://modelcontextprotocol.io/">Model Context Protocol</a> server that gives AI assistants such as GitHub Copilot access to your saved connections.</p>
+        <h3>Setup</h3>
+        <p>In the settings panel (<kbd>Ctrl</kbd>+<kbd>B</kbd>), use one of the MCP install buttons:</p>
+        <ul>
+          <li><strong>Install for Solution/Repo...</strong> &ndash; writes <code>.mcp.json</code> and <code>.vscode/mcp.json</code> in the selected folder.</li>
+          <li><strong>Install for Visual Studio (Global)</strong> &ndash; writes <code>%USERPROFILE%\.mcp.json</code>.</li>
+          <li><strong>Install for VS Code (Global)</strong> &ndash; adds the server under <code>mcp.servers</code> in VS Code <code>settings.json</code>.</li>
+        </ul>
+        <p>The entry points to <code>GremlinStudioMcp.exe</code> in the Gremlin Studio installation folder:</p>
+<pre><code>{
+  "servers": {
+    "GremlinStudio": {
+      "type": "stdio",
+      "command": "&lt;Gremlin Studio install folder&gt;\\GremlinStudioMcp.exe"
+    }
+  }
+}</code></pre>
+        <h3>Available tools</h3>
+        <table>
+          <tr><th>Tool</th><th>Description</th></tr>
+          <tr><td><code>list_connections</code></td><td>List saved connections</td></tr>
+          <tr><td><code>get_connection_details</code></td><td>Connection metadata (no secrets)</td></tr>
+          <tr><td><code>execute_gremlin_query</code></td><td>Run a Gremlin query against a saved connection</td></tr>
+          <tr><td><code>discover_graph_schema</code></td><td>Discover labels, properties and relationships</td></tr>
+          <tr><td><code>export_schema_as_code</code></td><td>Generate Stardust.Paradox C# entity interfaces</td></tr>
+          <tr><td><code>list_scenarios</code></td><td>List playground scenarios</td></tr>
+          <tr><td><code>export_scenario</code></td><td>Export data as a JSON or C# scenario</td></tr>
+          <tr><td><code>list_snippets</code> / <code>get_snippet</code></td><td>Access saved snippets</td></tr>
+          <tr><td><code>list_query_history</code></td><td>Recent queries</td></tr>
+        </table>
+        <p class="note">The MCP server runs locally and uses the same encrypted credentials as the application. Be careful when allowing an AI assistant to run write queries against production graphs.</p>
+      </section>
+
+      <section id="themes">
+        <h2>15. Themes &amp; settings</h2>
+        Open the settings panel with <kbd>Ctrl</kbd>+<kbd>B</kbd>.</p>
+        <p>The theme selector is in the settings panel. Use <strong>Welcome Guide</strong> to replay the introduction and <strong>Check for Updates</strong> to look for a new version (updates are also checked at startup).</p>
+        <p>After signing in with GitHub, you can <strong>Report an issue</strong> and view <strong>My reported issues</strong> from within the application.</p>
+      </section>
+
+      <section id="shortcuts">
+        <h2>16. Keyboard shortcuts</h2>
+        <table>
+          <tr><th>Shortcut</th><th>Action</th></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>F5</kbd></td><td>Run query</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd></td><td>Run selection</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>Enter</kbd></td><td>Run current statement</td></tr>
+          <tr><td><kbd>Esc</kbd></td><td>Cancel query</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Space</kbd> / <kbd>Ctrl</kbd>+<kbd>J</kbd></td><td>Auto-completion</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd></td><td>Parameter hints</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd></td><td>Format query</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>F</kbd> / <kbd>Ctrl</kbd>+<kbd>H</kbd></td><td>Find / Replace</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>/</kbd></td><td>Toggle comment</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>D</kbd></td><td>Duplicate line</td></tr>
+          <tr><td><kbd>Alt</kbd>+<kbd>&uarr;</kbd> / <kbd>&darr;</kbd></td><td>Move line</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td><td>Undo / Redo</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>P</kbd></td><td>Resolve parameters</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>T</kbd> / <kbd>Ctrl</kbd>+<kbd>W</kbd></td><td>New / close tab</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Tab</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Tab</kbd></td><td>Next / previous tab</td></tr>
+          <tr><td><kbd>F2</kbd></td><td>Rename tab</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>O</kbd> / <kbd>Ctrl</kbd>+<kbd>S</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd></td><td>Open / Save / Save as</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>1</kbd>&hellip;<kbd>4</kbd></td><td>JSON / Table / Tree / Graph view</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd></td><td>Pin result</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>L</kbd></td><td>Focus connections</td></tr>
+          <tr><td><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd></td><td>Command palette</td></tr>
+          <td>Toggle settings panel</td>
+          <tr><td><kbd>F1</kbd></td><td>Keyboard shortcut reference</td></tr>
+        </table>
+      </section>
+
+      <section id="storage">
+        <h2>17. Data &amp; security</h2>
+        <p>All settings are stored locally in <code>%LOCALAPPDATA%\GremlinStudio\</code>:</p>
+        <table>
+          <tr><th>File</th><th>Contents</th></tr>
+          <tr><td><code>connections.json</code></td><td>Connection metadata (no secrets)</td></tr>
+          <tr><td><code>Secrets\</code></td><td>Keys and passwords encrypted with Windows DPAPI (current user only)</td></tr>
+          <tr><td><code>query-history.json</code></td><td>Query history</td></tr>
+          <tr><td><code>snippets.json</code></td><td>Saved snippets</td></tr>
+          <tr><td><code>variables.json</code></td><td>Variable sets</td></tr>
+          <tr><td><code>session.json</code>, <code>window-layout.json</code></td><td>Open tabs and window layout</td></tr>
+          <tr><td><code>theme.txt</code></td><td>Selected theme</td></tr>
+          <tr><td><code>mcp-server.log</code></td><td>MCP server log</td></tr>
+        </table>
+        <p>Credentials are stored only on your machine, encrypted for the current Windows user.</p>
+      </section>
+
+      <section id="troubleshooting">
+        <h2>18. Troubleshooting</h2>
+        <h3>Cannot connect to Cosmos DB</h3>
+        <ul>
+          <li>Verify the account has the <strong>Gremlin API</strong> enabled and that you copied the full connection string including <code>AccountKey</code>.</li>
+          <li>Check the Cosmos DB firewall allows your IP address.</li>
+          <li>Outbound port 443 must be open.</li>
+        </ul>
+        <h3>Cannot connect to Gremlin Server</h3>
+        <ul>
+          <li>Confirm host and port (default <code>8182</code>) and whether the server requires SSL.</li>
+          <li>Select the connection, click <strong>Edit</strong> and use <strong>Test</strong> to see the exact error.</li>
+        </ul>
+        <h3>Graph view is empty</h3>
+        <p>The graph view needs vertices and/or edges. Queries returning only values (for example <code>values('name')</code>) are shown in the JSON and Table views. Try adding <code>path()</code> or returning elements.</p>
+        <h3>AI assistant does not see Gremlin Studio</h3>
+        <p>Re-run the MCP install, restart your editor, and check <code>%LOCALAPPDATA%\GremlinStudio\mcp-server.log</code>.</p>
+        <h3>Still stuck?</h3>
+        <p><a href="https://github.com/JonasSyrstad/Stardust.Paradox/issues">Open an issue on GitHub</a>.</p>
+      </section>
+    </main>
+  </div>
+  <footer>
+    <a href="./">Stardust Gremlin Studio</a> &middot; Part of <a href="https://github.com/JonasSyrstad/Stardust.Paradox">Stardust.Paradox</a>
+  </footer>
+</body>
+</html>

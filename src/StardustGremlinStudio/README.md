@@ -4,7 +4,7 @@
 
 **A free, open source Gremlin IDE for Azure Cosmos DB (Gremlin API), Apache TinkerPop and JanusGraph**
 
-Website: [jonassyrstad.github.io/Stardust.Paradox](https://jonassyrstad.github.io/Stardust.Paradox/)
+Website: [jonassyrstad.github.io/Stardust.Paradox](https://jonassyrstad.github.io/Stardust.Paradox/) | [User Guide](https://jonassyrstad.github.io/Stardust.Paradox/guide.html)
 
 [![Build Status](https://github.com/JonasSyrstad/Stardust.Paradox/actions/workflows/gremlin-studio-build.yml/badge.svg)](https://github.com/JonasSyrstad/Stardust.Paradox/actions/workflows/gremlin-studio-build.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/JonasSyrstad/Stardust.Paradox?include_prereleases&label=latest)](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest)
@@ -32,7 +32,7 @@ Website: [jonassyrstad.github.io/Stardust.Paradox](https://jonassyrstad.github.i
 
 | Platform | Download | Description |
 |----------|----------|-------------|
-| **Windows Installer** | [?? GremlinStudio-1.0.0-Setup.exe](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest/download/GremlinStudio-1.0.0-Setup.exe) | Recommended - Full installer with Start Menu integration |
+| **Windows Installer** | [Latest release](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest) | Recommended - Full installer with Start Menu integration |
 | **Windows Portable** | [?? GremlinStudio.exe](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest/download/GremlinStudio.exe) | Single executable, no installation required |
 
 > **System Requirements**: Windows 10 or later (x64)
@@ -43,7 +43,7 @@ Website: [jonassyrstad.github.io/Stardust.Paradox](https://jonassyrstad.github.i
 
 ### Prerequisites
 
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Inno Setup 6](https://jrsoftware.org/isdl.php) (optional, for creating installer)
 
 ### Build & Run
@@ -67,7 +67,7 @@ cd src/StardustGremlinStudio/Installer
 ./build-installer.cmd
 ```
 
-The installer will be created at `dist/GremlinStudio-1.0.0-Setup.exe`
+The installer will be created at `dist/GremlinStudio-<version>-Setup.exe`
 
 ---
 
@@ -157,12 +157,20 @@ Press **Ctrl+Enter** or click **Run** to execute.
 | `F5` | Execute query |
 | `Escape` | Cancel running query |
 | `Ctrl+Space` | Show auto-completion |
+| `Ctrl+Shift+Enter` | Run selection |
+| `Ctrl+Shift+F` | Format query |
+| `Ctrl+T` / `Ctrl+W` | New / close tab |
+| `Ctrl+1`..`Ctrl+4` | JSON / Table / Tree / Graph view |
+| `Ctrl+Shift+P` | Command palette |
+| `F1` | All keyboard shortcuts |
+
+See the [User Guide](https://jonassyrstad.github.io/Stardust.Paradox/guide.html#shortcuts) for the full list.
 
 ---
 
 ## ?? Themes
 
-Switch between Dark and Light themes:
+Available themes: Light, Dark, MoonLight, DarkForrest, MuddyRiver and System (follows Windows).
 
 1. Scroll to the bottom of the left panel
 2. Find "Theme" dropdown
@@ -188,13 +196,17 @@ Export query results for use in testing:
 ## ?? Configuration
 
 Gremlin Studio stores configuration in:
-- **Windows**: `%APPDATA%\Stardust.Paradox.GremlinStudio\`
+- **Windows**: `%LOCALAPPDATA%\GremlinStudio\`
 
 Files stored:
 - `connections.json` - Connection metadata (no secrets)
-- `secrets.dat` - Encrypted secrets (Windows DPAPI)
+- `Secrets\` - Encrypted secrets (Windows DPAPI)
 - `query-history.json` - Recent queries
-- `settings.json` - Application preferences
+- `snippets.json` - Saved snippets
+- `variables.json` - Variable sets
+- `session.json`, `window-layout.json` - Open tabs and layout
+- `theme.txt` - Selected theme
+- `mcp-server.log` - MCP server log
 
 ---
 
