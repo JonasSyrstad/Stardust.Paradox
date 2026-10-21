@@ -39,4 +39,8 @@ public static class AppDataPaths
     public static string SessionFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "session.json");
 
     public static string WindowLayoutFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "window-layout.json");
+
+    public static string AssistantSettingsFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "assistant.json");
+
+    public static string LogsDirectory => Directory.CreateDirectory(Path.Combine(EnsureAppDataDirectoryExists(), "logs")).FullName;
 }

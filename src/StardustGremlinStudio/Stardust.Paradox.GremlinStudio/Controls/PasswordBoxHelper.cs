@@ -14,8 +14,10 @@ public static class PasswordBoxHelper
             "BoundPassword",
             typeof(string),
             typeof(PasswordBoxHelper),
+            // Default is null (not string.Empty) so that binding to an initially empty string still
+            // raises OnBoundPasswordChanged, which is where the PasswordChanged handler is attached.
             new FrameworkPropertyMetadata(
-                string.Empty,
+                null,
                 FrameworkPropertyMetadataOptions.BindsTwoWayByDefault,
                 OnBoundPasswordChanged));
 

@@ -199,7 +199,7 @@ g.V().hasLabel('person').outE().inV().path()</code></pre>
         <table>
           <tr><th>View</th><th>Shortcut</th><th>Description</th></tr>
           <tr><td>JSON</td><td><kbd>Ctrl</kbd>+<kbd>1</kbd></td><td>Raw JSON response.</td></tr>
-          <tr><td>Table</td><td><kbd>Ctrl</kbd>+<kbd>2</kbd></td><td>Flattened tabular view. Copy with <kbd>Ctrl</kbd>+<kbd>C</kbd> or save as CSV / Excel.</td></tr>
+          <td>Flattened tabular view. Copy with <kbd>Ctrl</kbd>+<kbd>C</kbd> or save as CSV / Excel. Columns support any key, including e-mail addresses and keys containing <code>.</code>, <code>@</code> or <code>+</code>. Hover an epoch timestamp to see it as a readable date.</td>
           <tr><td>Tree</td><td><kbd>Ctrl</kbd>+<kbd>3</kbd></td><td>Hierarchical explorer for nested results, plus the <strong>Schema</strong> view.</td></tr>
           <tr><td>Graph</td><td><kbd>Ctrl</kbd>+<kbd>4</kbd></td><td>Interactive graph visualization.</td></tr>
           <tr><td>Export</td><td></td><td>Scenario export (see below).</td></tr>
@@ -207,7 +207,7 @@ g.V().hasLabel('person').outE().inV().path()</code></pre>
           <tr><td>Explain</td><td></td><td>Readable explanation of the query.</td></tr>
           <tr><td>Stats</td><td></td><td>Query statistics.</td></tr>
         </table>
-        <p>Press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>K</kbd> to <strong>pin</strong> the current result: the query and its results are copied into a new tab marked with a pin, so they are kept while you continue working.</p>
+        the query and its results are copied into a new tab marked with a pin, and the Table, Tree and Graph views are rebuilt, so they are kept while you continue working.</p>
       </section>
 
       <section id="graph">
@@ -307,12 +307,14 @@ public interface IPerson : IVertex
           <tr><td><code>list_query_history</code></td><td>Recent queries</td></tr>
         </table>
         <p class="note">The MCP server runs locally and uses the same encrypted credentials as the application. Be careful when allowing an AI assistant to run write queries against production graphs.</p>
+        <h3>AI Gremlin assistant</h3>
+        <p>Enable the opt-in AI Gremlin assistant from the account menu to get help writing queries in a side panel. The assistant uses GitHub Copilot: sign in once with the Copilot CLI (run <code>copilot</code> and then <code>/login</code>). No personal access token is needed.</p>
       </section>
 
       <section id="themes">
         <h2>15. Themes &amp; settings</h2>
-        Open the settings panel with <kbd>Ctrl</kbd>+<kbd>B</kbd>.</p>
-        <p>The theme selector is in the settings panel. Use <strong>Welcome Guide</strong> to replay the introduction and <strong>Check for Updates</strong> to look for a new version (updates are also checked at startup).</p>
+        <p>Open the settings panel with <kbd>Ctrl</kbd>+<kbd>B</kbd>.</p>
+        Use <strong>Welcome Guide</strong> to replay the introduction (after an update, returning users are shown cards for the new features) and
         <p>After signing in with GitHub, you can <strong>Report an issue</strong> and view <strong>My reported issues</strong> from within the application.</p>
       </section>
 

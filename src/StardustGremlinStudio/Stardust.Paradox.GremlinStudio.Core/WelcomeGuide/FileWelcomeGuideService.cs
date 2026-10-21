@@ -93,9 +93,13 @@ public sealed class FileWelcomeGuideService : IWelcomeGuideService
 
     private string GetLatestFeatureVersion()
     {
-        return _steps.Count > 0
-            ? _steps.Max(s => s.FeatureVersion) ?? string.Empty
-            : string.Empty;
+        string latest = string.Empty;
+        foreach (var step in _steps)
+        {
+            if (string.IsNullOrEmpty(latest) || CompareVersions(step.FeatureVersion, latest) > 0)
+                latest = step.FeatureVersion;
+        }
+        return latest;
     }
 
     private static int CompareVersions(string a, string b)
@@ -354,6 +358,69 @@ public sealed class FileWelcomeGuideService : IWelcomeGuideService
                 "1.6.0",
                 "GuideTarget_StatsTab",
                 GuideNavigationAction.SwitchToStatsTab,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "connection-groups",
+                "Grouped Connections",
+                "Connections are grouped by the first term of their name (e.g. 'prod-orders' and 'prod-users' share the 'prod' group). Click a group header to collapse or expand it.",
+                "1.12.0",
+                "GuideTarget_NewConnectionButton",
+                GuideNavigationAction.EnsureSettingsPanelOpen,
+                BubbleArrowSide.Left),
+
+            new WelcomeGuideStep(
+                "run-selection",
+                "Run Selection or Statement",
+                "Press Ctrl+Shift+Enter to run only the selected text, or Alt+Enter to run the statement under the caret. Handy when a tab holds several queries.",
+                "1.12.0",
+                "GuideTarget_RunButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "command-palette",
+                "Command Palette & Navigation",
+                "Press Ctrl+Shift+P to search and run any command. Use Ctrl+1 to Ctrl+4 to switch result views, Ctrl+Tab to cycle tabs, and Ctrl+L to jump to connections.",
+                "1.12.0",
+                "GuideTarget_ShortcutsHint",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "pin-results",
+                "Pin Results",
+                "Press Ctrl+Shift+K to pin the current query and result into a new tab, so you can compare it with later runs.",
+                "1.12.0",
+                "GuideTarget_JsonTab",
+                GuideNavigationAction.SwitchToJsonTab,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "table-epoch-tooltips",
+                "Smarter Table View",
+                "Column headers show whether a value is a vertex property (blue dot) or an instance value (green diamond). Hover numeric cells to see epoch timestamps as readable dates. Any key name, including e-mail addresses, can be used as a column.",
+                "1.12.0",
+                "GuideTarget_TableTab",
+                GuideNavigationAction.SwitchToTableTab,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "ai-assistant",
+                "AI Gremlin Assistant",
+                "Open the account menu and enable the AI Gremlin assistant (preview) to generate Gremlin from natural language with GitHub Copilot. Sign in with the GitHub Copilot CLI ('copilot', then '/login'). Labels, property keys and the current query are sent to GitHub; graph data is not.",
+                "1.12.0",
+                "AccountButton",
+                GuideNavigationAction.None,
+                BubbleArrowSide.Top),
+
+            new WelcomeGuideStep(
+                "app-updates",
+                "Automatic Updates",
+                "Gremlin Studio checks for new versions in the background. Open the update pane to see what's new and install the latest release.",
+                "1.12.0",
+                "UpdatePaneButton",
+                GuideNavigationAction.None,
                 BubbleArrowSide.Top),
         ];
     }

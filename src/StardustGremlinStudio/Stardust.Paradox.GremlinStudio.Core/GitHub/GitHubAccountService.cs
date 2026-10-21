@@ -48,6 +48,9 @@ public interface IGitHubAccountService
     /// <summary>The currently signed-in user, or null.</summary>
     GitHubUser? CurrentUser { get; }
 
+    /// <summary>The OAuth access token of the signed-in user, or null when signed out.</summary>
+    string? AccessToken { get; }
+
     /// <summary>Raised when the signed-in user changes.</summary>
     event EventHandler<GitHubUser?>? UserChanged;
 
@@ -95,6 +98,8 @@ public sealed class GitHubAccountService : IGitHubAccountService
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_options.ClientId);
 
     public GitHubUser? CurrentUser { get; private set; }
+
+    public string? AccessToken => CurrentUser is null ? null : _token;
 
     public event EventHandler<GitHubUser?>? UserChanged;
 
