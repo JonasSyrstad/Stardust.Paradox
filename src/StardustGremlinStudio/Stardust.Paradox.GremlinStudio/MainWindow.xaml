@@ -688,7 +688,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                 <Button Style="{StaticResource CaptionButtonStyle}"
                         DataContext="{Binding Assistant}"
                         Command="{Binding TogglePanelCommand}"
-                        Visibility="{Binding IsEnabled, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Visibility="{Binding IsAvailable, Converter={StaticResource BoolToVisibilityConverter}}"
                         ToolTip="Toggle AI Gremlin assistant"
                         AutomationProperties.Name="Toggle AI Gremlin assistant">
                     <TextBlock Text="&#xE8BD;" FontFamily="Segoe MDL2 Assets" FontSize="13"
@@ -712,7 +712,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     </Grid>
                 </Button>
                 <Popup PlacementTarget="{Binding ElementName=AccountButton}" Placement="Bottom"
-                       StaysOpen="False" AllowsTransparency="True"
+                       StaysOpen="{Binding IsSigningIn, Converter={StaticResource InverseBoolConverter}}" AllowsTransparency="True"
                        DataContext="{Binding Account}"
                        IsOpen="{Binding IsAccountMenuOpen, Mode=TwoWay}">
                     <Border Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
@@ -762,7 +762,17 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                              Background="{DynamicResource TertiaryBackgroundBrush}"
                                              Foreground="{DynamicResource PrimaryForegroundBrush}"
                                              BorderBrush="{DynamicResource BorderBrush}"/>
-                                    <Button Content="Cancel" Command="{Binding CancelSignInCommand}" Padding="10,6"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Content="Copy code" Command="{Binding CopyDeviceCodeCommand}" Padding="10,6"
+                                                Background="{DynamicResource AccentBrush}" Foreground="White"
+                                                AutomationProperties.Name="Copy device code"/>
+                                        <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelSignInCommand}" Padding="10,6"/>
+                                    </Grid>
                                 </StackPanel>
                             </StackPanel>
 
@@ -775,15 +785,30 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <!-- AI Gremlin assistant (opt-in) -->
                             <StackPanel Margin="0,0,0,4">
                                 <CheckBox IsChecked="{Binding Assistant.IsEnabled, Mode=TwoWay}"
+                                          IsEnabled="{Binding IsSignedIn}"
+                                          ToolTipService.ShowOnDisabled="True"
+                                          ToolTip="Sign in with GitHub to enable the AI Gremlin assistant"
                                           Foreground="{DynamicResource PrimaryForegroundBrush}"
                                           AutomationProperties.Name="Enable AI Gremlin assistant">
                                     <TextBlock Text="Enable AI Gremlin assistant (preview)"/>
                                 </CheckBox>
+                                <Border Margin="22,6,0,0" Padding="8,6" CornerRadius="4"
+                                        Background="{DynamicResource TertiaryBackgroundBrush}"
+                                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                        Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#xE72E;" FontFamily="Segoe MDL2 Assets" FontSize="12" Margin="0,1,6,0"
+                                                   Foreground="{DynamicResource SecondaryForegroundBrush}" VerticalAlignment="Top"/>
+                                        <TextBlock TextWrapping="Wrap" FontSize="11" MaxWidth="220"
+                                                   Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                                   Text="Signed-in feature. Sign in with your GitHub account to enable the AI Gremlin assistant."/>
+                                    </StackPanel>
+                                </Border>
                                 <TextBlock TextWrapping="Wrap" FontSize="11" Margin="22,4,0,0"
                                            Foreground="{DynamicResource SecondaryForegroundBrush}"
                                            Text="Generates Gremlin from natural language using GitHub Copilot (requires a Copilot subscription). Labels, property keys and the current query are sent to GitHub; graph data is not."/>
                                 <StackPanel Margin="22,8,0,0"
-                                            Visibility="{Binding Assistant.IsEnabled, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            Visibility="{Binding Assistant.IsAvailable, Converter={StaticResource BoolToVisibilityConverter}}">
                                     <TextBlock TextWrapping="Wrap" FontSize="11"
                                                Foreground="{DynamicResource SecondaryForegroundBrush}"
                                                Text="Uses your GitHub Copilot CLI sign-in (run 'copilot' and '/login')."/>
