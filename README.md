@@ -2,12 +2,6 @@
 Entity framework'ish tool for developing .net applications using gremlin graph query language with CosmosDb.
 
 > **Looking for a Gremlin IDE?** [**Stardust Gremlin Studio**](src/StardustGremlinStudio) is a free, open source Gremlin IDE and query tool for Azure Cosmos DB (Gremlin API), Apache TinkerPop and JanusGraph, with graph visualization, IntelliSense and a local playground. [Website](https://jonassyrstad.github.io/Stardust.Paradox/) | [Download](https://github.com/JonasSyrstad/Stardust.Paradox/releases/latest) | [Docs](src/StardustGremlinStudio/README.md)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=alert_status)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=security_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=reliability_rating)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=JonasSyrstad_Stardust.Paradox&metric=ncloc)](https://sonarcloud.io/dashboard?id=JonasSyrstad_Stardust.Paradox)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FJonasSyrstad%2FStardust.Paradox?ref=badge_shield)
 
 ---
 
