@@ -70,7 +70,8 @@ public partial class AccountViewModel : ObservableObject
         {
             await _gitHub.TryRestoreSessionAsync();
         }
-        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or System.Text.Json.JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or InvalidOperationException or System.Text.Json.JsonException
+                                       or System.IO.IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
         {
             _logger.LogWarning(ex, "Failed to restore GitHub session");
         }

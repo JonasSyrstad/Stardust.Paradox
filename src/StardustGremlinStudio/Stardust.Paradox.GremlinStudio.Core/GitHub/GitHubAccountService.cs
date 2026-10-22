@@ -75,7 +75,10 @@ public interface IGitHubAccountService
 /// </summary>
 public sealed class GitHubAccountService : IGitHubAccountService
 {
-    private const string TokenSecretKey = "github-oauth-token";
+    // Session (JSON with refresh token) is stored under its own key so older builds, which read
+    // LegacyTokenSecretKey as a raw token, never see or delete it.
+    private const string SessionSecretKey = "github-oauth-session";
+    private const string LegacyTokenSecretKey = "github-oauth-token";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
     // Refresh slightly before expiry to avoid using a token that expires mid-request.
     private static readonly TimeSpan ExpirySkew = TimeSpan.FromMinutes(5);
@@ -109,7 +112,8 @@ public sealed class GitHubAccountService : IGitHubAccountService
 
     public async Task<GitHubUser?> TryRestoreSessionAsync(CancellationToken cancellationToken = default)
     {
-        var stored = await _secretStore.GetSecretAsync(TokenSecretKey, cancellationToken).ConfigureAwait(false);
+        var stored = await _secretStore.GetSecretAsync(SessionSecretKey, cancellationToken).ConfigureAwait(false)
+                     ?? await _secretStore.GetSecretAsync(LegacyTokenSecretKey, cancellationToken).ConfigureAwait(false);
         var session = StoredSession.Parse(stored);
         if (session is null)
             return null;
@@ -222,7 +226,8 @@ public sealed class GitHubAccountService : IGitHubAccountService
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
         _session = null;
-        await _secretStore.DeleteSecretAsync(TokenSecretKey, cancellationToken).ConfigureAwait(false);
+        await _secretStore.DeleteSecretAsync(SessionSecretKey, cancellationToken).ConfigureAwait(false);
+        await _secretStore.DeleteSecretAsync(LegacyTokenSecretKey, cancellationToken).ConfigureAwait(false);
         SetUser(null);
     }
 
@@ -348,7 +353,8 @@ public sealed class GitHubAccountService : IGitHubAccountService
     private async Task SaveSessionAsync(StoredSession session, CancellationToken cancellationToken)
     {
         _session = session;
-        await _secretStore.StoreSecretAsync(TokenSecretKey, JsonSerializer.Serialize(session, JsonOptions), cancellationToken).ConfigureAwait(false);
+        await _secretStore.StoreSecretAsync(SessionSecretKey, JsonSerializer.Serialize(session, JsonOptions), cancellationToken).ConfigureAwait(false);
+        await _secretStore.DeleteSecretAsync(LegacyTokenSecretKey, cancellationToken).ConfigureAwait(false);
     }
 
     private HttpRequestMessage CreateApiRequest(HttpMethod method, string path)

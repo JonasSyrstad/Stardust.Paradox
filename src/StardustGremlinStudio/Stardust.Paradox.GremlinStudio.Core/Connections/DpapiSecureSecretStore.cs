@@ -49,7 +49,10 @@ public sealed class DpapiSecureSecretStore : ISecureSecretStore
 
             lock (_fileLock)
             {
-                File.WriteAllBytes(filePath, encryptedBytes);
+                // Write to a temp file and swap so a crash or update mid-write never leaves a truncated secret.
+                var tempPath = filePath + ".tmp";
+                File.WriteAllBytes(tempPath, encryptedBytes);
+                File.Move(tempPath, filePath, overwrite: true);
             }
 
             _logger.LogDebug("Stored secret for key {Key}", SanitizeKeyForLogging(key));
