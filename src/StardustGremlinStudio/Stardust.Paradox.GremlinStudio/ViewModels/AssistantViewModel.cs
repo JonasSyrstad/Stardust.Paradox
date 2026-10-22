@@ -81,11 +81,22 @@ public partial class AssistantViewModel : ObservableObject
     /// <summary>Whether the user has opted in. Persisted.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPanelVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAvailable))]
     private bool _isEnabled;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPanelVisible))]
     private bool _isPanelOpen;
+
+    /// <summary>Whether a GitHub user is signed in. The assistant is only available to signed-in users.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsPanelVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAvailable))]
+    [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    private bool _isSignedIn;
+
+    /// <summary>Whether the assistant is enabled and usable (signed in).</summary>
+    public bool IsAvailable => IsEnabled && IsSignedIn;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
@@ -137,7 +148,7 @@ public partial class AssistantViewModel : ObservableObject
         HasPersonalAccessToken = false;
     }
 
-    public bool IsPanelVisible => IsEnabled && IsPanelOpen;
+    public bool IsPanelVisible => IsAvailable && IsPanelOpen;
 
     public string Model => _settings.Model;
 
@@ -162,7 +173,7 @@ public partial class AssistantViewModel : ObservableObject
     [RelayCommand]
     private void TogglePanel()
     {
-        if (IsEnabled)
+        if (IsAvailable)
             IsPanelOpen = !IsPanelOpen;
     }
 
@@ -177,7 +188,13 @@ public partial class AssistantViewModel : ObservableObject
         ErrorMessage = null;
     }
 
-    private bool CanSend() => !IsBusy && !string.IsNullOrWhiteSpace(Prompt);
+    private bool CanSend() => IsSignedIn && !IsBusy && !string.IsNullOrWhiteSpace(Prompt);
+
+    partial void OnIsSignedInChanged(bool value)
+    {
+        if (!value)
+            _requestCts?.Cancel();
+    }
 
     [RelayCommand(CanExecute = nameof(CanSend))]
     private async Task SendAsync()

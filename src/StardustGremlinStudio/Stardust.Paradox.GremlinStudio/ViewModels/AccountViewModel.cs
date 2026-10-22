@@ -91,14 +91,15 @@ public partial class AccountViewModel : ObservableObject
         _signInCts?.Cancel();
         _signInCts = new CancellationTokenSource();
         IsSigningIn = true;
+        IsAccountMenuOpen = true;
         StatusMessage = null;
         try
         {
             var code = await _gitHub.StartSignInAsync(_signInCts.Token);
             DeviceUserCode = code.UserCode;
-            Clipboard.SetText(code.UserCode);
+            CopyDeviceCode();
             OpenUrl(code.VerificationUri);
-            StatusMessage = "Code copied. Paste it in the browser to authorize Gremlin Studio.";
+            StatusMessage = "Code copied. Paste it in the browser to authorize Gremlin Studio. This menu stays open until sign-in completes.";
             await _gitHub.CompleteSignInAsync(code, _signInCts.Token);
             StatusMessage = null;
         }
@@ -120,6 +121,23 @@ public partial class AccountViewModel : ObservableObject
 
     [RelayCommand]
     private void CancelSignIn() => _signInCts?.Cancel();
+
+    [RelayCommand]
+    private void CopyDeviceCode()
+    {
+        if (string.IsNullOrEmpty(DeviceUserCode))
+            return;
+        try
+        {
+            Clipboard.SetText(DeviceUserCode);
+            StatusMessage = "Code copied to clipboard.";
+        }
+        catch (System.Runtime.InteropServices.COMException ex)
+        {
+            // Clipboard can be locked by another process; the code is still visible for manual entry.
+            _logger.LogWarning(ex, "Failed to copy device code");
+        }
+    }
 
     [RelayCommand]
     private async Task SignOutAsync()
@@ -218,6 +236,7 @@ public partial class AccountViewModel : ObservableObject
     private void ApplyUser(GitHubUser? user)
     {
         IsSignedIn = user is not null;
+        Assistant.IsSignedIn = IsSignedIn;
         Login = user?.Login;
         DisplayName = user is null ? "Not signed in" : (string.IsNullOrWhiteSpace(user.Name) ? user.Login : user.Name);
         Avatar = user is null ? null : LoadAvatar(user.AvatarUrl);

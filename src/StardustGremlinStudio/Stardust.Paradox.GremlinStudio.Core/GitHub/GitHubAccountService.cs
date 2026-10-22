@@ -77,12 +77,16 @@ public sealed class GitHubAccountService : IGitHubAccountService
 {
     private const string TokenSecretKey = "github-oauth-token";
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
+    // Refresh slightly before expiry to avoid using a token that expires mid-request.
+    private static readonly TimeSpan ExpirySkew = TimeSpan.FromMinutes(5);
 
     private readonly HttpClient _httpClient;
     private readonly ISecureSecretStore _secretStore;
     private readonly GitHubOptions _options;
     private readonly ILogger<GitHubAccountService> _logger;
-    private string? _token;
+    private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private StoredSession? _session;
+    private string? _token => _session?.AccessToken;
 
     public GitHubAccountService(HttpClient httpClient, ISecureSecretStore secretStore, GitHubOptions options, ILogger<GitHubAccountService> logger)
     {
@@ -105,28 +109,38 @@ public sealed class GitHubAccountService : IGitHubAccountService
 
     public async Task<GitHubUser?> TryRestoreSessionAsync(CancellationToken cancellationToken = default)
     {
-        var token = await _secretStore.GetSecretAsync(TokenSecretKey, cancellationToken).ConfigureAwait(false);
-        if (string.IsNullOrEmpty(token))
+        var stored = await _secretStore.GetSecretAsync(TokenSecretKey, cancellationToken).ConfigureAwait(false);
+        var session = StoredSession.Parse(stored);
+        if (session is null)
             return null;
+
+        _session = session;
+
+        // Show the cached profile immediately so the user stays signed in even when GitHub is unreachable at startup.
+        if (session.User is not null)
+            SetUser(session.User);
 
         try
         {
-            _token = token;
-            SetUser(await GetUserAsync(cancellationToken).ConfigureAwait(false));
+            if (!await EnsureValidTokenAsync(cancellationToken).ConfigureAwait(false))
+                return null;
+
+            var user = await GetUserAsync(cancellationToken).ConfigureAwait(false);
+            await SaveSessionAsync(_session! with { User = user }, cancellationToken).ConfigureAwait(false);
+            SetUser(user);
             return CurrentUser;
         }
         catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
         {
-            _logger.LogInformation("Stored GitHub token is no longer valid; signing out");
+            _logger.LogInformation("Stored GitHub credentials are no longer valid; signing out");
             await SignOutAsync(cancellationToken).ConfigureAwait(false);
             return null;
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {
-            // Offline: keep the token so the session can be restored later.
-            _logger.LogWarning(ex, "Could not restore GitHub session");
-            _token = null;
-            return null;
+            // Transient (offline, timeout, GitHub outage): keep the session and cached profile; validate again on next use.
+            _logger.LogWarning(ex, "Could not validate GitHub session; keeping cached session");
+            return CurrentUser;
         }
     }
 
@@ -181,9 +195,9 @@ public sealed class GitHubAccountService : IGitHubAccountService
 
             if (!string.IsNullOrEmpty(dto?.AccessToken))
             {
-                _token = dto.AccessToken;
-                await _secretStore.StoreSecretAsync(TokenSecretKey, _token, cancellationToken).ConfigureAwait(false);
+                _session = StoredSession.FromTokenResponse(dto, previous: null);
                 var user = await GetUserAsync(cancellationToken).ConfigureAwait(false);
+                await SaveSessionAsync(_session with { User = user }, cancellationToken).ConfigureAwait(false);
                 SetUser(user);
                 return user;
             }
@@ -207,7 +221,7 @@ public sealed class GitHubAccountService : IGitHubAccountService
 
     public async Task SignOutAsync(CancellationToken cancellationToken = default)
     {
-        _token = null;
+        _session = null;
         await _secretStore.DeleteSecretAsync(TokenSecretKey, cancellationToken).ConfigureAwait(false);
         SetUser(null);
     }
@@ -216,13 +230,15 @@ public sealed class GitHubAccountService : IGitHubAccountService
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
-        if (_token is null)
+        if (_session is null || !await EnsureValidTokenAsync(cancellationToken).ConfigureAwait(false))
             throw new InvalidOperationException("Sign in with GitHub to report issues.");
 
-        using var request = CreateApiRequest(HttpMethod.Post, $"repos/{_options.RepositoryOwner}/{_options.RepositoryName}/issues");
-        request.Content = JsonContent.Create(new { title, body, labels = labels?.ToArray() ?? [] });
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await SendApiWithRefreshAsync(() =>
+        {
+            var request = CreateApiRequest(HttpMethod.Post, $"repos/{_options.RepositoryOwner}/{_options.RepositoryName}/issues");
+            request.Content = JsonContent.Create(new { title, body, labels = labels?.ToArray() ?? [] });
+            return request;
+        }, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == System.Net.HttpStatusCode.UnprocessableEntity && labels?.Any() == true)
         {
             // Labels the user cannot apply are rejected; retry without them.
@@ -238,12 +254,101 @@ public sealed class GitHubAccountService : IGitHubAccountService
 
     private async Task<GitHubUser> GetUserAsync(CancellationToken cancellationToken)
     {
-        using var request = CreateApiRequest(HttpMethod.Get, "user");
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await SendApiWithRefreshAsync(() => CreateApiRequest(HttpMethod.Get, "user"), cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var dto = await response.Content.ReadFromJsonAsync<UserResponse>(JsonOptions, cancellationToken).ConfigureAwait(false)
                   ?? throw new InvalidOperationException("Empty user response from GitHub.");
         return new GitHubUser(dto.Login, dto.Name, dto.AvatarUrl, dto.HtmlUrl);
+    }
+
+    /// <summary>
+    /// Sends an API request; on 401 refreshes the access token (when a refresh token exists) and retries once.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendApiWithRefreshAsync(Func<HttpRequestMessage> createRequest, CancellationToken cancellationToken)
+    {
+        using (var request = createRequest())
+        {
+            var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized || _session?.RefreshToken is null)
+                return response;
+            response.Dispose();
+        }
+
+        if (!await RefreshAsync(force: true, cancellationToken).ConfigureAwait(false))
+            throw new HttpRequestException("GitHub session expired.", null, System.Net.HttpStatusCode.Unauthorized);
+
+        using var retry = createRequest();
+        return await _httpClient.SendAsync(retry, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Ensures the access token is usable, refreshing it when it is (about to be) expired. Returns false if the session ended.
+    /// </summary>
+    private async Task<bool> EnsureValidTokenAsync(CancellationToken cancellationToken)
+    {
+        if (_session is null)
+            return false;
+        if (!_session.IsAccessTokenExpiring(ExpirySkew))
+            return true;
+        return await RefreshAsync(force: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> RefreshAsync(bool force, CancellationToken cancellationToken)
+    {
+        await _refreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var session = _session;
+            if (session is null)
+                return false;
+            // Another caller may already have refreshed while we waited.
+            if (!force && !session.IsAccessTokenExpiring(ExpirySkew))
+                return true;
+
+            if (string.IsNullOrEmpty(session.RefreshToken) || session.IsRefreshTokenExpired)
+            {
+                _logger.LogInformation("GitHub session cannot be refreshed; signing out");
+                await SignOutAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "https://github.com/login/oauth/access_token")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = _options.ClientId,
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = session.RefreshToken
+                })
+            };
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            var dto = await response.Content.ReadFromJsonAsync<AccessTokenResponse>(JsonOptions, cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrEmpty(dto?.AccessToken))
+            {
+                // bad_refresh_token / expired: the grant is gone, a new sign-in is required.
+                _logger.LogInformation("GitHub token refresh rejected ({Error}); signing out", dto?.Error);
+                await SignOutAsync(cancellationToken).ConfigureAwait(false);
+                return false;
+            }
+
+            await SaveSessionAsync(StoredSession.FromTokenResponse(dto, session), cancellationToken).ConfigureAwait(false);
+            _logger.LogDebug("GitHub access token refreshed");
+            return true;
+        }
+        finally
+        {
+            _refreshLock.Release();
+        }
+    }
+
+    private async Task SaveSessionAsync(StoredSession session, CancellationToken cancellationToken)
+    {
+        _session = session;
+        await _secretStore.StoreSecretAsync(TokenSecretKey, JsonSerializer.Serialize(session, JsonOptions), cancellationToken).ConfigureAwait(false);
     }
 
     private HttpRequestMessage CreateApiRequest(HttpMethod method, string path)
@@ -262,7 +367,64 @@ public sealed class GitHubAccountService : IGitHubAccountService
     }
 
     private sealed record DeviceCodeResponse(string DeviceCode, string UserCode, string VerificationUri, int ExpiresIn, int Interval);
-    private sealed record AccessTokenResponse(string? AccessToken, string? Error, string? ErrorDescription);
+    private sealed record AccessTokenResponse(
+        string? AccessToken,
+        string? Error,
+        string? ErrorDescription,
+        string? RefreshToken = null,
+        int? ExpiresIn = null,
+        int? RefreshTokenExpiresIn = null);
+
+    /// <summary>
+    /// Persisted (DPAPI-encrypted) session. Expiry fields are null for non-expiring OAuth App tokens.
+    /// </summary>
+    private sealed record StoredSession(
+        string AccessToken,
+        string? RefreshToken,
+        DateTimeOffset? AccessTokenExpiresAt,
+        DateTimeOffset? RefreshTokenExpiresAt,
+        GitHubUser? User)
+    {
+        public bool IsAccessTokenExpiring(TimeSpan skew) =>
+            AccessTokenExpiresAt is { } expires && DateTimeOffset.UtcNow + skew >= expires;
+
+        public bool IsRefreshTokenExpired =>
+            RefreshTokenExpiresAt is { } expires && DateTimeOffset.UtcNow >= expires;
+
+        public static StoredSession FromTokenResponse(AccessTokenResponse dto, StoredSession? previous)
+        {
+            var now = DateTimeOffset.UtcNow;
+            return new StoredSession(
+                dto.AccessToken!,
+                // GitHub rotates refresh tokens; fall back to the previous one only if none was returned.
+                dto.RefreshToken ?? previous?.RefreshToken,
+                dto.ExpiresIn is > 0 ? now.AddSeconds(dto.ExpiresIn.Value) : null,
+                dto.RefreshTokenExpiresIn is > 0 ? now.AddSeconds(dto.RefreshTokenExpiresIn.Value) : previous?.RefreshTokenExpiresAt,
+                previous?.User);
+        }
+
+        public static StoredSession? Parse(string? stored)
+        {
+            if (string.IsNullOrWhiteSpace(stored))
+                return null;
+
+            if (stored.TrimStart().StartsWith('{'))
+            {
+                try
+                {
+                    var session = JsonSerializer.Deserialize<StoredSession>(stored, JsonOptions);
+                    return string.IsNullOrEmpty(session?.AccessToken) ? null : session;
+                }
+                catch (JsonException)
+                {
+                    return null;
+                }
+            }
+
+            // Sessions saved by earlier versions contain only the raw access token.
+            return new StoredSession(stored.Trim(), null, null, null, null);
+        }
+    }
     private sealed record UserResponse(string Login, string? Name, string AvatarUrl, string HtmlUrl);
     private sealed record IssueResponse(int Number, string HtmlUrl, string Title);
 }
