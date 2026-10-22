@@ -68,6 +68,7 @@ public static class ServiceCollectionExtensions
         // AI Gremlin assistant (opt-in, GitHub Copilot SDK)
         services.AddSingleton<Assistant.IGremlinAssistantSettingsStore, Assistant.FileGremlinAssistantSettingsStore>();
         services.AddSingleton<Assistant.IGremlinAssistantService, Assistant.CopilotGremlinAssistantService>();
+        services.AddSingleton<Assistant.IGremlinAssistantConversationStore, Assistant.FileGremlinAssistantConversationStore>();
 
         // Snippets and variables
         services.AddSingleton<IQuerySnippetStore, FileQuerySnippetStore>();

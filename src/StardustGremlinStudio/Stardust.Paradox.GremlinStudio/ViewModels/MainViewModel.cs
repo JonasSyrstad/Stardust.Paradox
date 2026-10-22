@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -92,7 +92,7 @@ public partial class MainViewModel : ObservableObject
     {
         Account = account;
         _ = Account.InitializeAsync();
-        Assistant.Attach(GetAssistantContext, InsertAssistantQuery);
+        Assistant.Attach(GetAssistantContext, InsertAssistantQuery, ExecuteAssistantQueryAsync);
         _connectionStore = connectionStore;
         _connectorFactory = connectorFactory;
         _connectionTester = connectionTester;
@@ -298,6 +298,14 @@ public partial class MainViewModel : ObservableObject
             tab?.VertexLabelCounts.Select(l => l.Label).ToList() ?? [],
             tab?.EdgeLabelCounts.Select(l => l.Label).ToList() ?? [],
             tab?.SchemaSample ?? Stardust.Paradox.GremlinStudio.Core.Completion.GremlinSchemaSample.Empty);
+    }
+
+    private async Task<Stardust.Paradox.GremlinStudio.Core.Execution.QueryExecutionResult> ExecuteAssistantQueryAsync(string query, CancellationToken cancellationToken)
+    {
+        var connector = await System.Windows.Application.Current.Dispatcher.InvokeAsync(() => SelectedTab?.GetActiveConnector());
+        if (connector is null)
+            return Stardust.Paradox.GremlinStudio.Core.Execution.QueryExecutionResult.Failure("No active connection. Connect to a database first.", null, TimeSpan.Zero, query);
+        return await _queryExecutor.ExecuteAsync(connector, query, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     private void InsertAssistantQuery(string query)
@@ -1411,7 +1419,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         var tab = CreateNewTab(source.ConnectionSettings);
-        tab.TabName = $"📌 {source.TabName} {DateTime.Now:HH:mm:ss}";
+        tab.TabName = $"?? {source.TabName} {DateTime.Now:HH:mm:ss}";
         tab.QueryText = source.QueryText;
         tab.LoadPinnedResult(source.ResultJson);
         tab.LastResultCountText = source.LastResultCountText;
@@ -1553,7 +1561,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            ConnectionStatusText = "Testing�";
+            ConnectionStatusText = "Testing?";
             IsConnectionHealthy = null;
             var settings = await _connectionStore.GetConnectionWithSecretAsync(connection.Id).ConfigureAwait(true);
             if (settings == null)
@@ -2002,7 +2010,7 @@ public partial class MainViewModel : ObservableObject
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Warning);
 
-            StatusText = "Download cancelled � not a git repository";
+            StatusText = "Download cancelled ? not a git repository";
             return;
         }
 
@@ -2763,7 +2771,7 @@ public partial class MainViewModel : ObservableObject
 
             // Show a preview without modifying the editor text
             var preview = substituted.Length > 120
-                ? substituted[..120] + "�"
+                ? substituted[..120] + "?"
                 : substituted;
             StatusText = $"Preview: {preview}";
         }
@@ -2831,7 +2839,7 @@ public partial class MainViewModel : ObservableObject
 
         if (!ParameterizedQueryResolver.IsParameterizedQuery(SelectedTab.QueryText))
         {
-            StatusText = "No parameterized query detected � expected __pN tokens followed by a JSON block";
+            StatusText = "No parameterized query detected ? expected __pN tokens followed by a JSON block";
             return;
         }
 
@@ -2970,7 +2978,7 @@ public partial class MainViewModel : ObservableObject
         {
             tab.IsLoadingStatistics = true;
 
-            // Phase 1: counts � these are fast single-value queries
+            // Phase 1: counts ? these are fast single-value queries
             tab.StatisticsStatusText = "Loading vertex count...";
             var vCountResult = await _queryExecutor.ExecuteAsync(connector, "g.V().count()", cancellationToken: cts.Token).ConfigureAwait(true);
             tab.TotalVertexCount = vCountResult.IsSuccess ? ParseCount(vCountResult.ResultJson) : 0;
@@ -2985,7 +2993,7 @@ public partial class MainViewModel : ObservableObject
 
             // Show counts immediately so the user sees progress
             tab.HasStatistics = true;
-            tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges � loading labels...";
+            tab.StatisticsStatusText = $"{tab.TotalVertexCount:N0} vertices, {tab.TotalEdgeCount:N0} edges ? loading labels...";
 
             // Phase 2: label distributions.
             // For Cosmos DB, use a hybrid approach:
@@ -2997,7 +3005,7 @@ public partial class MainViewModel : ObservableObject
                 tab.StatisticsStatusText = "Loading labels (SQL API)...";
                 try
                 {
-                    // Run vertex and edge label loading concurrently � pure SQL API, no Gremlin
+                    // Run vertex and edge label loading concurrently ? pure SQL API, no Gremlin
                     var vertexTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: false, cts.Token);
                     var edgeTask = LoadLabelCountsViaSqlApiAsync(tab.ConnectionSettings, isEdge: true, cts.Token);
 
@@ -3079,7 +3087,7 @@ public partial class MainViewModel : ObservableObject
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Database statistics query timed out");
-            tab.StatisticsStatusText = "Timed out � try again or check connection";
+            tab.StatisticsStatusText = "Timed out ? try again or check connection";
             StatusText = "Statistics query timed out";
         }
         catch (Exception ex)
@@ -3130,7 +3138,7 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Loads label counts entirely via SQL API � no Gremlin required.
+    /// Loads label counts entirely via SQL API ? no Gremlin required.
     /// Uses per-partition GROUP BY queries, then merges results client-side.
     /// </summary>
     private async Task<List<LabelCountItem>> LoadLabelCountsViaSqlApiAsync(

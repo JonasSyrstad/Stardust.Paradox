@@ -918,7 +918,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         <StackPanel>
                             <TextBlock Text="Send to GitHub" FontWeight="SemiBold" FontSize="14"
                                        Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,12"/>
-                            <ComboBox ItemsSource="{Binding FeedbackKinds}" SelectedItem="{Binding FeedbackKind}" Margin="0,0,0,8"/>
+                            <ComboBox Style="{StaticResource ThemedDropDownStyle}" ItemsSource="{Binding FeedbackKinds}" SelectedItem="{Binding FeedbackKind}" Margin="0,0,0,8"/>
                             <TextBlock Text="Title" FontSize="12" Foreground="{DynamicResource SecondaryForegroundBrush}"/>
                             <TextBox Text="{Binding FeedbackTitle, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="4"
                                      Background="{DynamicResource TertiaryBackgroundBrush}" Foreground="{DynamicResource PrimaryForegroundBrush}"
@@ -1793,7 +1793,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     <Button Command="{Binding CopySchemaToClipboardCommand}" 
                                             ToolTip="Copy generated code to clipboard" Padding="6,4"
                                             Visibility="{Binding HasDiscoveredSchema, Converter={StaticResource BoolToVisibilityConverter}}">
-                                        <TextBlock Text="📋" FontSize="12"/>
+
                                     </Button>
                                     <Button Command="{Binding SaveSchemaToFileCommand}" 
                                             ToolTip="Save generated code to file" Padding="6,4"
@@ -2847,19 +2847,35 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     Background="{DynamicResource SecondaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1" CornerRadius="6">
                 <DockPanel>
-                    <Border DockPanel.Dock="Top" Background="{DynamicResource TertiaryBackgroundBrush}" Padding="10,6" CornerRadius="6,6,0,0">
-                        <DockPanel>
-                            <Button DockPanel.Dock="Right" Content="&#xE711;" Style="{StaticResource IconButtonStyle}"
-                                    Width="28" Height="28" Command="{Binding ClosePanelCommand}" ToolTip="Close assistant"/>
-                            <Button DockPanel.Dock="Right" Content="&#xE74D;" Style="{StaticResource IconButtonStyle}"
-                                    Width="28" Height="28" Command="{Binding ClearCommand}" ToolTip="Clear conversation"/>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Gremlin assistant" FontWeight="SemiBold" Foreground="{DynamicResource PrimaryForegroundBrush}"/>
-                                <TextBlock FontSize="11" Foreground="{DynamicResource SecondaryForegroundBrush}">
-                                    <Run Text="GitHub Copilot · "/>
-                                </TextBlock>
-                            </StackPanel>
-                        </DockPanel>
+                    <!-- Header: title, thread picker and thread actions (Visual Studio Copilot Chat layout) -->
+                    <Border DockPanel.Dock="Top" Background="{DynamicResource TertiaryBackgroundBrush}" Padding="8,6" CornerRadius="6,6,0,0"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <DockPanel>
+                                <Button DockPanel.Dock="Right" Content="&#xE711;" Style="{StaticResource IconButtonStyle}"
+                                        Width="26" Height="26" Command="{Binding ClosePanelCommand}" ToolTip="Close assistant"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE99A;" FontFamily="Segoe MDL2 Assets" FontSize="14" VerticalAlignment="Center" Margin="2,0,8,0"
+                                               Foreground="{DynamicResource AccentBrush}"/>
+                                    <TextBlock Text="GitHub Copilot Chat" FontWeight="SemiBold" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource PrimaryForegroundBrush}"/>
+                                </StackPanel>
+                            </DockPanel>
+                            <DockPanel Grid.Row="1" Margin="0,6,0,0">
+                                <Button DockPanel.Dock="Right" Content="&#xE74D;" Style="{StaticResource IconButtonStyle}"
+                                        Width="26" Height="26" Command="{Binding DeleteConversationCommand}" ToolTip="Delete thread"/>
+                                <Button DockPanel.Dock="Right" Content="&#xE710;" Style="{StaticResource IconButtonStyle}" Margin="4,0,0,0"
+                                        Width="26" Height="26" Command="{Binding NewConversationCommand}" ToolTip="New thread"/>
+                                <ComboBox Style="{StaticResource ThemedDropDownStyle}"
+                                          ItemsSource="{Binding Conversations}" SelectedItem="{Binding SelectedConversation}"
+                                          DisplayMemberPath="Title" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBoolConverter}}"
+                                          ToolTip="Threads" AutomationProperties.Name="Thread"/>
+                            </DockPanel>
+                        </Grid>
                     </Border>
 
                     <!-- Input -->
@@ -2872,27 +2888,56 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6"
                                    Foreground="{DynamicResource AccentBrush}"
                                    Visibility="{Binding ErrorMessage, Converter={StaticResource NullToCollapsedConverter}}"/>
-                        <TextBox Grid.Row="1" Text="{Binding Prompt, UpdateSourceTrigger=PropertyChanged}"
-                                 AcceptsReturn="False" TextWrapping="Wrap" MinHeight="56" MaxHeight="160"
-                                 VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
-                                 Background="{DynamicResource TertiaryBackgroundBrush}"
-                                 Foreground="{DynamicResource PrimaryForegroundBrush}"
-                                 BorderBrush="{DynamicResource BorderBrush}"
-                                 ToolTip="Describe the query you need, e.g. 'people who know someone working at Contoso'. Press Enter to send."
-                                 AutomationProperties.Name="Assistant prompt">
-                            <TextBox.InputBindings>
-                                <KeyBinding Key="Enter" Command="{Binding SendCommand}"/>
-                            </TextBox.InputBindings>
-                        </TextBox>
-                        <DockPanel Grid.Row="2" Margin="0,6,0,0" LastChildFill="False">
-                            <Button DockPanel.Dock="Right" Content="Ask" Padding="14,4" Command="{Binding SendCommand}"
-                                    Background="{DynamicResource AccentBrush}" Foreground="White"/>
-                            <Button DockPanel.Dock="Right" Content="Cancel" Padding="10,4" Margin="0,0,6,0" Command="{Binding CancelCommand}"
-                                    Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <TextBlock DockPanel.Dock="Left" Text="Thinking…" VerticalAlignment="Center" FontSize="11"
-                                       Foreground="{DynamicResource SecondaryForegroundBrush}"
-                                       Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                        </DockPanel>
+                        <TextBlock Grid.Row="1" Text="{Binding Activity, TargetNullValue=Thinking…}" FontSize="11" Margin="2,0,0,6"
+                                   Foreground="{DynamicResource SecondaryForegroundBrush}"
+                                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <Border Grid.Row="2" Background="{DynamicResource InputBackgroundBrush}" CornerRadius="6" Padding="4"
+                                BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}"/>
+                                    <Style.Triggers>
+                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <DockPanel>
+                                <!-- Toolbar: model picker (left), send/stop (right) -->
+                                <DockPanel DockPanel.Dock="Bottom" Margin="0,2,0,0">
+                                    <Grid DockPanel.Dock="Right">
+                                        <Button Content="&#xE724;" Style="{StaticResource IconButtonStyle}" Width="28" Height="26"
+                                                Command="{Binding SendCommand}" ToolTip="Send (Enter)"
+                                                Foreground="{DynamicResource AccentBrush}"
+                                                Visibility="{Binding IsBusy, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                        <Button Content="&#xE71A;" Style="{StaticResource IconButtonStyle}" Width="28" Height="26"
+                                                Command="{Binding CancelCommand}" ToolTip="Stop"
+                                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal">
+                                        <ComboBox Style="{StaticResource ThemedChipDropDownStyle}" MaxWidth="220"
+                                                  ItemsSource="{Binding Models}" SelectedValuePath="Id"
+                                                  SelectedValue="{Binding SelectedModel}" DisplayMemberPath="Name"
+                                                  ToolTip="Pick model" AutomationProperties.Name="Model"/>
+                                        <Button Content="&#xE72C;" Style="{StaticResource IconButtonStyle}" Width="22" Height="22" FontSize="10"
+                                                Command="{Binding LoadModelsCommand}" ToolTip="Refresh models"/>
+                                    </StackPanel>
+                                </DockPanel>
+                                <TextBox Text="{Binding Prompt, UpdateSourceTrigger=PropertyChanged}"
+                                         AcceptsReturn="False" TextWrapping="Wrap" MinHeight="40" MaxHeight="160"
+                                         VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
+                                         Background="Transparent" BorderThickness="0" Padding="4"
+                                         Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                         CaretBrush="{DynamicResource PrimaryForegroundBrush}"
+                                         ToolTip="Ask Copilot about your graph, e.g. 'people who know someone working at Contoso'. Press Enter to send."
+                                         AutomationProperties.Name="Assistant prompt">
+                                    <TextBox.InputBindings>
+                                        <KeyBinding Key="Enter" Command="{Binding SendCommand}"/>
+                                    </TextBox.InputBindings>
+                                </TextBox>
+                            </DockPanel>
+                        </Border>
                     </Grid>
 
                     <!-- Conversation -->
