@@ -782,6 +782,12 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                             <Separator Margin="0,12"/>
 
+                            <CheckBox IsChecked="{Binding IsFileLoggingEnabled, Mode=TwoWay}" Margin="0,0,0,8"
+                                      Foreground="{DynamicResource PrimaryForegroundBrush}"
+                                      ToolTip="Write diagnostic log files to the local app data folder (kept for 7 days)"
+                                      AutomationProperties.Name="Enable diagnostic logging"
+                                      Content="Enable diagnostic logging"/>
+
                             <!-- AI Gremlin assistant (opt-in) -->
                             <StackPanel Margin="0,0,0,4">
                                 <CheckBox IsChecked="{Binding Assistant.IsEnabled, Mode=TwoWay}"
@@ -933,6 +939,12 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             <TextBlock Text="{Binding DiagnosticsPreview, Mode=OneWay}" FontFamily="Consolas" FontSize="11" Margin="20,4,0,8"
                                        Foreground="{DynamicResource MutedForegroundBrush}"
                                        Visibility="{Binding IncludeDiagnostics, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <CheckBox IsChecked="{Binding IncludeLogFile}" Foreground="{DynamicResource PrimaryForegroundBrush}" Margin="0,0,0,8"
+                                      Visibility="{Binding LatestLogFile, Converter={StaticResource NullToCollapsedConverter}}"
+                                      ToolTip="{Binding LatestLogFile}"
+                                      AutomationProperties.Name="Include the latest log file">
+                                <TextBlock TextWrapping="Wrap" Text="Include the latest log file (may contain connection names or query text)"/>
+                            </CheckBox>
                             <TextBlock FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8" Foreground="{DynamicResource SecondaryForegroundBrush}"
                                        Text="You must be signed in with GitHub to send feedback. Use the account menu to sign in."
                                        Visibility="{Binding IsSignedIn, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>

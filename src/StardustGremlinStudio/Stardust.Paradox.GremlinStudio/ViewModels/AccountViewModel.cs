@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Stardust.Paradox.GremlinStudio.Core.GitHub;
+using Stardust.Paradox.GremlinStudio.Core.Logging;
 using Stardust.Paradox.GremlinStudio.Dialogs;
 
 namespace Stardust.Paradox.GremlinStudio.ViewModels;
@@ -44,7 +45,15 @@ public partial class AccountViewModel : ObservableObject
     [ObservableProperty] private string _feedbackTitle = string.Empty;
     [ObservableProperty] private string _feedbackDescription = string.Empty;
     [ObservableProperty] private bool _includeDiagnostics = true;
+    [ObservableProperty] private bool _includeLogFile;
+    [ObservableProperty] private string? _latestLogFile;
     [ObservableProperty] private bool _isSubmitting;
+    [ObservableProperty] private bool _isFileLoggingEnabled = FileLoggerProvider.IsFileLoggingEnabled;
+
+    // GitHub issue bodies are limited to 65536 characters; leave room for the description.
+    private const int MaxLogCharacters = 50_000;
+
+    partial void OnIsFileLoggingEnabledChanged(bool value) => FileLoggerProvider.IsFileLoggingEnabled = value;
 
     public IReadOnlyList<string> FeedbackKinds { get; } = ["Bug", "Feature request", "Feedback"];
 
@@ -153,6 +162,8 @@ public partial class AccountViewModel : ObservableObject
         FeedbackKind = string.IsNullOrEmpty(kind) ? "Bug" : kind;
         FeedbackTitle = string.Empty;
         FeedbackDescription = string.Empty;
+        LatestLogFile = FileLoggerProvider.GetLatestLogFile();
+        IncludeLogFile = false;
         StatusMessage = null;
         IsAccountMenuOpen = false;
         IsFeedbackOpen = true;
@@ -179,6 +190,8 @@ public partial class AccountViewModel : ObservableObject
         var body = FeedbackDescription.Trim();
         if (IncludeDiagnostics)
             body += $"\n\n<details><summary>Diagnostics</summary>\n\n{DiagnosticsPreview}\n</details>";
+        if (IncludeLogFile && ReadLogTail() is { } log)
+            body += $"\n\n<details><summary>Log ({System.IO.Path.GetFileName(LatestLogFile)})</summary>\n\n```\n{log}\n```\n</details>";
         body += "\n\n_Submitted from Stardust Gremlin Studio._";
 
         string[] labels = FeedbackKind switch
@@ -233,6 +246,24 @@ public partial class AccountViewModel : ObservableObject
 
     [RelayCommand]
     private void StarRepository() => OpenUrl(RepositoryUrl);
+
+    private string? ReadLogTail()
+    {
+        if (string.IsNullOrEmpty(LatestLogFile))
+            return null;
+        try
+        {
+            using var stream = new System.IO.FileStream(LatestLogFile, System.IO.FileMode.Open, System.IO.FileAccess.Read, System.IO.FileShare.ReadWrite);
+            using var reader = new System.IO.StreamReader(stream);
+            var text = reader.ReadToEnd().Replace("```", "'''");
+            return text.Length <= MaxLogCharacters ? text : "...(truncated)\n" + text[^MaxLogCharacters..];
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Failed to read log file {Path}", LatestLogFile);
+            return null;
+        }
+    }
 
     private void ApplyUser(GitHubUser? user)
     {

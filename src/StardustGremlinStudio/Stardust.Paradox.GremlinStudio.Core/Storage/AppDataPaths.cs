@@ -44,5 +44,7 @@ public static class AppDataPaths
 
     public static string AssistantConversationsFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "assistant-conversations.json");
 
+    public static string FileLoggingPreferenceFilePath => Path.Combine(EnsureAppDataDirectoryExists(), "file-logging.txt");
+
     public static string LogsDirectory => Directory.CreateDirectory(Path.Combine(EnsureAppDataDirectoryExists(), "logs")).FullName;
 }

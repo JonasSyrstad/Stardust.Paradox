@@ -10,6 +10,11 @@ namespace Stardust.Paradox.GremlinStudio.Core.Logging;
 /// </summary>
 public sealed class FileLoggerProvider : ILoggerProvider
 {
+    // When the daily file exceeds this size it is rolled to a single ".1" backup, capping each day at ~2x this size.
+    private const long MaxFileBytes = 5 * 1024 * 1024;
+    // Upper bound for the whole logs folder; oldest files are deleted first.
+    private const long MaxTotalBytes = 25 * 1024 * 1024;
+
     private readonly object _sync = new();
     private readonly string _directory;
     private readonly LogLevel _minimumLevel;
@@ -30,6 +35,58 @@ public sealed class FileLoggerProvider : ILoggerProvider
 
     /// <summary>The directory log files are written to.</summary>
     public string LogDirectory => _directory;
+
+    /// <summary>
+    /// Whether log entries are written to disk. Off by default; persisted in
+    /// <see cref="AppDataPaths.FileLoggingPreferenceFilePath"/>.
+    /// </summary>
+    public static bool IsFileLoggingEnabled
+    {
+        get => _isFileLoggingEnabled ??= LoadPreference();
+        set
+        {
+            _isFileLoggingEnabled = value;
+            try
+            {
+                File.WriteAllText(AppDataPaths.FileLoggingPreferenceFilePath, value ? "true" : "false");
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Preference is still applied for this session.
+            }
+        }
+    }
+
+    private static bool? _isFileLoggingEnabled;
+
+    private static bool LoadPreference()
+    {
+        try
+        {
+            var path = AppDataPaths.FileLoggingPreferenceFilePath;
+            return File.Exists(path) && bool.TryParse(File.ReadAllText(path).Trim(), out var enabled) && enabled;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Returns the path of the most recently written log file, or null if none exists.</summary>
+    public static string? GetLatestLogFile(string? directory = null)
+    {
+        try
+        {
+            var dir = directory ?? AppDataPaths.LogsDirectory;
+            return Directory.EnumerateFiles(dir, "gremlinstudio-*.log")
+                .OrderByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
 
     public ILogger CreateLogger(string categoryName) => new FileLogger(this, categoryName);
 
@@ -52,6 +109,12 @@ public sealed class FileLoggerProvider : ILoggerProvider
         {
             try
             {
+                var info = new FileInfo(path);
+                if (info.Exists && info.Length >= MaxFileBytes)
+                {
+                    File.Move(path, Path.ChangeExtension(path, ".1.log"), overwrite: true);
+                    EnforceTotalSize();
+                }
                 File.AppendAllText(path, sb.ToString());
             }
             catch (IOException)
@@ -79,13 +142,36 @@ public sealed class FileLoggerProvider : ILoggerProvider
         {
             // Best effort cleanup.
         }
+
+        EnforceTotalSize();
+    }
+
+    private void EnforceTotalSize()
+    {
+        try
+        {
+            var files = new DirectoryInfo(_directory).GetFiles("gremlinstudio-*.log")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .ToList();
+            long total = 0;
+            foreach (var file in files)
+            {
+                total += file.Length;
+                if (total > MaxTotalBytes)
+                    file.Delete();
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort cleanup.
+        }
     }
 
     private sealed class FileLogger(FileLoggerProvider provider, string category) : ILogger
     {
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 
-        public bool IsEnabled(LogLevel logLevel) => logLevel != LogLevel.None && logLevel >= provider._minimumLevel;
+        public bool IsEnabled(LogLevel logLevel) => IsFileLoggingEnabled && logLevel != LogLevel.None && logLevel >= provider._minimumLevel;
 
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
