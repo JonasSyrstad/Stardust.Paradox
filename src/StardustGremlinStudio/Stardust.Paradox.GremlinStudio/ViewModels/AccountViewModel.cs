@@ -53,7 +53,22 @@ public partial class AccountViewModel : ObservableObject
     // GitHub issue bodies are limited to 65536 characters; leave room for the description.
     private const int MaxLogCharacters = 50_000;
 
-    partial void OnIsFileLoggingEnabledChanged(bool value) => FileLoggerProvider.IsFileLoggingEnabled = value;
+    partial void OnIsFileLoggingEnabledChanged(bool value)
+    {
+        FileLoggerProvider.IsFileLoggingEnabled = value;
+        if (value || FileLoggerProvider.GetLatestLogFile() is null)
+            return;
+
+        var result = ThemedMessageBox.Show(
+            "Diagnostic logging is turned off.\n\nDo you also want to delete the existing log files?",
+            "Delete log files", MessageBoxButton.YesNo, MessageBoxImage.Question);
+        if (result == MessageBoxResult.Yes)
+        {
+            var failed = FileLoggerProvider.DeleteAllLogFiles();
+            if (failed > 0)
+                StatusMessage = $"{failed} log file(s) could not be deleted.";
+        }
+    }
 
     public IReadOnlyList<string> FeedbackKinds { get; } = ["Bug", "Feature request", "Feedback"];
 

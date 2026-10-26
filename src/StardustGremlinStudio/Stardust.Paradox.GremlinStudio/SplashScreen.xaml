@@ -37,6 +37,11 @@
                            Foreground="#B0B0B0"
                            HorizontalAlignment="Center"
                            Margin="0,4,0,0" />
+                <TextBlock x:Name="VersionText"
+                           FontSize="11"
+                           Foreground="#808080"
+                           HorizontalAlignment="Center"
+                           Margin="0,6,0,0" />
             </StackPanel>
             
             <!-- Loading Progress -->

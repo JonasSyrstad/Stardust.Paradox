@@ -88,6 +88,31 @@ public sealed class FileLoggerProvider : ILoggerProvider
         }
     }
 
+    /// <summary>Deletes all log files. Returns the number of files that could not be deleted.</summary>
+    public static int DeleteAllLogFiles(string? directory = null)
+    {
+        var failed = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(directory ?? AppDataPaths.LogsDirectory, "gremlinstudio-*.log").ToList())
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    failed++;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            failed++;
+        }
+        return failed;
+    }
+
     public ILogger CreateLogger(string categoryName) => new FileLogger(this, categoryName);
 
     public void Dispose()
