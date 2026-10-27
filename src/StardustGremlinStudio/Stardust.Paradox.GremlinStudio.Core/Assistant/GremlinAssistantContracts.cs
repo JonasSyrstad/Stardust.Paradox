@@ -91,6 +91,158 @@ public interface IGremlinAssistantService
 
     /// <summary>Deletes the backend session of a conversation.</summary>
     Task DeleteSessionAsync(string sessionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reviews a query for problems on the target server and optionally proposes an equivalent, more efficient query.
+    /// Runs in a throw-away session without tools.
+    /// </summary>
+    Task<GremlinQueryReview> ReviewQueryAsync(GremlinQueryReviewRequest request, CancellationToken cancellationToken = default);
+}
+
+/// <summary>A request to review the query in the editor.</summary>
+/// <param name="Query">The query text.</param>
+/// <param name="ServerKind">The kind of Gremlin server the query targets.</param>
+/// <param name="Context">Graph context (labels and property keys).</param>
+/// <param name="Model">Model id, or null for the backend default.</param>
+public sealed record GremlinQueryReviewRequest(
+    string Query,
+    Connections.GremlinConnectionKind ServerKind,
+    GremlinAssistantContext Context,
+    string? Model);
+
+/// <summary>Severity of a query review finding.</summary>
+public enum GremlinQueryReviewSeverity
+{
+    Info,
+    Warning,
+    Error
+}
+
+/// <summary>A single problem found when reviewing a query.</summary>
+public sealed record GremlinQueryReviewIssue(GremlinQueryReviewSeverity Severity, string Message);
+
+/// <summary>Result of an assistant query review.</summary>
+/// <param name="Issues">Problems found; empty when the query looks fine.</param>
+/// <param name="OptimizedQuery">An equivalent, more efficient query, or null when none is proposed with high confidence.</param>
+/// <param name="OptimizationReason">Why the optimized query is better.</param>
+public sealed record GremlinQueryReview(
+    IReadOnlyList<GremlinQueryReviewIssue> Issues,
+    string? OptimizedQuery,
+    string? OptimizationReason)
+{
+    /// <summary>A review without findings.</summary>
+    public static GremlinQueryReview Empty { get; } = new([], null, null);
+
+    /// <summary>Whether the review has anything to show.</summary>
+    public bool HasFindings => Issues.Count > 0 || OptimizedQuery is not null;
+}
+
+/// <summary>Prompt building and reply parsing for query reviews.</summary>
+public static class GremlinQueryReviewPrompt
+{
+    /// <summary>Minimum self-reported confidence required to surface an optimization.</summary>
+    public const double MinOptimizationConfidence = 0.9;
+
+    /// <summary>Fixed instructions for the reviewer.</summary>
+    public static string BuildInstructions() =>
+        """
+        You are a strict Gremlin (Apache TinkerPop) query reviewer embedded in Stardust Gremlin Studio.
+        Review the user's query for the target server and reply with ONLY a JSON object, no markdown, in this shape:
+        {"issues":[{"severity":"error|warning|info","message":"..."}],"optimizedQuery":null,"optimizationReason":null,"confidence":0.0}
+        Rules:
+        - Report only real problems: syntax errors, steps or features unsupported by the target server, labels or property keys that do not exist in the schema, unbounded traversals that are likely very expensive, and mistakes that make the query not do what it obviously intends.
+        - Do not report style preferences. When the query is fine, return an empty issues array.
+        - Keep each message to one short sentence that names the step involved.
+        - Only set optimizedQuery when you are highly confident that it returns exactly the same results as the original (same elements, same order when ordered, same shape) and is clearly cheaper on the target server. Never change the intent, filters, limits or output shape. Never introduce mutations.
+        - Set confidence (0.0-1.0) to how sure you are the optimized query is equivalent and better. If below 0.9, set optimizedQuery to null.
+        - optimizationReason is one short sentence, or null.
+        """;
+
+    /// <summary>Builds the user message for a review.</summary>
+    public static string BuildPrompt(GremlinQueryReviewRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var sb = new StringBuilder();
+        sb.AppendLine("<target-server>").AppendLine(DescribeServer(request.ServerKind)).AppendLine("</target-server>");
+        sb.AppendLine("<graph-context>").Append(GremlinAssistantPrompt.BuildContext(request.Context with { CurrentQuery = null })).AppendLine("</graph-context>");
+        sb.AppendLine("<query>").AppendLine(request.Query.Trim()).AppendLine("</query>");
+        return sb.ToString();
+    }
+
+    /// <summary>Describes the execution characteristics of a server kind.</summary>
+    public static string DescribeServer(Connections.GremlinConnectionKind kind) => kind switch
+    {
+        Connections.GremlinConnectionKind.CosmosDb =>
+            "Azure Cosmos DB Gremlin API. Unsupported: lambdas/closures, match(), sack(), subgraph(), io(), program(), " +
+            "math() in older accounts, withComputer(), tail() with scope local, and most strategies (withStrategies). " +
+            "Execution is breadth-first: each step is evaluated for all traversers before the next, so a late limit() does not stop earlier steps from fetching everything; " +
+            "put limit()/has() filters as early as possible. Cost is measured in RUs; filtering on the partition key and on id is cheapest; " +
+            "start traversals with g.V() filters on indexed properties instead of scanning. Ids are strings.",
+        Connections.GremlinConnectionKind.InMemory =>
+            "Stardust in-memory Gremlin engine used for testing (TinkerPop semantics, depth-first lazy evaluation). " +
+            "It supports a common subset of TinkerPop steps; lambdas, match(), sack(), subgraph(), io() and program() are not supported.",
+        _ =>
+            "Apache TinkerPop Gremlin Server (e.g. TinkerGraph, JanusGraph, Neptune). Standard OLTP execution is lazy and depth-first: " +
+            "traversers are pulled one at a time, so an early limit() short-circuits work. Lambdas may be disabled by the server.",
+    };
+
+    /// <summary>Parses a reviewer reply. Returns <see cref="GremlinQueryReview.Empty"/> for unparseable replies.</summary>
+    public static GremlinQueryReview ParseReply(string? reply, string originalQuery)
+    {
+        if (string.IsNullOrWhiteSpace(reply))
+            return GremlinQueryReview.Empty;
+        var start = reply.IndexOf('{');
+        var end = reply.LastIndexOf('}');
+        if (start < 0 || end <= start)
+            return GremlinQueryReview.Empty;
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(reply[start..(end + 1)]);
+            var root = doc.RootElement;
+            var issues = new List<GremlinQueryReviewIssue>();
+            if (root.TryGetProperty("issues", out var arr) && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in arr.EnumerateArray())
+                {
+                    var message = GetString(item, "message");
+                    if (string.IsNullOrWhiteSpace(message))
+                        continue;
+                    var severity = GetString(item, "severity")?.ToLowerInvariant() switch
+                    {
+                        "error" => GremlinQueryReviewSeverity.Error,
+                        "warning" => GremlinQueryReviewSeverity.Warning,
+                        _ => GremlinQueryReviewSeverity.Info
+                    };
+                    issues.Add(new GremlinQueryReviewIssue(severity, message.Trim()));
+                }
+            }
+
+            var optimized = GetString(root, "optimizedQuery")?.Trim();
+            var confidence = root.TryGetProperty("confidence", out var c) && c.ValueKind == System.Text.Json.JsonValueKind.Number
+                ? c.GetDouble()
+                : 0;
+            if (string.IsNullOrWhiteSpace(optimized)
+                || confidence < MinOptimizationConfidence
+                || !optimized.StartsWith("g.", StringComparison.Ordinal)
+                || string.Equals(Normalize(optimized), Normalize(originalQuery), StringComparison.Ordinal)
+                || (GremlinMutationDetector.IsMutation(optimized) && !GremlinMutationDetector.IsMutation(originalQuery)))
+            {
+                optimized = null;
+            }
+
+            return new GremlinQueryReview(issues, optimized, optimized is null ? null : GetString(root, "optimizationReason")?.Trim());
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return GremlinQueryReview.Empty;
+        }
+    }
+
+    private static string? GetString(System.Text.Json.JsonElement element, string name) =>
+        element.TryGetProperty(name, out var value) && value.ValueKind == System.Text.Json.JsonValueKind.String ? value.GetString() : null;
+
+    private static string Normalize(string query) => Regex.Replace(query, @"\s+", string.Empty);
 }
 
 /// <summary>Prompt building and reply parsing shared by assistant backends.</summary>

@@ -754,6 +754,7 @@ public partial class MainViewModel : ObservableObject
             },
             RefreshQueryHistory,
             connectionSettings);
+        tab.AssistantReviewer = Assistant.ReviewQueryAsync;
 
         // If the selected connection is InMemory, apply its connector to the new tab
         if (SelectedConnection?.Kind == GremlinConnectionKind.InMemory

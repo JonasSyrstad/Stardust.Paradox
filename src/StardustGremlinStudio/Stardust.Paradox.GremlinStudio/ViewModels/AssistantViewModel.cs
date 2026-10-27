@@ -426,6 +426,20 @@ public partial class AssistantViewModel : ObservableObject, IGremlinAssistantToo
 	[RelayCommand]
 	private void Cancel() => _requestCts?.Cancel();
 
+	/// <summary>
+	/// Reviews an editor query for the given server kind. Returns null when the assistant is not enabled and signed in.
+	/// </summary>
+	public async Task<GremlinQueryReview?> ReviewQueryAsync(string query, Core.Connections.GremlinConnectionKind serverKind, CancellationToken cancellationToken)
+	{
+		if (!IsAvailable || string.IsNullOrWhiteSpace(query))
+			return null;
+		var context = _contextProvider?.Invoke()
+					  ?? new GremlinAssistantContext(null, false, null, [], [], Core.Completion.GremlinSchemaSample.Empty);
+		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+		timeout.CancelAfter(TimeSpan.FromSeconds(60));
+		return await _assistant.ReviewQueryAsync(new GremlinQueryReviewRequest(query, serverKind, context, SelectedModel), timeout.Token);
+	}
+
 	[RelayCommand]
 	private void InsertQuery(AssistantChatMessageViewModel? message)
 	{

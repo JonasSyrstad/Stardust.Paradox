@@ -274,7 +274,123 @@ public partial class QueryTabViewModel : ObservableObject
         OnPropertyChanged(nameof(HasUnsavedChanges));
         ValidationMessage = string.Empty;
         QueryExplanation = string.Empty;
+        ScheduleAssistantReview();
     }
+
+    #region Assistant query review
+
+    /// <summary>Idle time after the last edit before the assistant reviews the query.</summary>
+    internal static readonly TimeSpan AssistantReviewIdleDelay = TimeSpan.FromSeconds(3);
+
+    private const int MinReviewQueryLength = 6;
+    private CancellationTokenSource? _reviewCts;
+    private string? _lastReviewedKey;
+
+    /// <summary>
+    /// Reviews a query with the AI assistant; returns null when the assistant is unavailable.
+    /// Set by the main window when the tab is created.
+    /// </summary>
+    public Func<string, GremlinConnectionKind, CancellationToken, Task<Core.Assistant.GremlinQueryReview?>>? AssistantReviewer { get; set; }
+
+    /// <summary>Kind of server this tab's queries run against.</summary>
+    public GremlinConnectionKind ServerKind =>
+        ConnectionMetadata?.Kind ?? (IsUsingPlayground ? GremlinConnectionKind.InMemory : GremlinConnectionKind.GremlinServer);
+
+    /// <summary>Problems reported by the assistant for the current query.</summary>
+    public ObservableCollection<Core.Assistant.GremlinQueryReviewIssue> AssistantIssues { get; } = [];
+
+    /// <summary>An equivalent, more efficient query proposed by the assistant.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasAssistantReview))]
+    [NotifyCanExecuteChangedFor(nameof(ApplyAssistantOptimizationCommand))]
+    private string? _assistantOptimizedQuery;
+
+    [ObservableProperty]
+    private string? _assistantOptimizationReason;
+
+    /// <summary>Whether a review is in progress.</summary>
+    [ObservableProperty]
+    private bool _isAssistantReviewing;
+
+    /// <summary>Whether the assistant has findings to show.</summary>
+    public bool HasAssistantReview => AssistantIssues.Count > 0 || AssistantOptimizedQuery is not null;
+
+    private void ScheduleAssistantReview()
+    {
+        _reviewCts?.Cancel();
+        _reviewCts = null;
+        ClearAssistantReview();
+        if (AssistantReviewer is null)
+            return;
+
+        var query = QueryText?.Trim() ?? string.Empty;
+        var kind = ServerKind;
+        if (query.Length < MinReviewQueryLength || $"{kind}|{query}" == _lastReviewedKey)
+            return;
+
+        var cts = new CancellationTokenSource();
+        _reviewCts = cts;
+        _ = RunAssistantReviewAsync(query, kind, cts);
+    }
+
+    private async Task RunAssistantReviewAsync(string query, GremlinConnectionKind kind, CancellationTokenSource cts)
+    {
+        try
+        {
+            await Task.Delay(AssistantReviewIdleDelay, cts.Token);
+            IsAssistantReviewing = true;
+            var review = await AssistantReviewer!(query, kind, cts.Token);
+            if (cts.IsCancellationRequested || review is null)
+                return;
+
+            _lastReviewedKey = $"{kind}|{query}";
+            foreach (var issue in review.Issues)
+                AssistantIssues.Add(issue);
+            AssistantOptimizationReason = review.OptimizationReason;
+            AssistantOptimizedQuery = review.OptimizedQuery;
+            OnPropertyChanged(nameof(HasAssistantReview));
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.Net.Http.HttpRequestException or System.IO.IOException)
+        {
+            _logger.LogDebug(ex, "Assistant query review failed");
+        }
+        finally
+        {
+            if (ReferenceEquals(_reviewCts, cts))
+                IsAssistantReviewing = false;
+        }
+    }
+
+    private void ClearAssistantReview()
+    {
+        IsAssistantReviewing = false;
+        AssistantIssues.Clear();
+        AssistantOptimizationReason = null;
+        AssistantOptimizedQuery = null;
+        OnPropertyChanged(nameof(HasAssistantReview));
+    }
+
+    private bool CanApplyAssistantOptimization() => AssistantOptimizedQuery is not null;
+
+    /// <summary>Replaces the query with the assistant's optimized version.</summary>
+    [RelayCommand(CanExecute = nameof(CanApplyAssistantOptimization))]
+    private void ApplyAssistantOptimization()
+    {
+        if (AssistantOptimizedQuery is not { } optimized)
+            return;
+        // The optimized query was produced by a review; don't review it again immediately.
+        _lastReviewedKey = $"{ServerKind}|{optimized.Trim()}";
+        QueryText = optimized;
+    }
+
+    /// <summary>Hides the current assistant findings until the query changes.</summary>
+    [RelayCommand]
+    private void DismissAssistantReview() => ClearAssistantReview();
+
+    #endregion
 
     [ObservableProperty]
     private string _resultJson = string.Empty;
@@ -414,6 +530,33 @@ public partial class QueryTabViewModel : ObservableObject
     /// Raised when the view should move the editor caret to a line/column.
     /// </summary>
     public event EventHandler<(int Line, int Column)>? NavigateToPositionRequested;
+
+    /// <summary>
+    /// Local validation diagnostics of the query editor (Error List).
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasEditorDiagnostics), nameof(DiagnosticsSummary))]
+    private IReadOnlyList<GremlinValidationError>? _editorDiagnostics;
+
+    public bool HasEditorDiagnostics => EditorDiagnostics is { Count: > 0 };
+
+    public string DiagnosticsSummary
+    {
+        get
+        {
+            var list = EditorDiagnostics ?? [];
+            var errors = list.Count(d => d.Severity == GremlinErrorSeverity.Error);
+            var warnings = list.Count(d => d.Severity == GremlinErrorSeverity.Warning);
+            var infos = list.Count - errors - warnings;
+            return $"{errors} Error{(errors == 1 ? "" : "s")}   {warnings} Warning{(warnings == 1 ? "" : "s")}   {infos} Message{(infos == 1 ? "" : "s")}";
+        }
+    }
+
+    [RelayCommand]
+    private void GoToDiagnostic(GremlinValidationError? diagnostic)
+    {
+        if (diagnostic != null) NavigateToPositionRequested?.Invoke(this, (diagnostic.Line, diagnostic.Column));
+    }
 
     [RelayCommand(CanExecute = nameof(HasErrorPosition))]
     private void GoToError()

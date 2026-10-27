@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
@@ -88,6 +88,19 @@ public static class TextEditorHelper
             typeof(EpochTooltipProvider),
             typeof(TextEditorHelper),
             new PropertyMetadata(null));
+
+    /// <summary>
+    /// Receives the local validation diagnostics of a Gremlin-enabled editor (bind OneWayToSource).
+    /// </summary>
+    public static readonly DependencyProperty DiagnosticsProperty =
+        DependencyProperty.RegisterAttached(
+            "Diagnostics",
+            typeof(IReadOnlyList<GremlinValidationError>),
+            typeof(TextEditorHelper),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault));
+
+    public static IReadOnlyList<GremlinValidationError>? GetDiagnostics(DependencyObject obj) => (IReadOnlyList<GremlinValidationError>?)obj.GetValue(DiagnosticsProperty);
+    public static void SetDiagnostics(DependencyObject obj, IReadOnlyList<GremlinValidationError>? value) => obj.SetValue(DiagnosticsProperty, value);
 
     public static string GetBoundText(DependencyObject obj) => (string)obj.GetValue(BoundTextProperty);
     public static void SetBoundText(DependencyObject obj, string value) => obj.SetValue(BoundTextProperty, value);
@@ -896,6 +909,7 @@ public static class TextEditorHelper
                 {
                     var errors = GremlinValidator.Validate(_pendingValidationEditor.Text);
                     renderer.SetErrors(errors);
+                    SetDiagnostics(_pendingValidationEditor, errors);
                     _pendingValidationEditor.TextArea.TextView.InvalidateLayer(KnownLayer.Background);
                 }
             };
@@ -1039,6 +1053,11 @@ public class GremlinErrorRenderer : IBackgroundRenderer
 
     public KnownLayer Layer => KnownLayer.Selection;
 
+    /// <summary>
+    /// The current validation errors.
+    /// </summary>
+    public IReadOnlyList<GremlinValidationError> Errors => _errors;
+
     public void SetErrors(List<GremlinValidationError> errors)
     {
         _errors = errors;
@@ -1080,16 +1099,28 @@ public class GremlinErrorRenderer : IBackgroundRenderer
                 _ => System.Windows.Media.Brushes.Blue
             };
 
-            var pen = new System.Windows.Media.Pen(brush, 1.5)
-            {
-                DashStyle = System.Windows.Media.DashStyles.Dot
-            };
+            var pen = new System.Windows.Media.Pen(brush, 1.2);
+            pen.Freeze();
 
             foreach (var rect in rects)
             {
-                // Draw wavy underline
-                var y = rect.Bottom - 1;
-                drawingContext.DrawLine(pen, new System.Windows.Point(rect.Left, y), new System.Windows.Point(rect.Right, y));
+                const double amplitude = 2;
+                const double step = 3;
+                var y = rect.Bottom - amplitude;
+                var right = Math.Max(rect.Right, rect.Left + step * 2);
+                var geometry = new System.Windows.Media.StreamGeometry();
+                using (var ctx = geometry.Open())
+                {
+                    ctx.BeginFigure(new System.Windows.Point(rect.Left, y), false, false);
+                    var up = true;
+                    for (var x = rect.Left + step; x <= right; x += step)
+                    {
+                        ctx.LineTo(new System.Windows.Point(x, up ? y - amplitude : y), true, true);
+                        up = !up;
+                    }
+                }
+                geometry.Freeze();
+                drawingContext.DrawGeometry(null, pen, geometry);
             }
         }
     }

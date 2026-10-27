@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Text;
 using GitHub.Copilot;
 using GitHub.Copilot.Rpc;
@@ -12,7 +12,7 @@ namespace Stardust.Paradox.GremlinStudio.Core.Assistant;
 /// <see cref="IGremlinAssistantService"/> backed by the GitHub Copilot SDK, which runs the Copilot CLI runtime
 /// and uses the user's Copilot subscription (CLI login, or an optional personal access token).
 /// </summary>
-public sealed class CopilotGremlinAssistantService : IGremlinAssistantService, IAsyncDisposable
+public sealed partial class CopilotGremlinAssistantService : IGremlinAssistantService, IAsyncDisposable
 {
 	private const string PersonalAccessTokenSecretKey = "github-copilot-token";
 
@@ -137,6 +137,75 @@ public sealed class CopilotGremlinAssistantService : IGremlinAssistantService, I
 			if (string.IsNullOrWhiteSpace(content))
 				throw new InvalidOperationException("The assistant returned an empty response.");
 			return new GremlinAssistantReply(session.SessionId, content);
+		}
+	}
+
+	public async Task<GremlinQueryReview> ReviewQueryAsync(GremlinQueryReviewRequest request, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(request);
+		if (string.IsNullOrWhiteSpace(request.Query))
+			return GremlinQueryReview.Empty;
+
+		var client = await GetClientAsync(cancellationToken).ConfigureAwait(false);
+		var model = !string.IsNullOrWhiteSpace(request.Model) && !request.Model.Contains('/') ? request.Model : null;
+		var config = new SessionConfig
+		{
+			SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = GremlinQueryReviewPrompt.BuildInstructions() },
+			Tools = [],
+			AvailableTools = [],
+			Streaming = false,
+#pragma warning disable GHCP001 // PermissionDecision is an evaluation API
+			OnPermissionRequest = (_, _) => Task.FromResult(PermissionDecision.Reject("Query review does not use tools."))
+#pragma warning restore GHCP001
+		};
+		if (model is not null)
+			config.Model = model;
+
+		var session = await client.CreateSessionAsync(config, cancellationToken).ConfigureAwait(false);
+		var sessionId = session.SessionId;
+		try
+		{
+			await using (session.ConfigureAwait(false))
+			{
+				var reply = new StringBuilder();
+				var done = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+				using var subscription = session.On<SessionEvent>(evt =>
+				{
+					switch (evt)
+					{
+						case AssistantMessageEvent msg when !string.IsNullOrEmpty(msg.Data.Content):
+							lock (reply)
+								reply.Append(msg.Data.Content);
+							break;
+						case SessionErrorEvent err:
+							done.TrySetException(new InvalidOperationException($"GitHub Copilot error: {err.Data.Message}"));
+							break;
+						case SessionIdleEvent:
+							done.TrySetResult();
+							break;
+					}
+				});
+				await using var registration = cancellationToken.Register(() => done.TrySetCanceled(cancellationToken));
+				await session.SendAsync(new MessageOptions { Prompt = GremlinQueryReviewPrompt.BuildPrompt(request) }, cancellationToken).ConfigureAwait(false);
+				await done.Task.ConfigureAwait(false);
+
+				string content;
+				lock (reply)
+					content = reply.ToString();
+				return GremlinQueryReviewPrompt.ParseReply(content, request.Query);
+			}
+		}
+		finally
+		{
+			// Review sessions are throw-away; do not let them pile up in the user's Copilot session list.
+			try
+			{
+				await client.DeleteSessionAsync(sessionId, CancellationToken.None).ConfigureAwait(false);
+			}
+			catch (Exception ex) when (ex is not OutOfMemoryException)
+			{
+				_logger.LogDebug(ex, "Failed to delete query review session {SessionId}", sessionId);
+			}
 		}
 	}
 

@@ -96,6 +96,9 @@ public class GremlinTooltipProvider
             return;
         }
 
+        if (TryShowDiagnosticTooltip(offset, e))
+            return;
+
         // First, check if hovering over a ${variable} token
         var variableKey = GetVariableTokenAtOffset(offset);
         if (variableKey != null)
@@ -147,6 +150,68 @@ public class GremlinTooltipProvider
 
         OpenPopup(border);
         e.Handled = true;
+    }
+
+    private bool TryShowDiagnosticTooltip(int offset, MouseEventArgs e)
+    {
+        if (_editor.Tag is not Controls.GremlinErrorRenderer renderer)
+            return false;
+
+        var hits = renderer.Errors
+            .Where(err => offset >= err.StartOffset && offset <= Math.Max(err.EndOffset, err.StartOffset + 1))
+            .ToList();
+        if (hits.Count == 0)
+            return false;
+
+        ClosePopup();
+        _tokenStart = hits.Min(h => h.StartOffset);
+        _tokenEnd = hits.Max(h => Math.Max(h.EndOffset, h.StartOffset + 1));
+
+        var panel = new StackPanel { MaxWidth = 480 };
+        foreach (var hit in hits)
+        {
+            var (glyph, brushKey, code) = hit.Severity switch
+            {
+                GremlinErrorSeverity.Error => ("\uEA39", "StatusErrorBrush", "Error"),
+                GremlinErrorSeverity.Warning => ("\uE7BA", "StatusWarningBrush", "Warning"),
+                _ => ("\uE946", "StatusInfoBrush", "Info")
+            };
+            var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
+            var icon = new TextBlock
+            {
+                Text = glyph,
+                FontFamily = new FontFamily("Segoe MDL2 Assets"),
+                Foreground = GetBrush(brushKey),
+                Margin = new Thickness(0, 2, 8, 0),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            DockPanel.SetDock(icon, Dock.Left);
+            row.Children.Add(icon);
+            row.Children.Add(new TextBlock
+            {
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GetBrush("PrimaryForegroundBrush"),
+                Inlines =
+                {
+                    new Run(hit.Message),
+                    new Run($"  ({code}, Ln {hit.Line}, Col {hit.Column})") { Foreground = GetBrush("SecondaryForegroundBrush") }
+                }
+            });
+            panel.Children.Add(row);
+        }
+
+        OpenPopup(new Border
+        {
+            Child = panel,
+            Background = GetBrush("TertiaryBackgroundBrush"),
+            BorderBrush = GetBrush("BorderBrush"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(10, 8, 10, 8),
+            MaxWidth = 500
+        });
+        e.Handled = true;
+        return true;
     }
 
     private void OpenPopup(Border border)

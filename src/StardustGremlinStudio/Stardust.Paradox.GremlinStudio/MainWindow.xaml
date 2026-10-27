@@ -2890,12 +2890,19 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </Grid>
                     </Border>
 
-                    <!-- Input -->
-                    <Grid DockPanel.Dock="Bottom" Margin="8">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*" MinHeight="80"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto" MinHeight="110" MaxHeight="600"/>
+                        </Grid.RowDefinitions>
+
+                    <!-- Input (resizable via the splitter above it) -->
+                    <Grid Grid.Row="2" Margin="8">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
                         <TextBlock Grid.Row="0" Text="{Binding ErrorMessage}" TextWrapping="Wrap" FontSize="11" Margin="0,0,0,6"
                                    Foreground="{DynamicResource AccentBrush}"
@@ -2937,23 +2944,28 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     </StackPanel>
                                 </DockPanel>
                                 <TextBox Text="{Binding Prompt, UpdateSourceTrigger=PropertyChanged}"
-                                         AcceptsReturn="False" TextWrapping="Wrap" MinHeight="40" MaxHeight="160"
+                                         AcceptsReturn="True" TextWrapping="Wrap" MinHeight="40"
                                          VerticalScrollBarVisibility="Auto" VerticalContentAlignment="Top"
                                          Background="Transparent" BorderThickness="0" Padding="4"
                                          Foreground="{DynamicResource PrimaryForegroundBrush}"
                                          CaretBrush="{DynamicResource PrimaryForegroundBrush}"
-                                         ToolTip="Ask Copilot about your graph, e.g. 'people who know someone working at Contoso'. Press Enter to send."
+                                         ToolTip="Ask Copilot about your graph. Enter to send, Shift+Enter for a new line."
                                          AutomationProperties.Name="Assistant prompt">
                                     <TextBox.InputBindings>
                                         <KeyBinding Key="Enter" Command="{Binding SendCommand}"/>
+                                        <KeyBinding Key="Enter" Modifiers="Ctrl" Command="{Binding SendCommand}"/>
                                     </TextBox.InputBindings>
                                 </TextBox>
                             </DockPanel>
                         </Border>
                     </Grid>
 
+                    <GridSplitter Grid.Row="1" Height="6" HorizontalAlignment="Stretch" ResizeDirection="Rows" ResizeBehavior="PreviousAndNext"
+                                  Background="Transparent" Cursor="SizeNS" ToolTip="Drag to resize the input" Focusable="False"/>
+                    <Border Grid.Row="1" Height="1" Margin="8,0" Background="{DynamicResource BorderBrush}" IsHitTestVisible="False"/>
+
                     <!-- Conversation -->
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="8">
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" Padding="8">
                         <ItemsControl ItemsSource="{Binding Messages}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
@@ -3030,6 +3042,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
                     </ScrollViewer>
+                    </Grid>
                 </DockPanel>
             </Border>
         </Grid>

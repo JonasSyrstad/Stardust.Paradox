@@ -154,7 +154,7 @@ public static class GremlinValidator
         {
             var (line, col) = GetLineAndColumn(query, lastOpenParen);
             errors.Add(new GremlinValidationError(
-                lastOpenParen, lastOpenParen + 1, line, col,
+                lastOpenParen, Math.Max(lastOpenParen + 1, query.TrimEnd().Length), line, col,
                 $"Unclosed parenthesis ({balance} remaining)",
                 GremlinErrorSeverity.Error));
         }
