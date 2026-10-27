@@ -133,6 +133,7 @@ public class ThemeService : IThemeService
         };
         
         app.Resources.MergedDictionaries.Add(_currentThemeDictionary);
+        Editor.SyntaxThemePalette.ApplyForCurrentTheme();
     }
     
     private void OnSystemPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
