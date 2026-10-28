@@ -54,6 +54,9 @@ public partial class MainWindow : Window
         DataContext = viewModel;
         HookEditorNavigation(viewModel);
 
+        PreviewMouseDown += CloseHistoryPopupOnOutsideClick;
+        Deactivated += (_, _) => CloseHistoryPopup();
+
         // Update maximize button icon and handle maximize bounds
         StateChanged += OnWindowStateChanged;
 
@@ -88,6 +91,8 @@ public partial class MainWindow : Window
         SourceInitialized += OnSourceInitialized;
 
         RestoreWindowLayout();
+        AddHandler(System.Windows.Controls.Primitives.Thumb.DragCompletedEvent,
+            new System.Windows.Controls.Primitives.DragCompletedEventHandler(OnSplitterDragCompleted), true);
         Closing += OnWindowClosing;
     }
 
@@ -140,7 +145,18 @@ public partial class MainWindow : Window
         await Dispatcher.InvokeAsync(Close, System.Windows.Threading.DispatcherPriority.Background);
     }
 
-    private sealed record WindowLayout(double Left, double Top, double Width, double Height, bool Maximized, double LeftPanelWidth);
+    private sealed record WindowLayout(
+        double Left, double Top, double Width, double Height, bool Maximized, double LeftPanelWidth,
+        bool LeftPanelCollapsed = false,
+        string? MonitorDeviceName = null,
+        int[]? NormalPosition = null,
+        Dictionary<string, PanelRow[]>? Panels = null);
+
+    private sealed record PanelRow(double Value, GridUnitType Unit);
+
+    private const string LayoutTagPrefix = "Layout:";
+    private readonly Dictionary<string, PanelRow[]> _panelLayouts = new();
+    private WindowLayout? _pendingPlacement;
 
     private void RestoreWindowLayout()
     {
@@ -152,23 +168,49 @@ public partial class MainWindow : Window
             var layout = System.Text.Json.JsonSerializer.Deserialize<WindowLayout>(System.IO.File.ReadAllText(path));
             if (layout == null || layout.Width < 400 || layout.Height < 300) return;
 
-            // Only restore position when it is still on a visible screen
-            var virtualRect = new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
-                SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight);
-            if (virtualRect.IntersectsWith(new Rect(layout.Left, layout.Top, layout.Width, layout.Height)))
+            Width = layout.Width;
+            Height = layout.Height;
+
+            if (layout.NormalPosition is { Length: 4 } && IsMonitorAvailable(layout.MonitorDeviceName, layout.NormalPosition))
             {
+                // Applied in SourceInitialized via SetWindowPlacement (device pixels, DPI-safe)
+                _pendingPlacement = layout;
+            }
+            else if (layout.NormalPosition == null && layout.MonitorDeviceName == null &&
+                     new Rect(SystemParameters.VirtualScreenLeft, SystemParameters.VirtualScreenTop,
+                         SystemParameters.VirtualScreenWidth, SystemParameters.VirtualScreenHeight)
+                         .IntersectsWith(new Rect(layout.Left, layout.Top, layout.Width, layout.Height)))
+            {
+                // Layout saved by an older version without monitor information
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 Left = layout.Left;
                 Top = layout.Top;
             }
+            else
+            {
+                // The saved monitor is gone: open centered on the primary monitor
+                var workArea = SystemParameters.WorkArea;
+                Width = Math.Min(Width, workArea.Width);
+                Height = Math.Min(Height, workArea.Height);
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Left = workArea.Left + (workArea.Width - Width) / 2;
+                Top = workArea.Top + (workArea.Height - Height) / 2;
+            }
 
-            Width = layout.Width;
-            Height = layout.Height;
-            if (layout.Maximized) WindowState = WindowState.Maximized;
+            if (layout.Maximized && _pendingPlacement == null) WindowState = WindowState.Maximized;
 
             if (layout.LeftPanelWidth >= LeftPanelColumn.MinWidth && layout.LeftPanelWidth <= LeftPanelColumn.MaxWidth)
             {
                 LeftPanelColumn.Width = new GridLength(layout.LeftPanelWidth);
+            }
+            if (layout.LeftPanelCollapsed)
+            {
+                CollapseButton_Click(this, new RoutedEventArgs());
+            }
+
+            if (layout.Panels != null)
+            {
+                foreach (var (key, rows) in layout.Panels) _panelLayouts[key] = rows;
             }
         }
         catch (Exception ex)
@@ -177,14 +219,100 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ApplyPendingWindowPlacement(nint hwnd)
+    {
+        if (_pendingPlacement?.NormalPosition is not { Length: 4 } pos) return;
+        try
+        {
+            var placement = new WINDOWPLACEMENT
+            {
+                length = Marshal.SizeOf<WINDOWPLACEMENT>(),
+                showCmd = SW_HIDE,
+                rcNormalPosition = new RECT { left = pos[0], top = pos[1], right = pos[2], bottom = pos[3] }
+            };
+            SetWindowPlacement(hwnd, ref placement);
+            if (_pendingPlacement.Maximized) WindowState = WindowState.Maximized;
+        }
+        finally
+        {
+            _pendingPlacement = null;
+        }
+    }
+
+    private static bool IsMonitorAvailable(string? deviceName, int[] position)
+    {
+        var rect = new RECT { left = position[0], top = position[1], right = position[2], bottom = position[3] };
+        var monitor = MonitorFromRect(ref rect, MONITOR_DEFAULTTONULL);
+        if (monitor == nint.Zero) return false;
+        if (string.IsNullOrEmpty(deviceName)) return true;
+
+        var found = false;
+        EnumDisplayMonitors(nint.Zero, nint.Zero, (nint hMonitor, nint hdc, ref RECT monitorRect, nint data) =>
+        {
+            var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+            if (GetMonitorInfoEx(hMonitor, ref info) && string.Equals(info.szDevice, deviceName, StringComparison.OrdinalIgnoreCase))
+            {
+                found = true;
+                return false;
+            }
+            return true;
+        }, nint.Zero);
+        return found;
+    }
+
+    private void OnSplitterDragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if (e.OriginalSource is GridSplitter { Parent: Grid { Tag: string tag } grid } && tag.StartsWith(LayoutTagPrefix, StringComparison.Ordinal))
+        {
+            _panelLayouts[tag] = grid.RowDefinitions.Select(r => new PanelRow(r.Height.Value, r.Height.GridUnitType)).ToArray();
+        }
+    }
+
+    private void LayoutGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Grid { Tag: string tag } grid || !_panelLayouts.TryGetValue(tag, out var rows)) return;
+        if (rows.Length != grid.RowDefinitions.Count) return;
+        for (var i = 0; i < rows.Length; i++)
+        {
+            if (rows[i].Value < 0 || double.IsNaN(rows[i].Value)) return;
+        }
+        for (var i = 0; i < rows.Length; i++)
+        {
+            grid.RowDefinitions[i].Height = new GridLength(rows[i].Value, rows[i].Unit);
+        }
+    }
+
     private void SaveWindowLayout()
     {
         try
         {
             var bounds = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
-            var panelWidth = LeftPanelColumn.ActualWidth > 0 ? LeftPanelColumn.ActualWidth : 280;
+            var collapsed = LeftPanel.Visibility != Visibility.Visible;
+            var panelWidth = collapsed
+                ? (_lastLeftPanelWidth.IsAbsolute ? _lastLeftPanelWidth.Value : 280)
+                : (LeftPanelColumn.ActualWidth > 0 ? LeftPanelColumn.ActualWidth : 280);
+
+            string? monitorName = null;
+            int[]? normalPosition = null;
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != nint.Zero)
+            {
+                var placement = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+                if (GetWindowPlacement(hwnd, ref placement))
+                {
+                    var r = placement.rcNormalPosition;
+                    normalPosition = [r.left, r.top, r.right, r.bottom];
+                }
+                var info = new MONITORINFOEX { cbSize = Marshal.SizeOf<MONITORINFOEX>() };
+                if (GetMonitorInfoEx(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), ref info))
+                {
+                    monitorName = info.szDevice;
+                }
+            }
+
             var layout = new WindowLayout(bounds.Left, bounds.Top, bounds.Width, bounds.Height,
-                WindowState == WindowState.Maximized, panelWidth);
+                WindowState == WindowState.Maximized, panelWidth,
+                collapsed, monitorName, normalPosition, new Dictionary<string, PanelRow[]>(_panelLayouts));
             System.IO.File.WriteAllText(Core.Storage.AppDataPaths.WindowLayoutFilePath,
                 System.Text.Json.JsonSerializer.Serialize(layout));
         }
@@ -243,6 +371,7 @@ public partial class MainWindow : Window
         var handle = new WindowInteropHelper(this).Handle;
         var source = HwndSource.FromHwnd(handle);
         source?.AddHook(WindowProc);
+        ApplyPendingWindowPlacement(handle);
     }
 
     private nint WindowProc(nint hwnd, int msg, nint wParam, nint lParam, ref bool handled)
@@ -300,6 +429,47 @@ public partial class MainWindow : Window
 
     private const int WM_GETMINMAXINFO = 0x0024;
     private const uint MONITOR_DEFAULTTONEAREST = 0x00000002;
+    private const uint MONITOR_DEFAULTTONULL = 0x00000000;
+    private const int SW_HIDE = 0;
+
+    private delegate bool MonitorEnumProc(nint hMonitor, nint hdc, ref RECT rect, nint data);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumDisplayMonitors(nint hdc, nint clip, MonitorEnumProc callback, nint data);
+
+    [DllImport("user32.dll")]
+    private static extern nint MonitorFromRect(ref RECT rect, uint flags);
+
+    [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", CharSet = CharSet.Unicode)]
+    private static extern bool GetMonitorInfoEx(nint hMonitor, ref MONITORINFOEX info);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowPlacement(nint hwnd, ref WINDOWPLACEMENT placement);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPlacement(nint hwnd, ref WINDOWPLACEMENT placement);
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct MONITORINFOEX
+    {
+        public int cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+        public string szDevice;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WINDOWPLACEMENT
+    {
+        public int length;
+        public int flags;
+        public int showCmd;
+        public POINT ptMinPosition;
+        public POINT ptMaxPosition;
+        public RECT rcNormalPosition;
+    }
 
     [DllImport("user32.dll")]
     private static extern nint MonitorFromWindow(nint hwnd, uint dwFlags);
@@ -1135,8 +1305,43 @@ public partial class MainWindow : Window
     private static string EscapeGremlin(string? value) =>
         (value ?? string.Empty).Replace("\\", "\\\\").Replace("'", "\\'");
 
+    private System.Windows.Controls.Primitives.Popup? _openHistoryPopup;
+
+    private void HistoryDropdown_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.ToggleButton toggle) return;
+        var toolBar = ItemsControl.ItemsControlFromItemContainer(toggle) as ToolBar
+                      ?? FindLogicalAncestor<ToolBar>(toggle);
+        if (toolBar?.FindName("HistoryPopup") is not System.Windows.Controls.Primitives.Popup popup) return;
+
+        // When the toggle lives in the overflow panel it disappears as soon as the overflow closes,
+        // so anchor the popup to the toolbar itself to keep it visible and browsable.
+        var inOverflow = ToolBar.GetIsOverflowItem(toggle);
+        popup.PlacementTarget = inOverflow ? toolBar : toggle;
+        popup.HorizontalOffset = inOverflow ? Math.Max(0, toolBar.ActualWidth - 460) : 0;
+    }
+
+    private void CloseHistoryPopupOnOutsideClick(object sender, MouseButtonEventArgs e)
+    {
+        if (_openHistoryPopup == null) return;
+        var origin = e.OriginalSource as DependencyObject;
+        // Mouse events from popups (the history popup itself, its context menu, the toolbar overflow)
+        // are routed to the window through the logical tree; only clicks in the window itself are "outside".
+        if (origin is not Visual visual || PresentationSource.FromVisual(visual)?.RootVisual != this) return;
+        if (FindAncestor<System.Windows.Controls.Primitives.ToggleButton>(origin) is { Name: "GuideTarget_HistoryDropdown" }) return;
+        CloseHistoryPopup();
+    }
+
+    private void CloseHistoryPopup()
+    {
+        if (_openHistoryPopup != null) _openHistoryPopup.IsOpen = false;
+    }
+
+    private void HistoryPopup_Closed(object? sender, EventArgs e) => _openHistoryPopup = null;
+
     private void HistoryPopup_Opened(object? sender, EventArgs e)
     {
+        _openHistoryPopup = sender as System.Windows.Controls.Primitives.Popup;
         if (sender is not System.Windows.Controls.Primitives.Popup { Child: { } child }) return;
         Dispatcher.BeginInvoke(
             () => FindDescendant<TextBox>(child)?.Focus(),

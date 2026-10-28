@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Net.Http;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -438,6 +438,21 @@ public partial class AssistantViewModel : ObservableObject, IGremlinAssistantToo
 		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 		timeout.CancelAfter(TimeSpan.FromSeconds(60));
 		return await _assistant.ReviewQueryAsync(new GremlinQueryReviewRequest(query, serverKind, context, SelectedModel), timeout.Token);
+	}
+
+	/// <summary>
+	/// Explains a query with Copilot. Returns null when the assistant is not enabled and signed in.
+	/// </summary>
+	public async Task<string?> ExplainQueryAsync(string query, Core.Connections.GremlinConnectionKind serverKind, CancellationToken cancellationToken)
+	{
+		if (!IsAvailable || string.IsNullOrWhiteSpace(query))
+			return null;
+		var context = _contextProvider?.Invoke()
+					  ?? new GremlinAssistantContext(null, false, null, [], [], Core.Completion.GremlinSchemaSample.Empty);
+		using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+		timeout.CancelAfter(TimeSpan.FromSeconds(60));
+		var text = await _assistant.ExplainQueryAsync(new GremlinQueryReviewRequest(query, serverKind, context, SelectedModel), timeout.Token);
+		return string.IsNullOrWhiteSpace(text) ? null : text;
 	}
 
 	[RelayCommand]

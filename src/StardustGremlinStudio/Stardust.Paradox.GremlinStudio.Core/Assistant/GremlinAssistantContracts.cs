@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.RegularExpressions;
 using Stardust.Paradox.GremlinStudio.Core.Completion;
 
@@ -97,6 +97,9 @@ public interface IGremlinAssistantService
     /// Runs in a throw-away session without tools.
     /// </summary>
     Task<GremlinQueryReview> ReviewQueryAsync(GremlinQueryReviewRequest request, CancellationToken cancellationToken = default);
+
+    /// <summary>Explains what a query does, step by step. Runs in a throw-away session without tools.</summary>
+    Task<string> ExplainQueryAsync(GremlinQueryReviewRequest request, CancellationToken cancellationToken = default);
 }
 
 /// <summary>A request to review the query in the editor.</summary>

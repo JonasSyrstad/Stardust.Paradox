@@ -497,7 +497,9 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                                         <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
                                                     </Trigger>
                                                     <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <!-- Hidden (not Collapsed) keeps the button's width reserved so toggling
+                                                             it does not change the panel width and re-trigger the overflow calculation -->
+                                                        <Setter Property="Visibility" Value="Hidden"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -1342,7 +1344,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                     <ContentControl Content="{Binding SelectedTab}">
                         <ContentControl.ContentTemplate>
                             <DataTemplate>
-                                <Grid>
+                                <Grid Tag="Layout:QueryResults" Loaded="LayoutGrid_Loaded">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="1*" MinHeight="100" />
@@ -1351,8 +1353,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     </Grid.RowDefinitions>
 
                 <!-- Query Toolbar -->
-                <ToolBar Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
-                    <Button x:Name="GuideTarget_RunButton" Command="{Binding DataContext.RunQueryCommand, RelativeSource={RelativeSource AncestorType=Window}}" ToolTip="Execute Query (Ctrl+Enter or F5)" Padding="8,4"
+                <ToolBar x:Name="QueryToolBar" Grid.Row="0" Margin="0,0,0,6" Background="{DynamicResource ToolBarBackgroundBrush}">
+                    <Button x:Name="GuideTarget_RunButton"
                             ToolBar.OverflowMode="Never">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="▶" Foreground="{DynamicResource StatusSuccessBrush}" FontWeight="Bold" Margin="0,0,6,0"/>
@@ -1430,6 +1432,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
 
                     <!-- Query History Dropdown -->
                     <ToggleButton x:Name="GuideTarget_HistoryDropdown" Padding="6,2"
+                                  PreviewMouseLeftButtonDown="HistoryDropdown_PreviewMouseLeftButtonDown"
                                   AutomationProperties.Name="Query history"
                                   ToolTip="Browse, search and re-use previously executed queries">
                         <StackPanel Orientation="Horizontal">
@@ -1439,8 +1442,10 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </StackPanel>
                     </ToggleButton>
                     <Popup x:Name="HistoryPopup" PlacementTarget="{Binding ElementName=GuideTarget_HistoryDropdown}" Placement="Bottom"
-                           StaysOpen="False" AllowsTransparency="True"
+                           StaysOpen="True" AllowsTransparency="True"
+                           ToolBar.OverflowMode="Never"
                            IsOpen="{Binding IsChecked, ElementName=GuideTarget_HistoryDropdown, Mode=TwoWay}"
+                           Closed="HistoryPopup_Closed"
                            Opened="HistoryPopup_Opened">
                         <Border Width="460" Padding="8" CornerRadius="4" BorderThickness="1"
                                 Background="{DynamicResource TertiaryBackgroundBrush}" BorderBrush="{DynamicResource BorderBrush}">
@@ -1887,7 +1892,8 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                                     </TreeView>
                                     
                                     <!-- Schema Tree View (when in schema mode) -->
-                                    <Grid Visibility="{Binding IsSchemaExplorerMode, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <Grid Tag="Layout:SchemaCodePreview" Loaded="LayoutGrid_Loaded"
+                                          Visibility="{Binding IsSchemaExplorerMode, Converter={StaticResource BoolToVisibilityConverter}}">
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="*"/>
                                             <RowDefinition Height="Auto"/>
@@ -2890,7 +2896,7 @@ Foreground="{DynamicResource PrimaryForegroundBrush}">
                         </Grid>
                     </Border>
 
-                    <Grid>
+                    <Grid Tag="Layout:Assistant" Loaded="LayoutGrid_Loaded">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="80"/>
                             <RowDefinition Height="Auto"/>

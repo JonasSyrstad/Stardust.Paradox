@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+ï»¿using System.Collections.ObjectModel;
 using System.Data;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -620,6 +620,48 @@ public partial class QueryTabViewModel : ObservableObject
     private string _queryExplanation = string.Empty;
 
     /// <summary>
+    /// Explains a query with the AI assistant; returns null when the assistant is unavailable.
+    /// </summary>
+    public Func<string, GremlinConnectionKind, CancellationToken, Task<string?>>? AssistantExplainer { get; set; }
+
+    /// <summary>
+    /// Returns true when the AI assistant is enabled and signed in.
+    /// </summary>
+    public Func<bool>? IsAssistantAvailable { get; set; }
+
+    private CancellationTokenSource? _explainCts;
+
+    /// <summary>
+    /// Replaces the local explanation with a Copilot explanation when the assistant is enabled.
+    /// The local explanation is kept if Copilot is unavailable or fails.
+    /// </summary>
+    public async Task ExplainWithAssistantAsync(string query)
+    {
+        if (AssistantExplainer is null || string.IsNullOrWhiteSpace(query))
+            return;
+
+        _explainCts?.Cancel();
+        var cts = _explainCts = new CancellationTokenSource();
+        QueryExplanation = "GitHub Copilot is explaining this query...";
+        try
+        {
+            var text = await AssistantExplainer(query, ServerKind, cts.Token);
+            if (text is null || !ReferenceEquals(_explainCts, cts))
+                return;
+            QueryExplanation = "Explained by GitHub Copilot" + Environment.NewLine + Environment.NewLine + text;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Copilot query explanation failed");
+            if (ReferenceEquals(_explainCts, cts))
+                QueryExplanation = GremlinQueryExplainer.Explain(query);
+        }
+    }
+
+    /// <summary>
     /// Font size for the query editor. Adjustable via Ctrl+Scroll.
     /// </summary>
     [ObservableProperty]
@@ -1150,10 +1192,13 @@ public partial class QueryTabViewModel : ObservableObject
             // Auto-generate query explanation from the original query template
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(originalQuery))
             {
-                QueryExplanation = GremlinQueryExplainer.Explain(originalQuery);
+                if (AssistantExplainer is not null && IsAssistantAvailable?.Invoke() == true)
+                    _ = ExplainWithAssistantAsync(originalQuery);
+                else
+                    QueryExplanation = GremlinQueryExplainer.Explain(originalQuery);
             }
 
-            // If user is currently viewing schema mode, run a fresh discovery for the new results
+            // If user is currently viewing schema mode
             if (IsSchemaExplorerMode && result.IsSuccess)
             {
                 _ = BuildSchemaFromResultsAsync();
@@ -2630,7 +2675,7 @@ public partial class QueryTabViewModel : ObservableObject
         }
 
         IsEditingRow = true;
-        StatusText = "Editing row – modify values, then Save or Cancel";
+        StatusText = "Editing row ï¿½ modify values, then Save or Cancel";
     }
 
     /// <summary>
@@ -2652,7 +2697,7 @@ public partial class QueryTabViewModel : ObservableObject
         var connector = GetActiveConnector();
         if (connector is null)
         {
-            StatusText = "No active connection – cannot save";
+            StatusText = "No active connection ï¿½ cannot save";
             return;
         }
 
@@ -3641,7 +3686,7 @@ public partial class QueryTabViewModel : ObservableObject
                 {
                     propsNode.Children.Add(new TreeNodeViewModel
                     {
-                        Icon = "•",
+                        Icon = "ï¿½",
                         Name = prop.Name,
                         Value = $"{prop.CSharpType}"
                     });
@@ -3715,7 +3760,7 @@ public partial class QueryTabViewModel : ObservableObject
         {
             var labelNode = new TreeNodeViewModel
             {
-                Icon = "—",
+                Icon = "ï¿½",
                 Name = eLabel.Label,
                 Value = $"({eLabel.Count} instances)"
             };
@@ -3746,7 +3791,7 @@ public partial class QueryTabViewModel : ObservableObject
                 {
                     propsNode.Children.Add(new TreeNodeViewModel
                     {
-                        Icon = "•",
+                        Icon = "ï¿½",
                         Name = prop.Name,
                         Value = $"{prop.CSharpType}"
                     });

@@ -146,16 +146,42 @@ public sealed partial class CopilotGremlinAssistantService : IGremlinAssistantSe
 		if (string.IsNullOrWhiteSpace(request.Query))
 			return GremlinQueryReview.Empty;
 
+		var content = await RunOneShotAsync(GremlinQueryReviewPrompt.BuildInstructions(), GremlinQueryReviewPrompt.BuildPrompt(request), request.Model, cancellationToken).ConfigureAwait(false);
+		return GremlinQueryReviewPrompt.ParseReply(content, request.Query);
+	}
+
+	public async Task<string> ExplainQueryAsync(GremlinQueryReviewRequest request, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(request);
+		if (string.IsNullOrWhiteSpace(request.Query))
+			return string.Empty;
+
+		const string instructions =
+			"You explain Apache TinkerPop Gremlin queries to developers. Explain what the query does step by step, " +
+			"what the result will look like, and any notable performance considerations for the target server. " +
+			"Be concise and accurate. Use plain text with short numbered steps; do not wrap the answer in code fences. " +
+			"Do not call tools.";
+		var prompt = new StringBuilder()
+			.AppendLine($"Target server: {request.ServerKind}")
+			.AppendLine("<graph-context>").Append(GremlinAssistantPrompt.BuildContext(request.Context)).AppendLine("</graph-context>")
+			.AppendLine("Explain this query:")
+			.AppendLine(request.Query)
+			.ToString();
+		return (await RunOneShotAsync(instructions, prompt, request.Model, cancellationToken).ConfigureAwait(false)).Trim();
+	}
+
+	private async Task<string> RunOneShotAsync(string instructions, string prompt, string? requestedModel, CancellationToken cancellationToken)
+	{
 		var client = await GetClientAsync(cancellationToken).ConfigureAwait(false);
-		var model = !string.IsNullOrWhiteSpace(request.Model) && !request.Model.Contains('/') ? request.Model : null;
+		var model = !string.IsNullOrWhiteSpace(requestedModel) && !requestedModel.Contains('/') ? requestedModel : null;
 		var config = new SessionConfig
 		{
-			SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = GremlinQueryReviewPrompt.BuildInstructions() },
+			SystemMessage = new SystemMessageConfig { Mode = SystemMessageMode.Replace, Content = instructions },
 			Tools = [],
 			AvailableTools = [],
 			Streaming = false,
 #pragma warning disable GHCP001 // PermissionDecision is an evaluation API
-			OnPermissionRequest = (_, _) => Task.FromResult(PermissionDecision.Reject("Query review does not use tools."))
+			OnPermissionRequest = (_, _) => Task.FromResult(PermissionDecision.Reject("One-shot requests do not use tools."))
 #pragma warning restore GHCP001
 		};
 		if (model is not null)
@@ -186,18 +212,16 @@ public sealed partial class CopilotGremlinAssistantService : IGremlinAssistantSe
 					}
 				});
 				await using var registration = cancellationToken.Register(() => done.TrySetCanceled(cancellationToken));
-				await session.SendAsync(new MessageOptions { Prompt = GremlinQueryReviewPrompt.BuildPrompt(request) }, cancellationToken).ConfigureAwait(false);
+				await session.SendAsync(new MessageOptions { Prompt = prompt }, cancellationToken).ConfigureAwait(false);
 				await done.Task.ConfigureAwait(false);
 
-				string content;
 				lock (reply)
-					content = reply.ToString();
-				return GremlinQueryReviewPrompt.ParseReply(content, request.Query);
+					return reply.ToString();
 			}
 		}
 		finally
 		{
-			// Review sessions are throw-away; do not let them pile up in the user's Copilot session list.
+			// One-shot sessions are throw-away; do not let them pile up in the user's Copilot session list.
 			try
 			{
 				await client.DeleteSessionAsync(sessionId, CancellationToken.None).ConfigureAwait(false);

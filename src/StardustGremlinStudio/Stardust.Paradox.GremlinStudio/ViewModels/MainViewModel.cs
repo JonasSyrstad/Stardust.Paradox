@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Data;
 using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -755,6 +755,8 @@ public partial class MainViewModel : ObservableObject
             RefreshQueryHistory,
             connectionSettings);
         tab.AssistantReviewer = Assistant.ReviewQueryAsync;
+        tab.AssistantExplainer = Assistant.ExplainQueryAsync;
+        tab.IsAssistantAvailable = () => Assistant.IsAvailable;
 
         // If the selected connection is InMemory, apply its connector to the new tab
         if (SelectedConnection?.Kind == GremlinConnectionKind.InMemory
