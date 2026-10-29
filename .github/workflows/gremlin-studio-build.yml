@@ -20,9 +20,14 @@ env:
   MCP_PROJECT_PATH: 'src/StardustGremlinStudio/Stardust.Paradox.GremlinStudio.McpServer/Stardust.Paradox.GremlinStudio.McpServer.csproj'
   APP_ID: 'GremlinStudio'
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
     
     steps:
     - name: Checkout repository
@@ -132,6 +137,8 @@ jobs:
 
   package-velopack:
     runs-on: windows-latest
+    permissions:
+      contents: write
     needs: build
     if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
     
