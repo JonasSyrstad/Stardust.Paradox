@@ -1359,7 +1359,6 @@ public partial class QueryTabViewModel : ObservableObject
 
             if (dialog.ShowDialog() == true)
             {
-                var csv = new System.Text.StringBuilder();
                 var table = ResultTable.Table;
                 
                 if (table == null)
@@ -1373,17 +1372,9 @@ public partial class QueryTabViewModel : ObservableObject
                 var columnNames = _columnDisplayOrder
                     ?? table.Columns.Cast<System.Data.DataColumn>().Select(c => c.ColumnName).ToList();
 
-                // Headers
-                csv.AppendLine(string.Join(",", columnNames.Select(EscapeCsvField)));
-                
-                // Rows from the DataView, in visual column order
-                foreach (System.Data.DataRowView rowView in ResultTable)
-                {
-                    var values = columnNames.Select(col => EscapeCsvField(rowView[col]?.ToString() ?? ""));
-                    csv.AppendLine(string.Join(",", values));
-                }
-                
-                System.IO.File.WriteAllText(dialog.FileName, csv.ToString(), System.Text.Encoding.UTF8);
+                var csvText = Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.ToCsv(
+                    columnNames, GetRowValues(ResultTable, columnNames));
+                System.IO.File.WriteAllText(dialog.FileName, csvText, System.Text.Encoding.UTF8);
                 StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
             }
         }
@@ -1394,13 +1385,12 @@ public partial class QueryTabViewModel : ObservableObject
         }
     }
 
-    private static string EscapeCsvField(string field)
+    private static IEnumerable<IReadOnlyList<string>> GetRowValues(DataView view, List<string> columnNames)
     {
-        if (field.Contains(',') || field.Contains('"') || field.Contains('\n') || field.Contains('\r'))
+        foreach (DataRowView rowView in view)
         {
-            return $"\"{field.Replace("\"", "\"\"")}\"";
+            yield return columnNames.Select(col => rowView[col]?.ToString() ?? string.Empty).ToArray();
         }
-        return field;
     }
 
     [RelayCommand]
@@ -1434,7 +1424,11 @@ public partial class QueryTabViewModel : ObservableObject
                 var columnNames = _columnDisplayOrder
                     ?? table.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
 
-                WriteXlsx(dialog.FileName, columnNames, ResultTable, ConvertEpochDates);
+                using (var stream = System.IO.File.Create(dialog.FileName))
+                {
+                    Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.WriteXlsx(
+                        stream, columnNames, GetRowValues(ResultTable, columnNames), ConvertEpochDates);
+                }
                 StatusText = $"Exported {ResultTable.Count} rows to {dialog.FileName}";
             }
         }
@@ -1443,193 +1437,6 @@ public partial class QueryTabViewModel : ObservableObject
             _logger.LogError(ex, "Failed to export to XLSX");
             StatusText = $"Export failed: {ex.Message}";
         }
-    }
-
-    /// <summary>
-    /// Writes the result data to an XLSX file using Open XML SDK.
-    /// </summary>
-    private static void WriteXlsx(string filePath, List<string> columnNames, DataView dataView, bool convertEpochDates = false)
-    {
-        using var document = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Create(
-            filePath, DocumentFormat.OpenXml.SpreadsheetDocumentType.Workbook);
-
-        var workbookPart = document.AddWorkbookPart();
-        workbookPart.Workbook = new DocumentFormat.OpenXml.Spreadsheet.Workbook();
-
-        // When converting epoch dates, add a stylesheet with a date/time number format.
-        // Style index 1 = date format "yyyy-mm-dd hh:mm:ss".
-        uint dateStyleIndex = 0;
-        if (convertEpochDates)
-        {
-            dateStyleIndex = 1;
-            var stylesPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorkbookStylesPart>();
-            stylesPart.Stylesheet = CreateDateStylesheet();
-            stylesPart.Stylesheet.Save();
-        }
-
-        var dateColumns = convertEpochDates
-            ? new HashSet<string>(columnNames.Where(IsDateColumnName), StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var worksheetPart = workbookPart.AddNewPart<DocumentFormat.OpenXml.Packaging.WorksheetPart>();
-        var sheetData = new DocumentFormat.OpenXml.Spreadsheet.SheetData();
-        worksheetPart.Worksheet = new DocumentFormat.OpenXml.Spreadsheet.Worksheet(sheetData);
-
-        var sheets = workbookPart.Workbook.AppendChild(new DocumentFormat.OpenXml.Spreadsheet.Sheets());
-        sheets.Append(new DocumentFormat.OpenXml.Spreadsheet.Sheet
-        {
-            Id = workbookPart.GetIdOfPart(worksheetPart),
-            SheetId = 1,
-            Name = "Query Results"
-        });
-
-        // Header row
-        var headerRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
-        foreach (var col in columnNames)
-        {
-            headerRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
-            {
-                DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
-                CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(col)
-            });
-        }
-        sheetData.Append(headerRow);
-
-        // Data rows
-        foreach (DataRowView rowView in dataView)
-        {
-            var dataRow = new DocumentFormat.OpenXml.Spreadsheet.Row();
-            foreach (var col in columnNames)
-            {
-                var value = rowView[col]?.ToString() ?? string.Empty;
-
-                if (dateColumns.Contains(col) && TryConvertEpochToOADate(value, out var oaDate))
-                {
-                    // Write as a numeric cell with the date style applied
-                    dataRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
-                    {
-                        CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(oaDate.ToString(System.Globalization.CultureInfo.InvariantCulture)),
-                        StyleIndex = dateStyleIndex
-                    });
-                }
-                else
-                {
-                    dataRow.Append(new DocumentFormat.OpenXml.Spreadsheet.Cell
-                    {
-                        DataType = DocumentFormat.OpenXml.Spreadsheet.CellValues.String,
-                        CellValue = new DocumentFormat.OpenXml.Spreadsheet.CellValue(value)
-                    });
-                }
-            }
-            sheetData.Append(dataRow);
-        }
-
-        // Enable AutoFilter so the header row is filterable and sortable in Excel
-        if (columnNames.Count > 0)
-        {
-            var lastColumnLetter = GetExcelColumnLetter(columnNames.Count);
-            var lastRow = dataView.Count + 1; // +1 for header row
-            var autoFilter = new DocumentFormat.OpenXml.Spreadsheet.AutoFilter
-            {
-                Reference = $"A1:{lastColumnLetter}{lastRow}"
-            };
-            worksheetPart.Worksheet.InsertAfter(autoFilter, sheetData);
-        }
-    }
-
-    /// <summary>
-    /// Creates a minimal stylesheet containing a date/time number format at style index 1.
-    /// </summary>
-    private static DocumentFormat.OpenXml.Spreadsheet.Stylesheet CreateDateStylesheet()
-    {
-        const uint customFormatId = 164; // First user-defined format id
-        var stylesheet = new DocumentFormat.OpenXml.Spreadsheet.Stylesheet();
-
-        stylesheet.NumberingFormats = new DocumentFormat.OpenXml.Spreadsheet.NumberingFormats(
-            new DocumentFormat.OpenXml.Spreadsheet.NumberingFormat
-            {
-                NumberFormatId = customFormatId,
-                FormatCode = "yyyy\\-mm\\-dd\\ hh:mm:ss"
-            })
-        { Count = 1 };
-
-        stylesheet.Fonts = new DocumentFormat.OpenXml.Spreadsheet.Fonts(
-            new DocumentFormat.OpenXml.Spreadsheet.Font())
-        { Count = 1 };
-
-        stylesheet.Fills = new DocumentFormat.OpenXml.Spreadsheet.Fills(
-            new DocumentFormat.OpenXml.Spreadsheet.Fill(new DocumentFormat.OpenXml.Spreadsheet.PatternFill { PatternType = DocumentFormat.OpenXml.Spreadsheet.PatternValues.None }),
-            new DocumentFormat.OpenXml.Spreadsheet.Fill(new DocumentFormat.OpenXml.Spreadsheet.PatternFill { PatternType = DocumentFormat.OpenXml.Spreadsheet.PatternValues.Gray125 }))
-        { Count = 2 };
-
-        stylesheet.Borders = new DocumentFormat.OpenXml.Spreadsheet.Borders(
-            new DocumentFormat.OpenXml.Spreadsheet.Border())
-        { Count = 1 };
-
-        stylesheet.CellFormats = new DocumentFormat.OpenXml.Spreadsheet.CellFormats(
-            // Index 0: default
-            new DocumentFormat.OpenXml.Spreadsheet.CellFormat(),
-            // Index 1: date format
-            new DocumentFormat.OpenXml.Spreadsheet.CellFormat
-            {
-                NumberFormatId = customFormatId,
-                ApplyNumberFormat = true
-            })
-        { Count = 2 };
-
-        return stylesheet;
-    }
-
-    /// <summary>
-    /// Determines whether a column name suggests it holds epoch timestamp values.
-    /// </summary>
-    private static bool IsDateColumnName(string columnName)
-    {
-        var lower = columnName.ToLowerInvariant();
-        return lower.Contains("date")
-            || lower.Contains("time")
-            || lower.Contains("created")
-            || lower.Contains("modified")
-            || lower.Contains("updated")
-            || lower.Contains("timestamp")
-            || lower.Contains("expir")
-            || lower.EndsWith("_at")
-            || lower.EndsWith("at");
-    }
-
-    /// <summary>
-    /// Tries to parse a string as an epoch value (seconds or milliseconds) and convert
-    /// it to an OLE Automation date (Excel serial number).
-    /// </summary>
-    private static bool TryConvertEpochToOADate(string value, out double oaDate)
-    {
-        oaDate = 0;
-        if (!long.TryParse(value, out var epoch) || epoch <= 0)
-            return false;
-
-        // Heuristic: values above 1e12 are likely milliseconds, below are seconds.
-        // Seconds range covers ~1970-2100 (0 .. ~4.1e9).
-        DateTimeOffset dto = epoch > 4_102_444_800
-            ? DateTimeOffset.FromUnixTimeMilliseconds(epoch)
-            : DateTimeOffset.FromUnixTimeSeconds(epoch);
-
-        oaDate = dto.UtcDateTime.ToOADate();
-        return true;
-    }
-
-    /// <summary>
-    /// Converts a 1-based column number to an Excel column letter (e.g. 1?A, 26?Z, 27?AA).
-    /// </summary>
-    private static string GetExcelColumnLetter(int columnNumber)
-    {
-        var result = "";
-        while (columnNumber > 0)
-        {
-            columnNumber--;
-            result = (char)('A' + columnNumber % 26) + result;
-            columnNumber /= 26;
-        }
-        return result;
     }
 
     [RelayCommand]
@@ -2042,7 +1849,7 @@ public partial class QueryTabViewModel : ObservableObject
                 {
                     foreach (var prop in props.Properties())
                     {
-                        var value = ExtractPropertyValue(prop.Value);
+                        var value = Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.ExtractPropertyValue(prop.Value);
                         if (value != null)
                         {
                             node.Properties[prop.Name] = value;
@@ -2200,7 +2007,7 @@ public partial class QueryTabViewModel : ObservableObject
                     {
                         foreach (var prop in props.Properties())
                         {
-                            var value = ExtractPropertyValue(prop.Value);
+                            var value = Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.ExtractPropertyValue(prop.Value);
                             if (value != null)
                             {
                                 node.Properties[prop.Name] = value;
@@ -2249,7 +2056,7 @@ public partial class QueryTabViewModel : ObservableObject
                     {
                         foreach (var prop in props.Properties())
                         {
-                            var value = ExtractPropertyValue(prop.Value);
+                            var value = Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.ExtractPropertyValue(prop.Value);
                             if (value != null)
                             {
                                 edge.Properties[prop.Name] = value;
@@ -2494,120 +2301,26 @@ public partial class QueryTabViewModel : ObservableObject
 
     private static DataView BuildResultDataTable(List<object> results, Dictionary<string, bool> columnIsProperty)
     {
+        var data = Stardust.Paradox.GremlinStudio.Core.Export.ResultTableExporter.BuildTable(results);
         var table = new DataTable("Results");
-        var columnInfo = new Dictionary<string, (string OriginalName, bool IsProperty)>();
 
-        foreach (var item in results)
+        foreach (var col in data.Columns)
         {
-            if (item is not Newtonsoft.Json.Linq.JObject jObj) continue;
-
-            foreach (var prop in jObj.Properties())
-            {
-                if (prop.Name == "properties" && prop.Value is Newtonsoft.Json.Linq.JObject propsObj)
-                {
-                    foreach (var nestedProp in propsObj.Properties())
-                    {
-                        var displayName = nestedProp.Name;
-                        if (!columnInfo.ContainsKey(displayName))
-                        {
-                            columnInfo[displayName] = (nestedProp.Name, true);
-                        }
-                    }
-                }
-                else
-                {
-                    if (!columnInfo.ContainsKey(prop.Name))
-                    {
-                        columnInfo[prop.Name] = (prop.Name, false);
-                    }
-                }
-            }
+            table.Columns.Add(col, typeof(string));
+            columnIsProperty[col] = data.ColumnIsProperty[col];
         }
 
-        var orderedColumns = columnInfo
-            .OrderBy(c => c.Key.Equals("id", StringComparison.OrdinalIgnoreCase) ? 0
-                        : c.Key.Equals("name", StringComparison.OrdinalIgnoreCase) ? 1
-                        : c.Key.Equals("pk", StringComparison.OrdinalIgnoreCase) ? 2
-                        : 3)
-            .ThenBy(c => c.Key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        foreach (var col in orderedColumns)
+        foreach (var values in data.Rows)
         {
-            table.Columns.Add(col.Key, typeof(string));
-            columnIsProperty[col.Key] = col.Value.IsProperty;
-        }
-
-        foreach (var item in results)
-        {
-            if (item is not Newtonsoft.Json.Linq.JObject jObj) continue;
-
             var row = table.NewRow();
-            var values = new Dictionary<string, string?>();
-
-            foreach (var prop in jObj.Properties())
+            foreach (var (key, value) in values)
             {
-                if (prop.Name == "properties" && prop.Value is Newtonsoft.Json.Linq.JObject propsObj)
-                {
-                    foreach (var nestedProp in propsObj.Properties())
-                    {
-                        var value = ExtractPropertyValue(nestedProp.Value);
-                        values[nestedProp.Name] = value;
-                    }
-                }
-                else
-                {
-                    values[prop.Name] = ExtractSimpleValue(prop.Value);
-                }
+                row[key] = value;
             }
-
-            foreach (var col in orderedColumns)
-            {
-                if (values.TryGetValue(col.Key, out var value))
-                {
-                    row[col.Key] = value ?? string.Empty;
-                }
-            }
-
             table.Rows.Add(row);
         }
 
         return table.DefaultView;
-    }
-
-    private static string? ExtractPropertyValue(Newtonsoft.Json.Linq.JToken? token)
-    {
-        if (token is Newtonsoft.Json.Linq.JArray arr && arr.Count > 0)
-        {
-            var first = arr[0];
-            if (first is Newtonsoft.Json.Linq.JObject obj && obj["value"] != null)
-            {
-                return obj["value"]?.ToString();
-            }
-            return first?.ToString();
-        }
-        return token?.ToString();
-    }
-
-    private static string? ExtractSimpleValue(Newtonsoft.Json.Linq.JToken? token)
-    {
-        if (token is Newtonsoft.Json.Linq.JValue val)
-        {
-            return val.Value?.ToString();
-        }
-        if (token is Newtonsoft.Json.Linq.JArray arr)
-        {
-            if (arr.Count <= 3)
-            {
-                return string.Join(", ", arr.Select(x => x.ToString()));
-            }
-            return $"[{arr.Count} items]";
-        }
-        if (token is Newtonsoft.Json.Linq.JObject obj)
-        {
-            return obj.ToString(Newtonsoft.Json.Formatting.None);
-        }
-        return token?.ToString();
     }
 
     #endregion

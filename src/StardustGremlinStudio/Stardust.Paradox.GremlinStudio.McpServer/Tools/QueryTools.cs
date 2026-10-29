@@ -3,6 +3,7 @@ using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
+using Stardust.Paradox.GremlinStudio.Core.Export;
 
 namespace Stardust.Paradox.GremlinStudio.McpServer.Tools;
 
@@ -105,6 +106,123 @@ public sealed class QueryTools
             }
         }
     }
+
+    [McpServerTool(Name = "export_query_results"), Description(
+        "Executes a Gremlin query against a saved connection and exports the results to a CSV or Excel (.xlsx) file, " +
+        "using the same flattened table layout as the Table view in Gremlin Studio's results pane " +
+        "(one row per element, vertex/edge properties as columns, id/name/pk first). " +
+        "Returns the written file path, columns and row count.")]
+    public async Task<ExportToolResult> ExportQueryResults(
+        [Description("The name or ID of the saved connection to execute against.")] string connectionName,
+        [Description("The Gremlin query whose results should be exported (e.g. 'g.V().hasLabel(\"person\")').")] string query,
+        [Description("Export format: 'csv' or 'xlsx' (alias 'excel'). Default: 'csv'.")] string format = "csv",
+        [Description("Optional full output file path. If omitted, a timestamped file is created in Documents\\GremlinStudio\\Exports. The extension is added if missing.")] string? outputPath = null,
+        [Description("XLSX only: convert epoch timestamps in date-like columns (e.g. 'createdAt') to Excel date/time values. Default: false.")] bool convertEpochDates = false,
+        CancellationToken cancellationToken = default)
+    {
+        var extension = (format ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "" or "csv" => ".csv",
+            "xlsx" or "excel" => ".xlsx",
+            _ => null
+        };
+        if (extension is null)
+        {
+            return ExportToolResult.Error($"Unsupported format '{format}'. Use 'csv' or 'xlsx'.");
+        }
+
+        var queryResult = await ExecuteGremlinQuery(connectionName, query, cancellationToken).ConfigureAwait(false);
+        if (!queryResult.IsSuccess)
+        {
+            return ExportToolResult.Error(queryResult.ErrorMessage ?? "Query execution failed.");
+        }
+
+        ResultTableData table;
+        try
+        {
+            table = ResultTableExporter.BuildTable(queryResult.ResultJson ?? "[]");
+        }
+        catch (Newtonsoft.Json.JsonException ex)
+        {
+            return ExportToolResult.Error($"Could not parse query results: {ex.Message}");
+        }
+
+        if (table.Rows.Count == 0)
+        {
+            return ExportToolResult.Error(
+                $"Query returned {queryResult.ResultCount} result(s) but none are vertices, edges or maps that can be shown as table rows.");
+        }
+
+        string filePath;
+        try
+        {
+            filePath = ResolveOutputPath(outputPath, extension);
+            Directory.CreateDirectory(Path.GetDirectoryName(filePath)!);
+
+            await using var stream = new FileStream(filePath, FileMode.Create, FileAccess.ReadWrite, FileShare.None);
+            if (extension == ".csv")
+            {
+                // UTF-8 with BOM so Excel detects the encoding when opening the CSV.
+                await using var writer = new StreamWriter(stream, new System.Text.UTF8Encoding(true));
+                await writer.WriteAsync(ResultTableExporter.ToCsv(table).AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                ResultTableExporter.WriteXlsx(stream, table, convertEpochDates);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return ExportToolResult.Error($"Could not write export file: {ex.Message}");
+        }
+
+        return new ExportToolResult
+        {
+            IsSuccess = true,
+            FilePath = filePath,
+            Format = extension.TrimStart('.'),
+            RowCount = table.Rows.Count,
+            Columns = table.Columns.ToList(),
+            DurationMs = queryResult.DurationMs,
+            RequestUnits = queryResult.RequestUnits
+        };
+    }
+
+    private static string ResolveOutputPath(string? outputPath, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(outputPath))
+        {
+            var directory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "GremlinStudio", "Exports");
+            return Path.Combine(directory, $"query-results-{DateTime.Now:yyyyMMdd-HHmmss}{extension}");
+        }
+
+        var fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(outputPath.Trim()));
+        return Path.GetExtension(fullPath).Equals(extension, StringComparison.OrdinalIgnoreCase)
+            ? fullPath
+            : fullPath + extension;
+    }
+}
+
+/// <summary>
+/// Result of a query-results export via MCP.
+/// </summary>
+public sealed class ExportToolResult
+{
+    public bool IsSuccess { get; set; }
+    public string? FilePath { get; set; }
+    public string? Format { get; set; }
+    public int RowCount { get; set; }
+    public List<string> Columns { get; set; } = new();
+    public long DurationMs { get; set; }
+    public double? RequestUnits { get; set; }
+    public string? ErrorMessage { get; set; }
+
+    public static ExportToolResult Error(string message) => new()
+    {
+        IsSuccess = false,
+        ErrorMessage = message
+    };
 }
 
 /// <summary>
