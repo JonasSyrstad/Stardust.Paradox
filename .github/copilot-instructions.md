@@ -449,13 +449,13 @@ When writing code that must work across all targets:
 
 **IMPORTANT:** When making ANY changes to the **Gremlin Studio** application (any file under `StardustGremlinStudio/`), you **MUST** ask the user whether the version number should be updated **before finishing your response**. This applies to code changes, XAML changes, new files, and configuration changes. Never skip this step.
 
-The version is defined in `StardustGremlinStudio/Stardust.Paradox.GremlinStudio/Stardust.Paradox.GremlinStudio.csproj` in three properties that **must** be kept in sync:
+The version is defined once in `src/StardustGremlinStudio/Directory.Build.props` and shared by the app, the MCP server and the release workflow (`.github/workflows/gremlin-studio-build.yml`):
 
 ```xml
-<Version>1.3.0</Version>
-<FileVersion>1.3.0.0</FileVersion>
-<AssemblyVersion>1.3.0.0</AssemblyVersion>
+<GremlinStudioVersion>1.3.0</GremlinStudioVersion>
 ```
+
+Do not put literal versions back into the `.csproj` files; they derive `Version`, `FileVersion` and `AssemblyVersion` from this property.
 
 - **Patch bump** (e.g., `1.3.0` to `1.3.1`): bug fixes, minor UI tweaks.
 - **Minor bump** (e.g., `1.3.0` to `1.4.0`): new features, new panes, new commands.

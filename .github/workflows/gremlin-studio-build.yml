@@ -77,9 +77,9 @@ jobs:
     - name: Get version from project
       id: version
       run: |
-        $xml = [xml](Get-Content ${{ env.PROJECT_PATH }})
-        $version = $xml.Project.PropertyGroup.Version | Where-Object { $_ }
-        if (-not $version) { $version = "1.0.0" }
+        $xml = [xml](Get-Content src/StardustGremlinStudio/Directory.Build.props)
+        $version = $xml.Project.PropertyGroup.GremlinStudioVersion | Where-Object { $_ }
+        if (-not $version) { Write-Error "GremlinStudioVersion not found in src/StardustGremlinStudio/Directory.Build.props"; exit 1 }
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         Write-Host "Detected version: $version"
 
@@ -159,9 +159,9 @@ jobs:
     - name: Get version from project
       id: version
       run: |
-        $xml = [xml](Get-Content ${{ env.PROJECT_PATH }})
-        $version = $xml.Project.PropertyGroup.Version | Where-Object { $_ }
-        if (-not $version) { $version = "1.0.0" }
+        $xml = [xml](Get-Content src/StardustGremlinStudio/Directory.Build.props)
+        $version = $xml.Project.PropertyGroup.GremlinStudioVersion | Where-Object { $_ }
+        if (-not $version) { Write-Error "GremlinStudioVersion not found in src/StardustGremlinStudio/Directory.Build.props"; exit 1 }
         echo "VERSION=$version" >> $env:GITHUB_OUTPUT
         Write-Host "Detected version: $version"
 
