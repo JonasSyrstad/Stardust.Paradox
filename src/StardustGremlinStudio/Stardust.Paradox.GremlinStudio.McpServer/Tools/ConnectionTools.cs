@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 
@@ -20,9 +21,9 @@ public sealed class ConnectionTools
     [McpServerTool(Name = "list_connections"), Description(
         "Lists all saved Gremlin database connections in Gremlin Studio. " +
         "Returns connection names, types (CosmosDb/GremlinServer/InMemory), hosts, and identifiers.")]
-    public async Task<IReadOnlyList<ConnectionSummary>> ListConnections()
+    public async Task<IReadOnlyList<ConnectionSummary>> ListConnections(CancellationToken cancellationToken = default)
     {
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         return connections.Select(c => new ConnectionSummary
         {
             Id = c.Id,
@@ -41,17 +42,24 @@ public sealed class ConnectionTools
     [McpServerTool(Name = "get_connection_details"), Description(
         "Gets detailed information about a specific Gremlin connection by its name or ID. " +
         "Returns full connection metadata including host, port, database, graph, SSL, and pool settings.")]
-    public async Task<ConnectionDetails?> GetConnectionDetails(
-        [Description("The connection name or ID to look up.")] string nameOrId)
+    public async Task<ConnectionDetails> GetConnectionDetails(
+        [Description("The connection name or ID to look up.")] string nameOrId,
+        CancellationToken cancellationToken = default)
     {
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(nameOrId))
+        {
+            throw new McpException("Connection name or ID is required.");
+        }
+
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         var match = connections.FirstOrDefault(c =>
             c.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
             c.Id.Equals(nameOrId, StringComparison.OrdinalIgnoreCase));
 
         if (match is null)
         {
-            return null;
+            var available = string.Join(", ", connections.Select(c => $"'{c.Name}'"));
+            throw new McpException($"Connection '{nameOrId}' not found. Available: {available}");
         }
 
         return new ConnectionDetails

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
@@ -57,7 +58,8 @@ public sealed class ScenarioTools
         [Description("A Gremlin query that returns the vertices to include (e.g. 'g.V()' or 'g.V().hasLabel(\"person\")').")] string vertexQuery,
         [Description("Name for the exported scenario.")] string scenarioName,
         [Description("Export format: 'Json' or 'CSharp'. Default: 'Json'.")] string format = "Json",
-        [Description("Optional description for the scenario.")] string? description = null)
+        [Description("Optional description for the scenario.")] string? description = null,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionName))
         {
@@ -74,7 +76,7 @@ public sealed class ScenarioTools
             return ScenarioExportResult.Error($"Invalid format '{format}'. Use 'Json' or 'CSharp'.");
         }
 
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         var match = connections.FirstOrDefault(c =>
             c.Name.Equals(connectionName, StringComparison.OrdinalIgnoreCase) ||
             c.Id.Equals(connectionName, StringComparison.OrdinalIgnoreCase));
@@ -82,11 +84,10 @@ public sealed class ScenarioTools
         if (match is null)
         {
             var available = string.Join(", ", connections.Select(c => $"'{c.Name}'"));
-            return ScenarioExportResult.Error(
-                $"Connection '{connectionName}' not found. Available: {available}");
+            throw new McpException($"Connection '{connectionName}' not found. Available: {available}");
         }
 
-        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id).ConfigureAwait(false);
+        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id, cancellationToken).ConfigureAwait(false);
         if (settings is null)
         {
             return ScenarioExportResult.Error($"Could not load credentials for '{match.Name}'.");
@@ -96,7 +97,7 @@ public sealed class ScenarioTools
         try
         {
             // Execute the vertex query
-            var result = await _queryExecutor.ExecuteAsync(connector, vertexQuery).ConfigureAwait(false);
+            var result = await _queryExecutor.ExecuteAsync(connector, vertexQuery, cancellationToken: cancellationToken).ConfigureAwait(false);
             if (!result.IsSuccess || string.IsNullOrEmpty(result.ResultJson))
             {
                 return ScenarioExportResult.Error($"Query failed: {result.ErrorMessage ?? "No results"}");
@@ -112,7 +113,7 @@ public sealed class ScenarioTools
 
             // Fetch edges between the vertices
             scenarioData = await _scenarioExportService.FetchEdgesAsync(
-                scenarioData, connector).ConfigureAwait(false);
+                scenarioData, connector, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             // Export to the requested format
             return new ScenarioExportResult
@@ -123,6 +124,10 @@ public sealed class ScenarioTools
                 VertexCount = scenarioData.Vertices?.Count ?? 0,
                 EdgeCount = scenarioData.Edges?.Count ?? 0
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

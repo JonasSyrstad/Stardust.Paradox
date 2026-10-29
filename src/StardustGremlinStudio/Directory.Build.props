@@ -1,0 +1,6 @@
+<Project>
+  <!-- Shared Gremlin Studio version. Applied to the desktop app and the MCP server so both report the same build. -->
+  <PropertyGroup>
+    <GremlinStudioVersion>1.15.2</GremlinStudioVersion>
+  </PropertyGroup>
+</Project>

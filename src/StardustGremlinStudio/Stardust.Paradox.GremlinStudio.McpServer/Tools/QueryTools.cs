@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Execution;
@@ -31,7 +32,8 @@ public sealed class QueryTools
         "Use 'list_connections' first to find available connection names.")]
     public async Task<QueryToolResult> ExecuteGremlinQuery(
         [Description("The name or ID of the saved connection to execute against.")] string connectionName,
-        [Description("The Gremlin query to execute (e.g. 'g.V().limit(10)', 'g.V().hasLabel(\"person\").count()').")] string query)
+        [Description("The Gremlin query to execute (e.g. 'g.V().limit(10)', 'g.V().hasLabel(\"person\").count()').")] string query,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionName))
         {
@@ -44,7 +46,7 @@ public sealed class QueryTools
         }
 
         // Find the connection
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         var match = connections.FirstOrDefault(c =>
             c.Name.Equals(connectionName, StringComparison.OrdinalIgnoreCase) ||
             c.Id.Equals(connectionName, StringComparison.OrdinalIgnoreCase));
@@ -52,12 +54,11 @@ public sealed class QueryTools
         if (match is null)
         {
             var available = string.Join(", ", connections.Select(c => $"'{c.Name}'"));
-            return QueryToolResult.Error(
-                $"Connection '{connectionName}' not found. Available connections: {available}");
+            throw new McpException($"Connection '{connectionName}' not found. Available: {available}");
         }
 
         // Get connection with secret for authentication
-        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id).ConfigureAwait(false);
+        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id, cancellationToken).ConfigureAwait(false);
         if (settings is null)
         {
             return QueryToolResult.Error($"Could not load credentials for connection '{match.Name}'.");
@@ -67,7 +68,7 @@ public sealed class QueryTools
         var connector = _connectorFactory.CreateConnector(settings);
         try
         {
-            var result = await _queryExecutor.ExecuteAsync(connector, query).ConfigureAwait(false);
+            var result = await _queryExecutor.ExecuteAsync(connector, query, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             if (!result.IsSuccess)
             {
@@ -83,6 +84,10 @@ public sealed class QueryTools
                 RequestUnits = result.RequestUnits,
                 ExecutedQuery = result.ExecutedQuery ?? query
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

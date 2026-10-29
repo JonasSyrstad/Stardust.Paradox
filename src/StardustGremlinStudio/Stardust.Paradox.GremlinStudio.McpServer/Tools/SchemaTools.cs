@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.Schema;
@@ -34,14 +35,15 @@ public sealed class SchemaTools
         "Useful for understanding the graph structure before writing queries.")]
     public async Task<SchemaToolResult> DiscoverGraphSchema(
         [Description("The name or ID of the saved connection to discover schema for.")] string connectionName,
-        [Description("Maximum number of vertices/edges to sample per label for property discovery. Default: 50.")] int sampleSize = 50)
+        [Description("Maximum number of vertices/edges to sample per label for property discovery. Default: 50.")] int sampleSize = 50,
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionName))
         {
             return SchemaToolResult.Error("Connection name is required.");
         }
 
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         var match = connections.FirstOrDefault(c =>
             c.Name.Equals(connectionName, StringComparison.OrdinalIgnoreCase) ||
             c.Id.Equals(connectionName, StringComparison.OrdinalIgnoreCase));
@@ -49,11 +51,10 @@ public sealed class SchemaTools
         if (match is null)
         {
             var available = string.Join(", ", connections.Select(c => $"'{c.Name}'"));
-            return SchemaToolResult.Error(
-                $"Connection '{connectionName}' not found. Available: {available}");
+            throw new McpException($"Connection '{connectionName}' not found. Available: {available}");
         }
 
-        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id).ConfigureAwait(false);
+        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id, cancellationToken).ConfigureAwait(false);
         if (settings is null)
         {
             return SchemaToolResult.Error($"Could not load credentials for '{match.Name}'.");
@@ -63,7 +64,7 @@ public sealed class SchemaTools
         try
         {
             var schema = await _schemaDiscovery.DiscoverSchemaAsync(
-                connector, sampleSize).ConfigureAwait(false);
+                connector, sampleSize, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             return new SchemaToolResult
             {
@@ -74,6 +75,10 @@ public sealed class SchemaTools
                 VertexLabels = schema.VertexLabels.Select(v => v.Label).ToList(),
                 EdgeLabels = schema.EdgeLabels.Select(e => e.Label).ToList()
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -98,14 +103,15 @@ public sealed class SchemaTools
     public async Task<SchemaCodeExportResult> ExportSchemaAsCode(
         [Description("The name or ID of the saved connection.")] string connectionName,
         [Description("The C# namespace for the generated interfaces. Default: 'MyApp.Graph.Entities'.")] string namespaceName = "MyApp.Graph.Entities",
-        [Description("The name for the generated GraphContext class. Default: 'MyGraphContext'.")] string contextClassName = "MyGraphContext")
+        [Description("The name for the generated GraphContext class. Default: 'MyGraphContext'.")] string contextClassName = "MyGraphContext",
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(connectionName))
         {
             return SchemaCodeExportResult.Error("Connection name is required.");
         }
 
-        var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+        var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
         var match = connections.FirstOrDefault(c =>
             c.Name.Equals(connectionName, StringComparison.OrdinalIgnoreCase) ||
             c.Id.Equals(connectionName, StringComparison.OrdinalIgnoreCase));
@@ -113,11 +119,10 @@ public sealed class SchemaTools
         if (match is null)
         {
             var available = string.Join(", ", connections.Select(c => $"'{c.Name}'"));
-            return SchemaCodeExportResult.Error(
-                $"Connection '{connectionName}' not found. Available: {available}");
+            throw new McpException($"Connection '{connectionName}' not found. Available: {available}");
         }
 
-        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id).ConfigureAwait(false);
+        var settings = await _connectionStore.GetConnectionWithSecretAsync(match.Id, cancellationToken).ConfigureAwait(false);
         if (settings is null)
         {
             return SchemaCodeExportResult.Error($"Could not load credentials for '{match.Name}'.");
@@ -126,7 +131,7 @@ public sealed class SchemaTools
         var connector = _connectorFactory.CreateConnector(settings);
         try
         {
-            var schema = await _schemaDiscovery.DiscoverSchemaAsync(connector).ConfigureAwait(false);
+            var schema = await _schemaDiscovery.DiscoverSchemaAsync(connector, cancellationToken: cancellationToken).ConfigureAwait(false);
             var options = new SchemaExportOptions
             {
                 Namespace = namespaceName,
@@ -143,6 +148,10 @@ public sealed class SchemaTools
                 VertexLabelCount = schema.VertexLabels.Count,
                 EdgeLabelCount = schema.EdgeLabels.Count
             };
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception ex)
         {

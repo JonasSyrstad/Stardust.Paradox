@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using ModelContextProtocol;
 using ModelContextProtocol.Server;
 using Stardust.Paradox.GremlinStudio.Core.Connections;
 using Stardust.Paradox.GremlinStudio.Core.History;
@@ -43,9 +44,14 @@ public sealed class SnippetTools
     [McpServerTool(Name = "get_snippet"), Description(
         "Gets a specific saved query snippet by name or ID. " +
         "Returns the full snippet including query text and tags.")]
-    public async Task<SnippetSummary?> GetSnippet(
+    public async Task<SnippetSummary> GetSnippet(
         [Description("The snippet name or ID to look up.")] string nameOrId)
     {
+        if (string.IsNullOrWhiteSpace(nameOrId))
+        {
+            throw new McpException("Snippet name or ID is required.");
+        }
+
         var snippets = await _snippetStore.GetAllAsync().ConfigureAwait(false);
         var match = snippets.FirstOrDefault(s =>
             s.Name.Equals(nameOrId, StringComparison.OrdinalIgnoreCase) ||
@@ -53,7 +59,8 @@ public sealed class SnippetTools
 
         if (match is null)
         {
-            return null;
+            var available = string.Join(", ", snippets.Select(s => $"'{s.Name}'"));
+            throw new McpException($"Snippet '{nameOrId}' not found. Available: {available}");
         }
 
         return new SnippetSummary
@@ -72,7 +79,8 @@ public sealed class SnippetTools
         "Shows previously executed queries with their connection context and execution timestamps. " +
         "Optionally filter by connection name or ID.")]
     public async Task<IReadOnlyList<HistoryItemSummary>> ListQueryHistory(
-        [Description("Optional connection name or ID to filter history. Leave empty for all history.")] string? connectionNameOrId = null)
+        [Description("Optional connection name or ID to filter history. Leave empty for all history.")] string? connectionNameOrId = null,
+        CancellationToken cancellationToken = default)
     {
         await _historyService.LoadAsync().ConfigureAwait(false);
 
@@ -80,7 +88,7 @@ public sealed class SnippetTools
         if (!string.IsNullOrWhiteSpace(connectionNameOrId))
         {
             // Resolve connection name to ID so the history filter matches correctly.
-            var connections = await _connectionStore.GetAllConnectionsAsync().ConfigureAwait(false);
+            var connections = await _connectionStore.GetAllConnectionsAsync(cancellationToken).ConfigureAwait(false);
             var match = connections.FirstOrDefault(c =>
                 c.Id.Equals(connectionNameOrId, StringComparison.OrdinalIgnoreCase) ||
                 c.Name.Equals(connectionNameOrId, StringComparison.OrdinalIgnoreCase));
